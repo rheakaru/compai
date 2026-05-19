@@ -7,7 +7,9 @@ import { getOrCreateSessionId } from '@/lib/firebase/session';
 import { computeHardProblemMap } from '@/lib/model/projection';
 import { logFunnelEvent } from '@/lib/funnel/events';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
-import type { AxisPositionClaim, Claim } from '@/lib/model/claims';
+import { extractBranding } from '@/lib/branding/extract';
+import { adminDb } from '@/lib/firebase/admin';
+import type { AxisPositionClaim, Claim, BrandingSnapshot } from '@/lib/model/claims';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,6 +65,28 @@ export async function POST(req: NextRequest) {
       };
 
       send({ type: 'company_created', companyId, ontologyVersionHash: hash });
+
+      // Branding extraction runs in parallel with research — non-blocking on errors.
+      void extractBranding(url)
+        .then(async branding => {
+          const snapshot: BrandingSnapshot = {
+            logoUrl: branding.logoUrl,
+            accentColor: branding.accentColor,
+            name: branding.name,
+            description: branding.description,
+            extractedAt: branding.extractedAt
+          };
+          send({ type: 'branding', branding: snapshot });
+          try {
+            await adminDb()
+              .collection('companies')
+              .doc(companyId)
+              .set({ branding: snapshot, name: snapshot.name ?? null }, { merge: true });
+          } catch {
+            // non-fatal: in-memory snapshot still rendered to the user
+          }
+        })
+        .catch(() => undefined);
 
       const axisClaims: AxisPositionClaim[] = [];
 

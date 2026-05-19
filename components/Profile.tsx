@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
 import type {
   AxisPositionClaim,
+  BrandingSnapshot,
   Claim,
   FactClaim,
   HardProblemClaim,
@@ -19,11 +20,13 @@ import { AuthGateModal } from './AuthGateModal';
 import { useAuth } from './AuthProvider';
 import { TransferableSolutions } from './TransferableSolutions';
 import { AnalogyAndProjects } from './AnalogyAndProjects';
+import { BrandHeader } from './BrandHeader';
 import type { FiveProjects } from '@/lib/agent/projects';
 
 export interface ProfileHandle {
   appendClaim: (claim: Claim) => void;
   setClaims: (claims: Claim[]) => void;
+  setBranding: (b: BrandingSnapshot | null) => void;
 }
 
 interface ProfileProps {
@@ -33,14 +36,24 @@ interface ProfileProps {
   companyUrl?: string | null;
   streaming?: boolean;
   initialProjects?: FiveProjects | null;
+  initialBranding?: BrandingSnapshot | null;
 }
 
 export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
-  { initialClaims, ontology, companyId, companyUrl, streaming = false, initialProjects = null },
+  {
+    initialClaims,
+    ontology,
+    companyId,
+    companyUrl,
+    streaming = false,
+    initialProjects = null,
+    initialBranding = null
+  },
   ref
 ) {
   const { user, getToken } = useAuth();
   const [claims, setClaims] = useState<Claim[]>(initialClaims);
+  const [branding, setBranding] = useState<BrandingSnapshot | null>(initialBranding);
   const [pendingEdit, setPendingEdit] = useState<AxisEditPayload | null>(null);
   const [authGateOpen, setAuthGateOpen] = useState(false);
   const [diff, setDiff] = useState<DiffSummary | null>(null);
@@ -55,6 +68,9 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     },
     setClaims(next: Claim[]) {
       setClaims(next);
+    },
+    setBranding(b: BrandingSnapshot | null) {
+      setBranding(b);
     }
   }));
 
@@ -228,9 +244,14 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     }
   }, [user, pendingEdit, submitEdit]);
 
+  const brandStyle = {
+    '--brand': branding?.accentColor ?? '#c64a1f'
+  } as React.CSSProperties;
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={brandStyle}>
       <div ref={profileTopRef} />
+      <BrandHeader url={companyUrl ?? null} branding={branding} />
       <OneLiner claim={oneLiner} streaming={streaming} />
 
       <div className="mx-auto max-w-4xl space-y-10 px-6 py-8">
@@ -245,7 +266,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
         <section>
           <SectionHeader
             title="Shape"
-            subtitle="Where this company sits on the 9 structural axes — each with the evidence it rests on. Click 'correct' on any card to sharpen it."
+            subtitle="The 9 structural axes. Click any card to see evidence."
           />
           <div className="space-y-3">
             <p className="text-[11px] uppercase tracking-wider text-ink-400">Load-bearing</p>
@@ -279,52 +300,28 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
 
         <section>
           <SectionHeader
-            title="What's hard for this shape"
-            subtitle="Computed from the axis positions. Hot problems are what your structure makes load-bearing — not a vibe."
+            title="What's hard"
+            subtitle="Computed from the axes — not a vibe."
           />
           <ProblemMap claims={hardProblems} />
         </section>
 
         {!streaming && axisClaims.length >= 5 && (
           <section>
-            <SectionHeader
-              title="Transferable solutions"
-              subtitle="The solved domains your shape maps to — or, honestly, where we stop seeing."
-            />
+            <SectionHeader title="Transferable solutions" />
             <TransferableSolutions axisClaims={axisClaims} ontology={ontology} />
           </section>
         )}
 
         {!streaming && companyId && axisClaims.length >= 5 && (
           <section>
-            <SectionHeader
-              title="Your 5 AI projects"
-              subtitle="Gate 2 — the actual work, generated from your shape and your declared stack."
-            />
+            <SectionHeader title="Your 5 AI projects" />
             <AnalogyAndProjects companyId={companyId} initialProjects={initialProjects} />
           </section>
         )}
 
         {facts.length > 0 && (
-          <section>
-            <SectionHeader
-              title="What we found"
-              subtitle="Raw facts the agent gathered, with provenance."
-            />
-            <ul className="space-y-2">
-              {facts.map(f => (
-                <li key={f.id} className="card flex items-start gap-2 text-sm">
-                  <ProvenanceBadge provenance={f.provenance} />
-                  <span className="flex-1 text-ink-700">
-                    {f.content.statement}
-                    {f.content.source && (
-                      <span className="ml-1 text-xs text-ink-400">· {truncate(f.content.source)}</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <FactsSection facts={facts} />
         )}
 
         {error && (
@@ -350,12 +347,39 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
   );
 });
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="mb-4">
-      <h2 className="text-xl font-semibold text-ink-900">{title}</h2>
-      <p className="mt-1 text-sm text-ink-500">{subtitle}</p>
+    <div className="mb-3">
+      <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
+      {subtitle && <p className="mt-0.5 text-xs text-ink-500">{subtitle}</p>}
     </div>
+  );
+}
+
+function FactsSection({ facts }: { facts: FactClaim[] }) {
+  return (
+    <details className="card group" open={false}>
+      <summary className="flex cursor-pointer items-baseline justify-between gap-2 list-none">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+          What we found · {facts.length} {facts.length === 1 ? 'fact' : 'facts'}
+        </span>
+        <span className="text-[11px] text-ink-400 group-open:hidden">show</span>
+        <span className="hidden text-[11px] text-ink-400 group-open:inline">hide</span>
+      </summary>
+      <ul className="mt-3 space-y-2">
+        {facts.map(f => (
+          <li key={f.id} className="flex items-start gap-2 text-sm">
+            <ProvenanceBadge provenance={f.provenance} />
+            <span className="flex-1 text-ink-700">
+              {f.content.statement}
+              {f.content.source && (
+                <span className="ml-1 text-xs text-ink-400">· {truncate(f.content.source)}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

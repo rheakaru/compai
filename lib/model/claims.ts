@@ -61,6 +61,14 @@ export interface OpenQuestion {
   resolvedByClaimId: string | null;
 }
 
+export interface BrandingSnapshot {
+  logoUrl: string | null;
+  accentColor: string | null;
+  name: string | null;
+  description: string | null;
+  extractedAt: number;
+}
+
 export interface CompanyDoc {
   ownerUid: string | null;
   sessionId: string | null;
@@ -68,4 +76,5 @@ export interface CompanyDoc {
   name: string | null;
   createdAt: number;
   ontologyVersionHash: string;
+  branding?: BrandingSnapshot | null;
 }

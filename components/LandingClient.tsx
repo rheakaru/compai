@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import type { Claim } from '@/lib/model/claims';
+import type { BrandingSnapshot, Claim } from '@/lib/model/claims';
 import type { Ontology } from '@/lib/ontology/types';
 import { Profile, type ProfileHandle } from './Profile';
 
@@ -16,6 +16,7 @@ export function LandingClient({ ontology }: { ontology: Ontology }) {
   const [companyUrl, setCompanyUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [initialClaims, setInitialClaims] = useState<Claim[]>([]);
+  const [initialBranding, setInitialBranding] = useState<BrandingSnapshot | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const profileRef = useRef<ProfileHandle | null>(null);
 
@@ -96,6 +97,13 @@ export function LandingClient({ ontology }: { ontology: Ontology }) {
       } else {
         setInitialClaims(prev => [...prev, claim]);
       }
+    } else if (ev.type === 'branding' && ev.branding) {
+      const b = ev.branding as BrandingSnapshot;
+      if (profileRef.current) {
+        profileRef.current.setBranding(b);
+      } else {
+        setInitialBranding(b);
+      }
     } else if (ev.type === 'error' && typeof ev.message === 'string') {
       setErrorMsg(ev.message);
     }
@@ -155,6 +163,7 @@ export function LandingClient({ ontology }: { ontology: Ontology }) {
       companyId={companyId}
       companyUrl={companyUrl}
       streaming={status === 'streaming'}
+      initialBranding={initialBranding}
     />
   );
 }

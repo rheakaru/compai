@@ -101,7 +101,8 @@ export function StackForm({
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-600 disabled:bg-ink-300"
+        className="w-full rounded-md px-4 py-2.5 text-sm font-medium text-white disabled:bg-ink-300"
+        style={{ backgroundColor: submitting ? undefined : 'var(--brand, #c64a1f)' }}
       >
         {submitting ? 'Generating your five projects…' : 'Generate your 5 AI projects'}
       </button>
