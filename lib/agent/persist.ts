@@ -68,6 +68,16 @@ export function eventToClaim(event: ResearchEvent): Claim | null {
       const candidateB = event.candidateB && typeof event.candidateB === 'object'
         ? (event.candidateB as { position: string; implication: string })
         : undefined;
+      let deviation: { magnitude: number; hotProblem: string } | undefined;
+      if (event.deviation && typeof event.deviation === 'object') {
+        const d = event.deviation as { magnitude?: unknown; hotProblem?: unknown };
+        if (typeof d.magnitude === 'number' && typeof d.hotProblem === 'string') {
+          deviation = {
+            magnitude: Math.max(0, Math.min(1, d.magnitude)),
+            hotProblem: d.hotProblem.slice(0, 200)
+          };
+        }
+      }
       return {
         ...base,
         kind: 'axis_position',
@@ -86,7 +96,8 @@ export function eventToClaim(event: ResearchEvent): Claim | null {
           candidateA,
           candidateB,
           disambiguatingQuestion:
-            typeof event.disambiguatingQuestion === 'string' ? event.disambiguatingQuestion : undefined
+            typeof event.disambiguatingQuestion === 'string' ? event.disambiguatingQuestion : undefined,
+          deviation
         },
         provenance: 'agent_hypothesis'
       };

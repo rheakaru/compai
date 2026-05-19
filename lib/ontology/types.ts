@@ -53,6 +53,25 @@ export interface AnalogyEntry {
   posture_shift: string;
 }
 
+export interface Interaction {
+  id: string;
+  axes: string[];
+  fires_when: string;
+  compounding_mechanism: string;
+  hot_problem: string;
+  seen_in?: string;
+}
+
+export interface ConsequenceRulesV2 {
+  method: string;
+  sources: Record<string, { input: string; score: string }>;
+  blend: string;
+  load_bearing_modulation: string;
+  dormant_subtraction: boolean;
+  output: string;
+  invariant: string;
+}
+
 export interface RoleSplit {
   philosophy: string;
   translation: { definition: string; signals: string[] };
@@ -69,12 +88,8 @@ export interface Ontology {
     analogy_floor: number;
   };
   axes: Axis[];
-  consequence_rules: {
-    method: string;
-    weight: string;
-    dormant_subtraction: boolean;
-    output: string;
-  };
+  consequence_rules: ConsequenceRulesV2;
+  interactions: Interaction[];
   analogy_library: AnalogyEntry[];
   role_split: RoleSplit;
 }
@@ -87,4 +102,12 @@ export interface AxisPosition {
   candidateA?: { position: string; implication: string };
   candidateB?: { position: string; implication: string };
   disambiguatingQuestion?: string;
+  // v2 consequence inputs (additive). Present only when the axis is
+  // atypical for this company. `magnitude` is the agent's 0..1 score
+  // for "how far from typical for that axis"; `hotProblem` is the
+  // named problem the deviation implies.
+  deviation?: {
+    magnitude: number;
+    hotProblem: string;
+  };
 }

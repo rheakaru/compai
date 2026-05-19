@@ -19,9 +19,33 @@ export interface AxisPositionClaim extends BaseClaim {
   content: AxisPosition;
 }
 
+export interface InteractionFiringRef {
+  interactionId: string;
+  axes: string[];
+  mechanism: string;
+  source: 'declared' | 'agent_hypothesis';
+  strength: number;
+}
+
 export interface HardProblemClaim extends BaseClaim {
   kind: 'hard_problem';
-  content: { problemId: string; weight: number; voterAxes: string[]; isDormant?: boolean };
+  content: {
+    problemId: string;
+    weight: number;
+    voterAxes: string[];
+    // v2 source attribution — which of the three sources voted for this
+    // problem and what each contributed. Each hot item carries this so the
+    // UI can show "from interaction of customer_concentration + cash_conversion".
+    sources?: Array<'position' | 'deviation' | 'interaction'>;
+    breakdown?: {
+      position: number;
+      deviation: number;
+      interaction: number;
+    };
+    interactionFirings?: InteractionFiringRef[];
+    dominantAxisRank?: number;
+    isDormant?: boolean;
+  };
 }
 
 export interface AnalogyClaim extends BaseClaim {

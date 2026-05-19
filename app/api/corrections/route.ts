@@ -7,7 +7,7 @@ import { getOrCreateSessionId } from '@/lib/firebase/session';
 import { loadCompanyForAccess } from '@/lib/model/access';
 import { logFunnelEvent } from '@/lib/funnel/events';
 import { regenerateOneLiner } from '@/lib/agent/oneliner';
-import { computeHardProblemMap } from '@/lib/model/projection';
+import { computeHotDormant } from '@/lib/model/projection';
 import { loadOntology } from '@/lib/ontology/loader';
 import type {
   AxisPositionClaim,
@@ -169,7 +169,10 @@ export async function POST(req: NextRequest) {
   const liveAxes = liveClaims.filter(
     (c): c is AxisPositionClaim => c.kind === 'axis_position'
   );
-  const newDerived = computeHardProblemMap(liveAxes, ontology);
+  // Note: agent-surfaced interactions are not re-derived on correction —
+  // they would require re-running the agent. Declared interactions re-match
+  // against the corrected vector deterministically inside computeHotDormant.
+  const newDerived = computeHotDormant({ axisClaims: liveAxes, ontology });
   const newHardProblems: HardProblemClaim[] = [];
   for (const hp of newDerived) {
     const persistable = { ...hp, id: randomUUID() };

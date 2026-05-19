@@ -4,7 +4,8 @@ import { streamResearch } from '@/lib/agent/research';
 import { createCompany, eventToClaim, persistClaim } from '@/lib/agent/persist';
 import { loadOntology } from '@/lib/ontology/loader';
 import { getOrCreateSessionId } from '@/lib/firebase/session';
-import { computeHardProblemMap } from '@/lib/model/projection';
+import { computeHotDormant } from '@/lib/model/projection';
+import { agentInteractionToFiring, type InteractionFiring } from '@/lib/model/interactions';
 import { logFunnelEvent } from '@/lib/funnel/events';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { extractBranding } from '@/lib/branding/extract';
@@ -89,9 +90,26 @@ export async function POST(req: NextRequest) {
         .catch(() => undefined);
 
       const axisClaims: AxisPositionClaim[] = [];
+      const agentInteractions: InteractionFiring[] = [];
 
       try {
         for await (const event of streamResearch({ url, extraNotes: body?.notes })) {
+          if (event.type === 'interaction') {
+            // Agent-surfaced compounding pair. Always agent_hypothesis.
+            const axes = Array.isArray(event.axes) ? (event.axes as string[]) : [];
+            const hotProblem =
+              typeof event.hotProblem === 'string' ? event.hotProblem : '';
+            const mechanism =
+              typeof event.mechanism === 'string' ? event.mechanism : '';
+            const strength = typeof event.strength === 'number' ? event.strength : 0.5;
+            if (axes.length >= 2 && hotProblem) {
+              agentInteractions.push(
+                agentInteractionToFiring(axes, hotProblem, mechanism, strength)
+              );
+              send({ type: 'agent_interaction', axes, hotProblem, mechanism, strength });
+            }
+            continue;
+          }
           const claim = eventToClaim(event);
           if (claim) {
             try {
@@ -110,7 +128,7 @@ export async function POST(req: NextRequest) {
         }
 
         const { ontology } = loadOntology();
-        const derived = computeHardProblemMap(axisClaims, ontology);
+        const derived = computeHotDormant({ axisClaims, ontology, agentInteractions });
         for (const hp of derived) {
           const persistable: Claim = { ...hp, id: randomUUID() };
           try {

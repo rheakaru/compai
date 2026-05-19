@@ -22,6 +22,7 @@ import { TransferableSolutions } from './TransferableSolutions';
 import { AnalogyAndProjects } from './AnalogyAndProjects';
 import { BrandHeader } from './BrandHeader';
 import { InviteOwnerSection } from './InviteOwnerSection';
+import { AXIS_DISPLAY_ORDER } from '@/lib/ontology/display-labels';
 import type { FiveProjects } from '@/lib/agent/projects';
 
 export interface ProfileHandle {
@@ -119,12 +120,20 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     [live]
   );
 
-  const sortedAxes = useMemo(
-    () => [...ontology.axes].sort((a, b) => a.load_bearing_rank - b.load_bearing_rank),
-    [ontology]
-  );
-  const loadBearing = sortedAxes.filter(a => a.load_bearing_rank <= 5);
-  const refining = sortedAxes.filter(a => a.load_bearing_rank > 5);
+  // Display order is a frontend concern. AXIS_DISPLAY_ORDER interleaves
+  // load-bearing and refining axes by narrative flow; the per-card
+  // "Load · #n" / "Refining · #n" tag still comes from the ontology rank.
+  const orderedAxes = useMemo(() => {
+    const byId = new Map(ontology.axes.map(a => [a.id, a]));
+    const ordered = AXIS_DISPLAY_ORDER.map(id => byId.get(id)).filter(
+      (a): a is NonNullable<typeof a> => !!a
+    );
+    // Append any ontology axis not in the display order (defensive).
+    for (const a of ontology.axes) {
+      if (!AXIS_DISPLAY_ORDER.includes(a.id)) ordered.push(a);
+    }
+    return ordered;
+  }, [ontology]);
   const axisClaimByAxisId = useMemo(() => {
     const m = new Map<string, AxisPositionClaim>();
     for (const c of axisClaims) m.set(c.content.axisId, c);
@@ -269,33 +278,17 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
             title="Shape"
             subtitle="The 9 structural axes. Click any card to see evidence."
           />
-          <div className="space-y-3">
-            <p className="text-[11px] uppercase tracking-wider text-ink-400">Load-bearing</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {loadBearing.map(axis => (
-                <EditableAxisCard
-                  key={axis.id}
-                  axis={axis}
-                  claim={axisClaimByAxisId.get(axis.id) ?? null}
-                  canEdit={canEdit}
-                  onEditStart={() => handleEditStart(axis.id)}
-                  onSubmit={submitEdit}
-                />
-              ))}
-            </div>
-            <p className="mt-6 text-[11px] uppercase tracking-wider text-ink-400">Refining</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {refining.map(axis => (
-                <EditableAxisCard
-                  key={axis.id}
-                  axis={axis}
-                  claim={axisClaimByAxisId.get(axis.id) ?? null}
-                  canEdit={canEdit}
-                  onEditStart={() => handleEditStart(axis.id)}
-                  onSubmit={submitEdit}
-                />
-              ))}
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {orderedAxes.map(axis => (
+              <EditableAxisCard
+                key={axis.id}
+                axis={axis}
+                claim={axisClaimByAxisId.get(axis.id) ?? null}
+                canEdit={canEdit}
+                onEditStart={() => handleEditStart(axis.id)}
+                onSubmit={submitEdit}
+              />
+            ))}
           </div>
         </section>
 

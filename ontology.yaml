@@ -147,19 +147,85 @@ axes:
     transfer_note: "Above threshold inherits grocery/blood-bank/floriculture/yield-mgmt toolkit. Below: standard inventory theory applies."
 
 # ------------------------------------------------------------
-# CONSEQUENCE COMPUTATION
-# The app unions the `hot` lists across all 9 derived positions,
-# subtracts anything in a `dormant` list, weights by how many
-# axes vote for each problem AND by the load_bearing_rank of the
-# voting axes (rank 1 vote > rank 9 vote). Output: ordered
-# problem map, hot first, dormant explicitly shown as backgrounded.
-# Never flatten to a single problem.
+# CONSEQUENCE COMPUTATION  (v2 — three sources, not one)
+#
+# The v1 bug: hot problems were computed ONLY from the static
+# consequence.<value>.hot lists of each axis. Deviations — where
+# the real insight lives, and what the one-liner already reads —
+# were generated and then DISCARDED by the ranker. Result: a
+# generic single-axis-vote list next to a brilliant deviation-aware
+# one-liner, computed from different inputs.
+#
+# v2: hot problems come from THREE sources, each scored 0..1 by the
+# derivation agent, blended (NOT fixed-tiered), then modulated by
+# load-bearing rank. The strength of the effect sets the rank, not
+# its category.
+#
+#   (a) POSITION  — static consequence.<value>.hot for each derived
+#                   axis value. "What's typically hard for this shape."
+#   (b) DEVIATION — each derived deviation names a hot problem in
+#                   plain language (it already does this in the
+#                   evidence text). Score = how far this company
+#                   departs from typical for that axis.
+#   (c) INTERACTION — where two deviations, or a deviation plus a
+#                   position, COMPOUND. This is where almost every
+#                   interesting company's true hard problem lives
+#                   (Hoovu: concentration x zero-slack cash cycle;
+#                   Bliss: variety x regulatory traceability). A
+#                   single-axis vote can NEVER capture this; it is
+#                   the structural reason v1 missed the real answer.
+#
+# Interaction logic is HYBRID: `interactions:` below declares known
+# compounding pairs as priors (seeded from real cases, grown like
+# the analogy library). The agent MAY surface an unlisted interaction
+# but it carries agent_hypothesis provenance, exactly like every
+# other agent inference in the system. Declared pairs are the moat;
+# free agent inference is the fallback, clearly flagged.
 # ------------------------------------------------------------
 consequence_rules:
-  method: "weighted_vote"
-  weight: "inverse of load_bearing_rank (rank1 weight=9 ... rank9 weight=1)"
+  method: "three_source_weighted_blend"
+  sources:
+    position:    { input: "static consequence.<value>.hot per derived axis", score: "load_bearing weight only" }
+    deviation:   { input: "each derived deviation's named hot problem", score: "0..1 = magnitude of departure from typical for that axis, x load_bearing weight of that axis" }
+    interaction: { input: "declared interactions[] + agent-surfaced pairs", score: "0..1 = strength of compounding, x max load_bearing weight of the involved axes" }
+  blend: "weighted sum of the three source scores per problem; NO fixed tiers — a strong position problem can outrank a weak interaction and vice versa"
+  load_bearing_modulation: "after blend, multiply by inverse load_bearing_rank of the dominant contributing axis (rank1=9 ... rank9=1)"
   dormant_subtraction: true
-  output: "ordered list; show backgrounded items explicitly (what to ignore is half the value)"
+  output: "single ordered list (the synthesis IS the product — never emit three separate lists for the user to reconcile); each hot item shows which source(s) and which axes drove it; dormant shown explicitly as backgrounded"
+  invariant: "the top hot problem must be reconcilable with the one-liner. If the ranked #1 contradicts the one-liner's claim, that is the v1 bug recurring — they read the same deviations and must not disagree."
+
+# ------------------------------------------------------------
+# AXIS INTERACTIONS  (declared priors — grow one real case at a time,
+# exactly like analogy_library. An interaction without a named
+# compounding mechanism is incomplete.)
+# ------------------------------------------------------------
+interactions:
+
+  - id: concentration_x_zero_slack_cash
+    axes: [customer_concentration, cash_conversion]
+    fires_when: "customer_concentration = extremely high AND cash_conversion has near-zero inventory slack (MTO/perishable)"
+    compounding_mechanism: >
+      Concentration alone is a churn-exposure problem. A tight cash
+      cycle alone is a financing problem. Together: there is no
+      working-capital buffer to absorb a single large customer
+      delaying payment or delisting, AND no slack to fund the
+      festival ramp that the same concentrated customers judge you
+      on. The two deviations remove each other's safety margin.
+    hot_problem: "defending fill rate during demand spikes with no financial slack, against customers concentrated enough that any one failure is existential"
+    seen_in: hoovu
+
+  - id: variety_x_regulatory_traceability
+    axes: [volume_variety, asset_specificity]
+    fires_when: "volume_variety = low_vol_high_var AND regulatory traceability load is high (declared in evidence)"
+    compounding_mechanism: >
+      High-variety routing alone is a scheduling problem. Regulatory
+      traceability alone is a documentation problem. Together: every
+      schedule change must preserve a certified, sequence-locked
+      audit trail, so the scheduling freedom that normally absorbs
+      variety is constrained by traceability — the residue neither
+      domain solves alone.
+    hot_problem: "traceability-aware finite-capacity scheduling of a high-variety routing under regulatory lock"
+    seen_in: bliss_aerospace
 
 # ------------------------------------------------------------
 # ANALOGY LIBRARY

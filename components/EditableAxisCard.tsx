@@ -6,6 +6,7 @@ import type { AxisPositionClaim } from '@/lib/model/claims';
 import type { Axis, CorrectionType } from '@/lib/ontology/types';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { axisIcon } from '@/lib/ontology/axis-icons';
+import { getAxisLabel } from '@/lib/ontology/display-labels';
 
 export interface AxisEditPayload {
   axisId: string;
@@ -41,6 +42,8 @@ export function EditableAxisCard({
   const showCandidates = lowConfidence && claim?.content.candidateA && claim?.content.candidateB;
   const positionOptions = enumeratePositions(axis);
   const evidenceCount = claim?.content.evidence.length ?? 0;
+  const hasDeviation = !!claim?.content.deviation?.hotProblem;
+  const label = getAxisLabel(axis.id, axis.name);
 
   const openEdit = () => {
     if (!claim) return;
@@ -65,17 +68,31 @@ export function EditableAxisCard({
           <Icon className="h-4 w-4 text-ink-600" strokeWidth={1.75} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="text-sm font-semibold text-ink-900">{axis.name}</h3>
-            <span className="text-[10px] uppercase tracking-wide text-ink-400">
-              {isLoadBearing ? `Load · #${axis.load_bearing_rank}` : `#${axis.load_bearing_rank}`}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              {label.handle && (
+                <p className="text-[10px] uppercase tracking-wider text-ink-400">
+                  {label.handle}
+                </p>
+              )}
+              <h3 className="text-[15px] font-semibold leading-tight text-ink-900">
+                {label.title}
+              </h3>
+              {label.gloss && (
+                <p className="mt-0.5 text-xs text-ink-500">{label.gloss}</p>
+              )}
+            </div>
+            <span className="flex-none whitespace-nowrap text-[10px] uppercase tracking-wide text-ink-400">
+              {isLoadBearing
+                ? `Load · #${axis.load_bearing_rank}`
+                : `Refining · #${axis.load_bearing_rank}`}
             </span>
           </div>
 
           {!claim ? (
             <p className="mt-2 text-sm text-ink-400">Reading…</p>
           ) : !editing && showCandidates ? (
-            <div className="mt-2">
+            <div className="mt-3">
               <p className="text-[11px] uppercase tracking-wider text-rose-700">
                 Evidence is thin — two reads
               </p>
@@ -99,8 +116,20 @@ export function EditableAxisCard({
               )}
             </div>
           ) : !editing ? (
-            <p className="mt-1.5 text-[15px] font-medium text-ink-900">{claim.content.position}</p>
+            <p className="mt-2 text-[15px] font-medium text-ink-900">
+              {claim.content.position}
+            </p>
           ) : null}
+
+          {claim && !editing && hasDeviation && (
+            <div
+              className="mt-2 rounded border-l-2 bg-ink-50/60 px-2.5 py-1.5 text-xs text-ink-700"
+              style={{ borderLeftColor: 'var(--brand, #c64a1f)' }}
+            >
+              <span className="font-medium text-ink-800">Deviation: </span>
+              {claim.content.deviation!.hotProblem}
+            </div>
+          )}
         </div>
       </div>
 
@@ -225,7 +254,8 @@ export function EditableAxisCard({
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-3 w-3" /> {evidenceCount} {evidenceCount === 1 ? 'piece' : 'pieces'} of evidence
+                  <ChevronDown className="h-3 w-3" /> {evidenceCount}{' '}
+                  {evidenceCount === 1 ? 'piece' : 'pieces'} of evidence
                 </>
               )}
             </button>
@@ -240,19 +270,24 @@ export function EditableAxisCard({
             )}
           </div>
           {expanded && (
-            <ul className="mt-2 space-y-1.5">
-              {claim.content.evidence.map((e, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-ink-600">
-                  <ProvenanceBadge provenance={e.provenance} />
-                  <span className="leading-snug">
-                    {e.quote}
-                    {e.source && (
-                      <span className="ml-1 text-ink-400">· {truncateSource(e.source)}</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-2">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-ink-400">
+                {label.technical_term}
+              </p>
+              <ul className="mt-1.5 space-y-1.5">
+                {claim.content.evidence.map((e, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-ink-600">
+                    <ProvenanceBadge provenance={e.provenance} />
+                    <span className="leading-snug">
+                      {e.quote}
+                      {e.source && (
+                        <span className="ml-1 text-ink-400">· {truncateSource(e.source)}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </>
       )}
