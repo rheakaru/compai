@@ -1,0 +1,241 @@
+# ============================================================
+# COMPANY-PROBLEM ONTOLOGY  —  v1.0
+# The moat asset. Hand-editable, git-diffable. The app reads
+# this at runtime; profiles record which version produced them.
+#
+# Structure:
+#   axes[]            -> the 9 structural dimensions
+#   consequence_rules -> how axis positions compute the hot/dormant problem map
+#   analogy_library   -> solved-domain neighbours, grown one workshop at a time
+#
+# The diagonals from the source literature are CONTESTED and
+# deliberately not encoded as prescriptions. Axes are descriptive.
+# ============================================================
+
+meta:
+  version: "1.0"
+  philosophy: >
+    A company is a position vector across 9 axes. The vector computes
+    which problems are hard. Similar vectors = transferable solutions,
+    regardless of product. Show what to ignore, not just what's hard.
+    Describe shape and deviation; never tell a company it is positioned wrong.
+
+  # Strict floor for the lead-gen analogy display. ONE number, two outcomes:
+  #   nearest-neighbour match score >= analogy_floor -> show analogy CLEAN
+  #   score < analogy_floor                          -> HONEST STOP (no analogy)
+  # There is deliberately no middle band. Raising this makes the tool show
+  # analogies more rarely but only when strong (optimizes impression); lowering
+  # it shows them more often. It is a floor, never a band system. Tune against
+  # real funnel data. Score is cosine-style similarity of the 9-vector to an
+  # analogy_library entry's signature, range 0..1.
+  analogy_floor: 0.72
+
+# ------------------------------------------------------------
+# AXES  — load_bearing_rank: 1 = highest (swings whole shape).
+# Ranks 1-5 are the load-bearing five; 6-9 the refining four.
+# The app ranks open questions by this number.
+# ------------------------------------------------------------
+axes:
+
+  - id: codp
+    name: "Customer Order Decoupling Point"
+    load_bearing_rank: 1
+    type: categorical
+    values: [MTS, ATO, MTO, ETO]   # ordered: stock -> engineer-to-order
+    derive_from: ["how is an order fulfilled", "is product waiting or built on order", "lead time quoted to customer"]
+    consequence:
+      MTS:  { hot: [demand_forecasting, inventory_obsolescence_balance], dormant: [quotation_accuracy, engineering_throughput] }
+      ATO:  { hot: [config_management, component_inventory], dormant: [raw_demand_forecasting] }
+      MTO:  { hot: [scheduling, lead_time_reliability], dormant: [finished_goods_obsolescence] }
+      ETO:  { hot: [engineering_throughput, quotation_accuracy, scope_change_mgmt], dormant: [finished_goods_forecasting] }
+    transfer_note: "Solutions port within a CODP value, rarely across it. Cross-CODP transfer is a red flag."
+
+  - id: demand_uncertainty
+    name: "Demand Uncertainty / Predictability"
+    load_bearing_rank: 2
+    type: spectrum
+    endpoints: { low: "functional/stable/low-CoV", high: "innovative/volatile/high-CoV" }
+    derive_from: ["forecast error at commit", "product life-cycle length", "markdown/stockout rates", "seasonality/event-driven spikes"]
+    consequence:
+      low:  { hot: [unit_cost_minimisation, inventory_turns], dormant: [responsiveness_infra] }
+      high: { hot: [responsiveness, postponement, markdown_stockout_balance], dormant: [long_term_capacity_contracts] }
+    transfer_note: "High uncertainty inherits fashion/fresh/electronics toolkit (accurate-response, postponement). Low inherits commodity toolkit (EOQ, deterministic MRP)."
+
+  - id: volume_variety
+    name: "Volume x Variety Regime"
+    load_bearing_rank: 3
+    type: spectrum
+    archetypes: [project, jobbing, batch, mass, continuous]
+    derive_from: ["units per SKU per period", "number of distinct routings", "changeover frequency"]
+    consequence:
+      low_vol_high_var:  { hot: [finite_capacity_scheduling, routing, skills_assignment], dormant: [line_balancing] }
+      batch_midrange:    { hot: [scheduling_at_scale, changeover_optimisation], dormant: [] }
+      high_vol_low_var:  { hot: [line_balancing, yield, OEE], dormant: [job_level_scheduling] }
+    transfer_note: "Jobbing solutions (APS, dispatch rules) port across job shops of any product. Mass solutions (SPC, OEE) port across mass producers."
+
+  - id: value_chain_position
+    name: "Value-Chain Position"
+    load_bearing_rank: 4
+    type: categorical
+    values: [producer, assembler_converter, distributor_reseller, aggregator_marketplace, platform_infra]
+    derive_from: ["do they make, transform, resell, match, or host", "where does margin come from"]
+    consequence:
+      producer:              { hot: [throughput, capacity], dormant: [sourcing_arbitrage] }
+      assembler_converter:   { hot: [component_supply, assembly_scheduling], dormant: [] }
+      distributor_reseller:  { hot: [sourcing_arbitrage, sku_selection, working_capital], dormant: [production_capacity] }
+      aggregator_marketplace: { hot: [two_sided_liquidity, matching, trust], dormant: [production_capacity] }
+      platform_infra:        { hot: [ecosystem, switching_costs, reliability], dormant: [unit_production] }
+    transfer_note: "Crossing this axis breaks transferability hardest. Reseller tooling ports across resellers in any vertical."
+
+  - id: cash_conversion
+    name: "Cash Conversion Cycle / Working-Capital Intensity"
+    load_bearing_rank: 5
+    type: spectrum
+    endpoints: { negative: "payment-before-supply (float)", long_positive: "capital tied in WIP/inventory 80-120d" }
+    components: [DIO, DSO, DPO]
+    derive_from: ["paid before or after delivering", "inventory days", "receivable terms", "supplier terms"]
+    consequence:
+      negative_or_short: { hot: [acquisition, retention], dormant: [working_capital_mgmt], strategic_lever: "growth is self-funding -> get customers" }
+      long_positive:     { hot: [working_capital_mgmt, supplier_terms, factoring], dormant: [], strategic_lever: "growth is cash-constrained -> a healthy P&L can still starve" }
+    transfer_note: "Long-CCC solutions (SC finance, receivables automation, demand-pull) port across long-CCC firms. Short-CCC solutions (CAC payback, cohort LTV) port across short-CCC firms."
+
+  - id: customer_concentration
+    name: "Customer Concentration"
+    load_bearing_rank: 6
+    type: spectrum
+    bands: [concentrated, mid, distributed]   # top-5 >50% / mid / top-5 <10%
+    derive_from: ["revenue share of top customers", "enterprise vs long-tail sales motion"]
+    consequence:
+      concentrated: { hot: [account_mgmt, contract_renewal, custom_integration, account_churn_risk], dormant: [funnel_optimisation] }
+      distributed:  { hot: [marketing, self_serve_onboarding, segmentation], dormant: [account_management] }
+    note: "Descriptive only. Early PMF often LOOKS like concentration. Do not flag as risk."
+    transfer_note: "Concentrated inherits enterprise B2B playbook (ABM, QBRs, account churn models). Distributed inherits consumer/e-comm playbook."
+
+  - id: transaction_regime
+    name: "Transaction Regime (AOV x Frequency)"
+    load_bearing_rank: 7
+    type: categorical_2x2
+    cells:
+      low_aov_high_freq:  { strategic_lever: retention_replenishment }
+      high_aov_low_freq:  { strategic_lever: acquisition_each_txn_clears_CAC }
+      low_aov_low_freq:   { strategic_lever: basket_upsell }
+      high_aov_high_freq: { strategic_lever: account_expansion }
+    derive_from: ["average order value", "purchase frequency per customer"]
+    transfer_note: "Low-AOV/high-freq shares QSR/transit/grocery solutions. High-AOV/low-freq shares industrial-sales solutions (long-cycle CRM, RFP automation)."
+
+  - id: asset_specificity
+    name: "Asset Specificity / Make-vs-Buy Depth"
+    load_bearing_rank: 8
+    type: spectrum
+    endpoints: { market: "buy/outsource/dropship (low specificity)", hierarchy: "make/vertically integrated (high specificity)" }
+    middle: "hybrid: long-term contracts, JVs, strategic partnerships"
+    derive_from: ["Williamson: asset specificity, uncertainty, frequency", "knowledge dependency x capacity dependency on suppliers", "modular vs integral product architecture"]
+    consequence:
+      market:    { hot: [supplier_reliability, dual_sourcing, sourcing_arbitrage, trade_credit], dormant: [internal_capacity_planning] }
+      hierarchy: { hot: [capacity, yield, learning_curve, fixed_cost_risk], dormant: [supplier_scorecarding] }
+    transfer_note: "Buy-position inherits sourcing/supplier/inbound-logistics toolkit across any product. Make-position inherits manufacturing-ops toolkit."
+
+  - id: perishability
+    name: "Perishability / Process Time-Sensitivity"
+    load_bearing_rank: 9
+    type: spectrum
+    categorical_break: "newsvendor threshold: unsold inventory hits ~zero salvage within one period"
+    derive_from: ["shelf life", "can demand be backordered", "salvage value of unsold unit"]
+    consequence:
+      below_threshold: { hot: [steady_state_inventory_EOQ_sS], dormant: [] }
+      above_threshold: { hot: [newsvendor_optimisation, dynamic_markdown, salvage_routing, cold_chain], dormant: [EOQ_assumptions] }
+    transfer_note: "Above threshold inherits grocery/blood-bank/floriculture/yield-mgmt toolkit. Below: standard inventory theory applies."
+
+# ------------------------------------------------------------
+# CONSEQUENCE COMPUTATION
+# The app unions the `hot` lists across all 9 derived positions,
+# subtracts anything in a `dormant` list, weights by how many
+# axes vote for each problem AND by the load_bearing_rank of the
+# voting axes (rank 1 vote > rank 9 vote). Output: ordered
+# problem map, hot first, dormant explicitly shown as backgrounded.
+# Never flatten to a single problem.
+# ------------------------------------------------------------
+consequence_rules:
+  method: "weighted_vote"
+  weight: "inverse of load_bearing_rank (rank1 weight=9 ... rank9 weight=1)"
+  dormant_subtraction: true
+  output: "ordered list; show backgrounded items explicitly (what to ignore is half the value)"
+
+# ------------------------------------------------------------
+# ANALOGY LIBRARY
+# Nearest-neighbour in 9-D vector space => transferable domains.
+# Each entry: structural signature, solved domain, what's identical,
+# the RESIDUE (what differs = the actual project), posture-shift line.
+# GROW THIS ONE WORKSHOP AT A TIME. The offhand metaphor is the product.
+# ------------------------------------------------------------
+analogy_library:
+
+  - id: perishable_high_uncertainty_distributed
+    signature: { perishability: above_threshold, demand_uncertainty: high, transaction_regime: low_aov_high_freq, customer_concentration: distributed }
+    solved_domains:
+      - { domain: "grocery fresh / produce retailing", transfers: "daily SKU-store-day forecasting, dynamic markdown, route-density planning" }
+      - { domain: "blood-bank / platelet supply", transfers: "(q,S) age-differentiated policies for short-shelf-life stock" }
+      - { domain: "floriculture cold-chain (Dutch auction, Kenyan rose export)", transfers: "temperature logistics, auction price discovery, farm-geo sourcing diversification" }
+      - { domain: "fashion accurate-response (Sport Obermeyer)", transfers: "early-signal forecasting, fast/cheap supplier mix, postponement" }
+    residue: "festival-calendar demand (not in grocery models); ritual time-bound delivery that cannot be backordered"
+    posture_shift: "Think of it as fresh grocery: the hard part is predicting today's demand for something dead by tomorrow — and that's a solved problem."
+
+  - id: order_sensitive_multistep_under_time_pressure
+    signature: { codp: MTO, volume_variety: low_vol_high_var, demand_uncertainty: low, customer_concentration: concentrated }
+    solved_domains:
+      - { domain: "custom precision machining / job shops", transfers: "finite-capacity APS, dispatch-rule optimisation, quote-to-cash" }
+      - { domain: "medical device manufacturing", transfers: "regulated traceability (eDHR/UDI), batch genealogy" }
+      - { domain: "defence MRO / depot maintenance", transfers: "sequence-dependent setups, certified-tech scheduling, config mgmt" }
+      - { domain: "ETO capital equipment", transfers: "quotation accuracy, BOM evolution, change-order management" }
+    residue: "regulatory traceability + long cycle times a kitchen does not have — traceability-aware scheduling is the unsolved part"
+    posture_shift: "Think of it as a restaurant kitchen: orders known, varied multi-step routes, shared stations, a time crunch — a solved scheduling class."
+
+# Add new entries as workshops surface them. An analogy without a
+# named residue is incomplete — the residue is where the project is.
+
+# ============================================================
+# ROLE ONTOLOGY  — sibling of the axes. Used by the role layer
+# (invited coworkers). Every role splits along ONE line,
+# regardless of job title.
+# ============================================================
+role_split:
+  philosophy: >
+    Every role divides into translation work (collapses into the agents
+    layer) and judgement work (grows). The invitee's deliverable is a
+    career strategy that moves them toward judgement — that framing is
+    what makes honest self-description self-interested. Never present the
+    split as a verdict; present it as leverage and runway.
+
+  translation:
+    definition: >
+      Converting a well-defined input into a well-defined output; running
+      a process that yields a predictable artifact; coordinating other
+      people's work. This is the exposed surface — it collapses.
+    signals: [well_defined_input_to_output, predictable_artifact, process_execution, coordination_of_others_work, low_ambiguity_in_what_correct_means]
+
+  judgement:
+    definition: >
+      Deciding what "correct" means in an ambiguous situation; holding
+      context across a problem larger than any single ticket; owning an
+      outcome rather than an output. This grows, dramatically.
+    signals: [defines_correctness_under_ambiguity, holds_cross_ticket_context, owns_outcome_not_output, irreducible_responsibility]
+
+  derivation_rule: >
+    Classify each described role-activity as translation or judgement,
+    with evidence and provenance, using the SAME append-only / correction
+    model as company-axis claims. A role is a companyId-scoped subject;
+    its claims are role-activities.
+
+  invitee_deliverable: >
+    PRIMARY output to the invitee, shown first and largest: the exposed
+    (translation) surface stated plainly + the specific moves that shift
+    them toward the judgement column + AI-in-role tips that accelerate
+    that shift. Not a neutral map. Not tips-only. The directional
+    strategy IS the incentive that keeps the input honest.
+
+  trust_invariant: >
+    Inviter sees the AGGREGATE role-automation map across roles. Invitee
+    sees their own role's full analysis framed as career strategy. NO
+    inviter-only view may contradict in substance what the invitee saw;
+    the only permitted difference is aggregation level. Violating this
+    collapses trust for every future invitee in that company.

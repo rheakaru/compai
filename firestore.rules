@@ -1,0 +1,139 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===========================================================
+    // Helpers
+    // ===========================================================
+    function isAuthed() {
+      return request.auth != null;
+    }
+    function uid() {
+      return request.auth.uid;
+    }
+    function isOperator() {
+      return isAuthed() && request.auth.token.operator == true;
+    }
+
+    // ===========================================================
+    // Companies — owned per ownerUid; anonymous documents
+    // (ownerUid == null) are server-managed only. Clients never
+    // read or write anonymous docs directly; the Next.js server
+    // (Admin SDK, bypassing rules) handles Stage 0.
+    // ===========================================================
+    match /companies/{companyId} {
+      function isOwner() {
+        return isAuthed() && resource.data.ownerUid == uid();
+      }
+
+      allow read: if isOwner() || isOperator();
+      allow create: if isAuthed() && request.resource.data.ownerUid == uid();
+      allow update: if isOwner() &&
+                    request.resource.data.ownerUid == uid();
+      allow delete: if false;
+
+      // -------------------------------------------------------
+      // Claims: APPEND-ONLY. The only write allowed to an
+      // existing claim is flipping `supersededBy` from null to a
+      // claimId. Everything else is a new claim.
+      // -------------------------------------------------------
+      match /claims/{claimId} {
+        function parentOwner() {
+          return get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid;
+        }
+        function isCompanyOwner() {
+          return isAuthed() && parentOwner() == uid();
+        }
+
+        allow read: if isCompanyOwner() || isOperator();
+        allow create: if isCompanyOwner();
+        // Only supersededBy may change, and only from null to a string.
+        allow update: if isCompanyOwner() &&
+                      resource.data.supersededBy == null &&
+                      request.resource.data.supersededBy is string &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supersededBy']);
+        allow delete: if false;
+      }
+
+      // -------------------------------------------------------
+      // Corrections: APPEND-ONLY. No update, no delete.
+      // -------------------------------------------------------
+      match /corrections/{correctionId} {
+        function parentOwner() {
+          return get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid;
+        }
+        function isCompanyOwner() {
+          return isAuthed() && parentOwner() == uid();
+        }
+
+        allow read: if isCompanyOwner() || isOperator();
+        allow create: if isCompanyOwner();
+        allow update, delete: if false;
+      }
+
+      // -------------------------------------------------------
+      // Open questions: server-managed; clients read only.
+      // -------------------------------------------------------
+      match /openQuestions/{questionId} {
+        function parentOwner() {
+          return get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid;
+        }
+        function isCompanyOwner() {
+          return isAuthed() && parentOwner() == uid();
+        }
+        allow read: if isCompanyOwner() || isOperator();
+        allow write: if false;
+      }
+
+      // -------------------------------------------------------
+      // Roles (Phase 4 — security skeleton present now). The
+      // invitee writes their own role; the inviter (company
+      // owner) sees aggregate. NO inviter-only view of substance
+      // that contradicts the invitee — enforced by exposing only
+      // server-aggregated documents to the inviter.
+      // -------------------------------------------------------
+      match /roles/{roleId} {
+        function parentOwner() {
+          return get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid;
+        }
+        function isCompanyOwner() {
+          return isAuthed() && parentOwner() == uid();
+        }
+        function isInvitee() {
+          return isAuthed() && resource.data.inviteeUid == uid();
+        }
+        // Inviter can read role meta (NOT per-activity claims), invitee can read their own.
+        allow read: if isInvitee() || isCompanyOwner() || isOperator();
+        allow write: if false; // server-managed via Admin SDK
+
+        match /claims/{claimId} {
+          function inviteeUid() {
+            return get(/databases/$(database)/documents/companies/$(companyId)/roles/$(roleId)).data.inviteeUid;
+          }
+          // Only the invitee themselves can read their per-activity claims;
+          // the inviter never gets a substance-different view. Aggregate
+          // projections are served via the server (Admin SDK) only.
+          allow read: if isAuthed() && inviteeUid() == uid();
+          allow write: if false;
+        }
+      }
+    }
+
+    // ===========================================================
+    // Funnel events — operator-only read. Clients never write
+    // directly; the Next.js server writes via Admin SDK.
+    // ===========================================================
+    match /funnelEvents/{eventId} {
+      allow read: if isOperator();
+      allow write: if false;
+    }
+
+    // ===========================================================
+    // Anything else: deny.
+    // ===========================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

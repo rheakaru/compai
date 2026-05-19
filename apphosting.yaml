@@ -1,0 +1,45 @@
+# Firebase App Hosting config
+# https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024
+  # Long-running streaming responses need a generous timeout.
+  timeoutSeconds: 300
+
+env:
+  # Public Firebase config — safe to ship to the browser.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyA8e8dtdrV1eG1XfQo3IvbtT-YK47y8Snk
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: compai-57d55.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: compai-57d55
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: compai-57d55.firebasestorage.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: '510729543987'
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: '1:510729543987:web:a6f04b45e6a1af2de7de46'
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: G-HX2FX3VY9C
+    availability: [BUILD, RUNTIME]
+
+  # SECRETS — set via:
+  #   firebase apphosting:secrets:set ANTHROPIC_API_KEY
+  #   firebase apphosting:secrets:set FIREBASE_ADMIN_CREDENTIALS
+  - variable: ANTHROPIC_API_KEY
+    secret: ANTHROPIC_API_KEY
+    availability: [RUNTIME]
+  - variable: FIREBASE_ADMIN_CREDENTIALS
+    secret: FIREBASE_ADMIN_CREDENTIALS
+    availability: [RUNTIME]

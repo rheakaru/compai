@@ -1,0 +1,11 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "apphosting": {
+    "backendId": "compai-web",
+    "rootDir": "/",
+    "ignore": ["node_modules", ".git", "firebase.json", "**/.*"]
+  }
+}
