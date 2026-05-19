@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pencil, CornerDownRight } from 'lucide-react';
 import type { AxisPositionClaim } from '@/lib/model/claims';
 import type { Axis, CorrectionType } from '@/lib/ontology/types';
 import { ProvenanceBadge } from './ProvenanceBadge';
@@ -42,8 +42,11 @@ export function EditableAxisCard({
   const showCandidates = lowConfidence && claim?.content.candidateA && claim?.content.candidateB;
   const positionOptions = enumeratePositions(axis);
   const evidenceCount = claim?.content.evidence.length ?? 0;
-  const hasDeviation = !!claim?.content.deviation?.hotProblem;
   const label = getAxisLabel(axis.id, axis.name);
+
+  // The headline answer: plainSummary when present, fallback to the technical
+  // position. New analyses will always have plainSummary.
+  const headlineAnswer = claim?.content.plainSummary ?? claim?.content.position ?? '';
 
   const openEdit = () => {
     if (!claim) return;
@@ -57,82 +60,81 @@ export function EditableAxisCard({
 
   return (
     <div
-      className={`card relative ${isLoadBearing ? 'ring-1 ring-ink-300' : 'opacity-95'}`}
+      className={`card relative flex flex-col ${isLoadBearing ? 'ring-1 ring-ink-300' : 'opacity-95'}`}
       data-axis={axis.id}
     >
+      {/* HEAD: icon · handle · rank */}
       <div className="flex items-start gap-3">
         <div
-          className="flex h-9 w-9 flex-none items-center justify-center rounded-md"
+          className="flex h-8 w-8 flex-none items-center justify-center rounded-md"
           style={{ backgroundColor: 'rgba(86,86,77,0.07)' }}
         >
           <Icon className="h-4 w-4 text-ink-600" strokeWidth={1.75} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              {label.handle && (
-                <p className="text-[10px] uppercase tracking-wider text-ink-400">
-                  {label.handle}
-                </p>
-              )}
-              <h3 className="text-[15px] font-semibold leading-tight text-ink-900">
-                {label.title}
-              </h3>
-              {label.gloss && (
-                <p className="mt-0.5 text-xs text-ink-500">{label.gloss}</p>
-              )}
-            </div>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-ink-400">
+              {label.handle || label.title}
+            </p>
             <span className="flex-none whitespace-nowrap text-[10px] uppercase tracking-wide text-ink-400">
               {isLoadBearing
                 ? `Load · #${axis.load_bearing_rank}`
                 : `Refining · #${axis.load_bearing_rank}`}
             </span>
           </div>
-
-          {!claim ? (
-            <p className="mt-2 text-sm text-ink-400">Reading…</p>
-          ) : !editing && showCandidates ? (
-            <div className="mt-3">
-              <p className="text-[11px] uppercase tracking-wider text-rose-700">
-                Evidence is thin — two reads
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <CandidateBlock
-                  label="A"
-                  position={claim.content.candidateA!.position}
-                  implication={claim.content.candidateA!.implication}
-                />
-                <CandidateBlock
-                  label="B"
-                  position={claim.content.candidateB!.position}
-                  implication={claim.content.candidateB!.implication}
-                />
-              </div>
-              {claim.content.disambiguatingQuestion && (
-                <p className="mt-2 text-sm font-medium text-ink-800">
-                  <span className="text-ink-400">Q · </span>
-                  {claim.content.disambiguatingQuestion}
-                </p>
-              )}
-            </div>
-          ) : !editing ? (
-            <p className="mt-2 text-[15px] font-medium text-ink-900">
-              {claim.content.position}
-            </p>
-          ) : null}
-
-          {claim && !editing && hasDeviation && (
-            <div
-              className="mt-2 rounded border-l-2 bg-ink-50/60 px-2.5 py-1.5 text-xs text-ink-700"
-              style={{ borderLeftColor: 'var(--brand, #c64a1f)' }}
-            >
-              <span className="font-medium text-ink-800">Deviation: </span>
-              {claim.content.deviation!.hotProblem}
-            </div>
-          )}
         </div>
       </div>
 
+      {/* BODY: the distilled answer (plain English) */}
+      <div className="mt-3 min-h-[3rem]">
+        {!claim ? (
+          <p className="text-sm text-ink-400">Reading…</p>
+        ) : !editing && showCandidates ? (
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-rose-700">
+              Evidence is thin — two reads
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <CandidateBlock
+                label="A"
+                position={claim.content.candidateA!.position}
+                implication={claim.content.candidateA!.implication}
+              />
+              <CandidateBlock
+                label="B"
+                position={claim.content.candidateB!.position}
+                implication={claim.content.candidateB!.implication}
+              />
+            </div>
+            {claim.content.disambiguatingQuestion && (
+              <p className="mt-2 text-sm font-medium text-ink-800">
+                <span className="text-ink-400">Q · </span>
+                {claim.content.disambiguatingQuestion}
+              </p>
+            )}
+          </div>
+        ) : !editing ? (
+          <p className="text-[17px] font-medium leading-snug text-ink-900">
+            {headlineAnswer || (
+              <span className="text-ink-400">Reading…</span>
+            )}
+          </p>
+        ) : null}
+
+        {/* DEVIATION: small footnote arrow, always under the answer when present */}
+        {claim && !editing && claim.content.deviation?.hotProblem && (
+          <div className="mt-3 flex items-start gap-1.5 text-xs leading-snug text-ink-600">
+            <CornerDownRight
+              className="mt-0.5 h-3.5 w-3.5 flex-none"
+              strokeWidth={1.75}
+              style={{ color: 'var(--brand, #c64a1f)' }}
+            />
+            <span className="italic">{claim.content.deviation.hotProblem}</span>
+          </div>
+        )}
+      </div>
+
+      {/* EDIT FORM (only when editing) */}
       {editing && claim && (
         <form
           onSubmit={async e => {
@@ -152,7 +154,7 @@ export function EditableAxisCard({
               setSubmitting(false);
             }
           }}
-          className="mt-4 space-y-3 border-t border-ink-100 pt-3"
+          className="mt-3 space-y-3 border-t border-ink-100 pt-3"
         >
           <div>
             <label className="text-[11px] uppercase tracking-wider text-ink-500">Position</label>
@@ -240,22 +242,27 @@ export function EditableAxisCard({
         </form>
       )}
 
-      {claim && !editing && evidenceCount > 0 && (
-        <>
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-ink-100 pt-2.5">
+      {/* FOOTER: uniform — see why · correct */}
+      {claim && !editing && (
+        <div className="mt-auto pt-3">
+          <div className="flex items-center justify-between gap-2 border-t border-ink-100 pt-2.5">
             <button
               type="button"
               onClick={() => setExpanded(v => !v)}
               className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-ink-500 hover:text-ink-800"
+              disabled={evidenceCount === 0}
+              aria-disabled={evidenceCount === 0}
             >
               {expanded ? (
                 <>
-                  <ChevronUp className="h-3 w-3" /> Hide evidence
+                  <ChevronUp className="h-3 w-3" /> hide why
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-3 w-3" /> {evidenceCount}{' '}
-                  {evidenceCount === 1 ? 'piece' : 'pieces'} of evidence
+                  <ChevronDown className="h-3 w-3" /> see why
+                  {evidenceCount > 0 && (
+                    <span className="ml-1 text-ink-400">· {evidenceCount}</span>
+                  )}
                 </>
               )}
             </button>
@@ -269,38 +276,33 @@ export function EditableAxisCard({
               </button>
             )}
           </div>
+
           {expanded && (
-            <div className="mt-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-ink-400">
-                {label.technical_term}
-              </p>
-              <ul className="mt-1.5 space-y-1.5">
-                {claim.content.evidence.map((e, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-ink-600">
-                    <ProvenanceBadge provenance={e.provenance} />
-                    <span className="leading-snug">
-                      {e.quote}
-                      {e.source && (
-                        <span className="ml-1 text-ink-400">· {truncateSource(e.source)}</span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            <div className="mt-3 space-y-2.5 text-xs leading-snug text-ink-600">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="text-[10px] uppercase tracking-wider text-ink-400">Position</span>
+                <code className="rounded bg-ink-50 px-1.5 py-0.5 text-[11px] text-ink-700">
+                  {claim.content.position}
+                </code>
+                <span className="text-[11px] text-ink-400">· {label.technical_term}</span>
+              </div>
+              {claim.content.evidence.length > 0 && (
+                <ul className="space-y-1.5">
+                  {claim.content.evidence.map((e, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <ProvenanceBadge provenance={e.provenance} />
+                      <span>
+                        {e.quote}
+                        {e.source && (
+                          <span className="ml-1 text-ink-400">· {truncateSource(e.source)}</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
-        </>
-      )}
-
-      {claim && !editing && evidenceCount === 0 && canEdit && (
-        <div className="mt-3 flex justify-end border-t border-ink-100 pt-2.5">
-          <button
-            type="button"
-            onClick={openEdit}
-            className="flex items-center gap-1 rounded border border-ink-200 px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink-500 hover:bg-ink-50 hover:text-ink-800"
-          >
-            <Pencil className="h-3 w-3" /> correct
-          </button>
         </div>
       )}
     </div>

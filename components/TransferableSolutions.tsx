@@ -49,10 +49,12 @@ export function TransferableSolutions({
         unlock solutions is exactly what the workshop does. The gap is the work.
       </p>
       <a
-        href="mailto:rhea@rosebazaar.in?subject=compAI%20workshop%20conversation"
+        href="https://rheakaru.github.io/sessions.html"
+        target="_blank"
+        rel="noopener noreferrer"
         className="mt-4 inline-block rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
       >
-        Book a conversation →
+        Book a session →
       </a>
     </div>
   );

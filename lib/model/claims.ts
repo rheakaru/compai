@@ -9,9 +9,25 @@ export interface BaseClaim {
   createdAt: number;
 }
 
+export type FactCategory =
+  | 'company'
+  | 'revenue'
+  | 'industry'
+  | 'competitors'
+  | 'customers'
+  | 'channels'
+  | 'news'
+  | 'other';
+
 export interface FactClaim extends BaseClaim {
   kind: 'fact';
-  content: { statement: string; source?: string };
+  content: {
+    statement: string;
+    source?: string;
+    // Bucket for grouping in "What we found". Optional; older claims won't
+    // have it. Display falls back to "other" when absent.
+    category?: FactCategory;
+  };
 }
 
 export interface AxisPositionClaim extends BaseClaim {

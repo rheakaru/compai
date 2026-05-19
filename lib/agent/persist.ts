@@ -12,6 +12,17 @@ const KNOWN_PROVENANCE = new Set<Provenance>([
   'user_provided'
 ]);
 
+const KNOWN_CATEGORIES = new Set([
+  'company',
+  'revenue',
+  'industry',
+  'competitors',
+  'customers',
+  'channels',
+  'news',
+  'other'
+]);
+
 function coerceProvenance(v: unknown): Provenance {
   if (typeof v === 'string' && KNOWN_PROVENANCE.has(v as Provenance)) return v as Provenance;
   return 'agent_hypothesis';
@@ -50,10 +61,17 @@ export function eventToClaim(event: ResearchEvent): Claim | null {
     case 'fact': {
       const statement = typeof event.statement === 'string' ? event.statement : null;
       if (!statement) return null;
+      const category = typeof event.category === 'string' ? event.category : undefined;
       return {
         ...base,
         kind: 'fact',
-        content: { statement, source: typeof event.source === 'string' ? event.source : undefined },
+        content: {
+          statement,
+          source: typeof event.source === 'string' ? event.source : undefined,
+          category: KNOWN_CATEGORIES.has(category as never)
+            ? (category as 'company' | 'revenue' | 'industry' | 'competitors' | 'customers' | 'channels' | 'news' | 'other')
+            : undefined
+        },
         provenance: coerceProvenance(event.provenance)
       };
     }
@@ -78,6 +96,10 @@ export function eventToClaim(event: ResearchEvent): Claim | null {
           };
         }
       }
+      const plainSummary =
+        typeof event.plainSummary === 'string' && event.plainSummary.trim()
+          ? event.plainSummary.trim().slice(0, 240)
+          : undefined;
       return {
         ...base,
         kind: 'axis_position',
@@ -97,6 +119,7 @@ export function eventToClaim(event: ResearchEvent): Claim | null {
           candidateB,
           disambiguatingQuestion:
             typeof event.disambiguatingQuestion === 'string' ? event.disambiguatingQuestion : undefined,
+          plainSummary,
           deviation
         },
         provenance: 'agent_hypothesis'

@@ -154,6 +154,11 @@ export interface AxisPosition {
   candidateA?: { position: string; implication: string };
   candidateB?: { position: string; implication: string };
   disambiguatingQuestion?: string;
+  // The DISTILLED, plain-English answer for THIS company. <= 18 words,
+  // no jargon (no MTO/CODP/newsvendor/etc.). This is the card's
+  // headline — the technical `position` is for the engine, surfaced
+  // only when the user expands "see why".
+  plainSummary?: string;
   // v2 consequence inputs (additive). Present only when the axis is
   // atypical for this company. `magnitude` is the agent's 0..1 score
   // for "how far from typical for that axis"; `hotProblem` is the

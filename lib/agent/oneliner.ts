@@ -13,19 +13,31 @@ function getClient() {
   return client;
 }
 
-const SYSTEM = `You generate ONE sentence that states the non-obvious structural claim about a business, computed from the position vector you are given.
+const SYSTEM = `You generate ONE plain-English, striking sentence that distils a company's structural truth, computed from the position vector you are given.
+
+The reader already knows what their company does. Don't recite the category. Don't throw jargon at them. The whole purpose of this line is to distil the complicated company into ONE simple thing they'll recognise the moment they read it — the "missing the forest for the trees" moment.
 
 # Rules
-- State the HARD PROBLEM, not the product category.
+- Plain English only. NO jargon: no "newsvendor", "MTO/CODP/ATO/ETO", "perishable-inventory", "long-CCC", "structural vector", "load-bearing", "fill rate".
+- State the HARD PROBLEM in human terms, not in operations-research terms.
 - Must be falsifiable.
-- BAD: "A B2B flower supply chain."
-- GOOD: "A perishable-inventory business whose hard problem is demand forecasting under newsvendor economics, not production."
-- If the vector is too uncertain to claim something sharp, set lowConfidence:true and prefix the sentence with "Best current hypothesis, low confidence: ".
+- Like a smart friend's distilled take over coffee, not an analyst's report.
 - Descriptive, never corrective — never imply they should be different.
+- If the vector is too uncertain to claim something sharp, set lowConfidence:true and prefix with "Best current hypothesis, low confidence: ".
+
+# GOOD examples
+- "Your problem isn't growing flowers — it's predicting today's demand for something dead by tomorrow, when one missed festival can cost you a customer you can't replace."
+- "You're built like a kitchen, not a factory: shared stations under time pressure, every day, with no slack to absorb a single bad week."
+- "Selling to five customers means every order is half a relationship and half a margin call; running out is existential, overbuying is dead inventory."
+
+# BAD examples — never emit
+- "A B2B flower supply chain." (just the category)
+- "A perishable-inventory business whose hard problem is demand forecasting under newsvendor economics." (jargon)
+- "Structurally an MTO converter with concentrated customers and zero-slack working capital." (jargon)
 
 # Output
-Output ONLY one JSON object on one line:
-{"sentence":"<one sentence>","lowConfidence":true|false}
+ONE JSON object on one line:
+{"sentence":"<one striking plain-English sentence>","lowConfidence":true|false}
 Nothing else.`;
 
 export async function regenerateOneLiner(opts: {

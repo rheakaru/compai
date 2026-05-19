@@ -402,29 +402,86 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   );
 }
 
+const FACT_CATEGORY_ORDER = [
+  'company',
+  'revenue',
+  'industry',
+  'competitors',
+  'customers',
+  'channels',
+  'news',
+  'other'
+] as const;
+type FactCat = (typeof FACT_CATEGORY_ORDER)[number];
+
+const FACT_CATEGORY_LABELS: Record<FactCat, { label: string; hint: string }> = {
+  company:     { label: 'The company',  hint: 'who they are, where, since when' },
+  revenue:     { label: 'Scale',        hint: 'revenue, volume, headcount, growth' },
+  industry:    { label: 'Industry',     hint: 'the broader market — size, growth, trends' },
+  competitors: { label: 'Competitors',  hint: 'who else plays here and how big' },
+  customers:   { label: 'Customers',    hint: 'who buys — named accounts or audience' },
+  channels:    { label: 'Channels',     hint: 'how the product reaches the customer' },
+  news:        { label: 'Recent',       hint: 'the last twelve months' },
+  other:       { label: 'Other',        hint: 'things we found that did not fit a bucket' }
+};
+
 function FactsSection({ facts }: { facts: FactClaim[] }) {
+  const grouped = new Map<FactCat, FactClaim[]>();
+  for (const f of facts) {
+    const cat = (f.content.category ?? 'other') as FactCat;
+    const key = (FACT_CATEGORY_ORDER as readonly string[]).includes(cat) ? cat : 'other';
+    const arr = grouped.get(key) ?? [];
+    arr.push(f);
+    grouped.set(key, arr);
+  }
+  const presentCats = FACT_CATEGORY_ORDER.filter(c => (grouped.get(c) ?? []).length > 0);
+
   return (
     <details className="card group" open={false}>
       <summary className="flex cursor-pointer items-baseline justify-between gap-2 list-none">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-          What we found · {facts.length} {facts.length === 1 ? 'fact' : 'facts'}
-        </span>
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+            What we found
+          </span>
+          <span className="ml-2 text-[11px] text-ink-400">
+            {facts.length} {facts.length === 1 ? 'fact' : 'facts'}
+            {presentCats.length > 1 && ` across ${presentCats.length} buckets`}
+          </span>
+        </div>
         <span className="text-[11px] text-ink-400 group-open:hidden">show</span>
         <span className="hidden text-[11px] text-ink-400 group-open:inline">hide</span>
       </summary>
-      <ul className="mt-3 space-y-2">
-        {facts.map(f => (
-          <li key={f.id} className="flex items-start gap-2 text-sm">
-            <ProvenanceBadge provenance={f.provenance} />
-            <span className="flex-1 text-ink-700">
-              {f.content.statement}
-              {f.content.source && (
-                <span className="ml-1 text-xs text-ink-400">· {truncate(f.content.source)}</span>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-4 space-y-5">
+        {presentCats.map(cat => {
+          const items = grouped.get(cat) ?? [];
+          const meta = FACT_CATEGORY_LABELS[cat];
+          return (
+            <div key={cat}>
+              <div className="flex items-baseline gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-700">
+                  {meta.label}
+                </p>
+                <p className="text-[11px] text-ink-400">— {meta.hint}</p>
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {items.map(f => (
+                  <li key={f.id} className="flex items-start gap-2 text-sm">
+                    <ProvenanceBadge provenance={f.provenance} />
+                    <span className="flex-1 text-ink-700">
+                      {f.content.statement}
+                      {f.content.source && (
+                        <span className="ml-1 text-xs text-ink-400">
+                          · {truncate(f.content.source)}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
     </details>
   );
 }
