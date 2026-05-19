@@ -23,7 +23,9 @@ import { AnalogyAndProjects } from './AnalogyAndProjects';
 import { BrandHeader } from './BrandHeader';
 import { InviteOwnerSection } from './InviteOwnerSection';
 import { SessionPlanSection } from './SessionPlan/SessionPlanSection';
+import { ContextExportButton } from './ContextExportButton';
 import { AXIS_DISPLAY_ORDER } from '@/lib/ontology/display-labels';
+import { exportGateOpen, resolveExportGateLevel } from '@/lib/export/gate';
 import type { FiveProjects } from '@/lib/agent/projects';
 import type { SessionPlanContent } from '@/lib/agent/session-plan';
 import type { ResolvedGate } from '@/lib/gate/commitment';
@@ -332,6 +334,24 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
               companyName={branding?.name ?? null}
               gate={sessionGate}
               initialPlan={initialSessionPlan}
+            />
+          </section>
+        )}
+
+        {!streaming && companyId && (
+          <section>
+            <ContextExportButton
+              companyId={companyId}
+              companyName={branding?.name ?? null}
+              gateLevel={resolveExportGateLevel(ontology)}
+              gateOpen={exportGateOpen(
+                {
+                  hasAxes: axisClaims.length > 0,
+                  hasProjects: !!initialProjects,
+                  hasSessionPlan: !!initialSessionPlan
+                },
+                resolveExportGateLevel(ontology)
+              )}
             />
           </section>
         )}

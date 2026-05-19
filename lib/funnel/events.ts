@@ -15,7 +15,8 @@ export type FunnelStage =
   | 'analogy_floor_cleared'
   | 'analogy_honest_stop'
   | 'session_plan_viewed'
-  | 'session_plan_gate_passed';
+  | 'session_plan_gate_passed'
+  | 'context_graph_exported';
 
 export interface FunnelEvent {
   id: string;

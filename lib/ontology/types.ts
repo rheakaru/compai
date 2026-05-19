@@ -117,6 +117,20 @@ export interface SessionProjection {
   must_not: string[];
 }
 
+export type ExportGateLevel = 'profile_edit' | 'five_projects' | 'session_plan';
+
+export interface ContextGraphExportConfig {
+  principle: string;
+  format: 'markdown_only';
+  structure: string[];
+  method_preamble: string;
+  gate: {
+    export_gate_level: ExportGateLevel;
+    counter_argument_recorded: string;
+  };
+  must_not: string[];
+}
+
 export interface Ontology {
   meta: {
     version: string;
@@ -129,6 +143,7 @@ export interface Ontology {
   analogy_library: AnalogyEntry[];
   role_split: RoleSplit;
   session_projection?: SessionProjection;
+  context_graph_export?: ContextGraphExportConfig;
 }
 
 export interface AxisPosition {

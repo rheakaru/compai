@@ -402,3 +402,87 @@ session_projection:
     - "introduce session beats not in session_arc (the arc is the moat, grown per real session)"
     - "contradict sessions.html facts: 1 lakh/day, same-day, one senior person non-negotiable, Bangalore/SF only"
     - "promise outcomes the diagnosis does not support"
+
+# ============================================================
+# CONTEXT GRAPH EXPORT  —  the only artifact designed to LEAVE
+# the tool. The current company's projection serialised so a
+# consuming LLM (ChatGPT, Claude, the prospect's own dev) can
+# immediately answer their business questions more sharply.
+#
+# Strategic premise: it follows them out of the tab and keeps
+# demonstrating the gap between their generic AI and this
+# structured one. NOT a funnel leak — people who'd take it and
+# never book were never booking; the on-the-fence get a daily
+# reminder of the gap.
+# ============================================================
+context_graph_export:
+  principle: >
+    Re-serialise the EXISTING diagnosis. Do not re-analyse. The export
+    is a live-state projection — if a claim is corrected and re-exported,
+    the document must change. Provenance survives the export or the
+    consuming LLM will confidently build on guesses.
+
+  # Markdown only. Decided, not a default. Offering JSON or a second format
+  # adds a decision the user should not have to make; a technical user
+  # converts Markdown to JSON trivially.
+  format: markdown_only
+
+  # The order is the LLM priming order. Decreasing abstraction:
+  # preamble -> one-liner -> 9-axis vector -> hard-problem map ->
+  # deviations/interactions -> raw facts. Reordering this is wrong —
+  # the consuming LLM reads top-to-bottom, and we want the abstracted
+  # claim FIRST and the raw evidence LAST.
+  structure:
+    - preamble
+    - one_liner
+    - vector
+    - hard_problems
+    - deviations_interactions
+    - facts
+
+  # Default-on, strippable, NOT opt-in. This is the control against the
+  # consuming model treating agent-hypotheses as confirmed fact — the
+  # same hallucination failure mode handled elsewhere, relocated into
+  # a tool we can't observe, so the preamble is how we handle it here.
+  method_preamble: |
+    You are being given a structural diagnosis of a business as context.
+    Use it to answer questions about THIS business specifically — not
+    businesses in general.
+
+    How to use this:
+
+    1. The "9-axis vector" describes the company's structural shape.
+       Treat it as abstracted — it tells you which problems are
+       load-bearing for this shape, not all the operational details.
+    2. Reason from the "hard problems" first. They are computed from
+       the vector and weighted by load-bearing rank; the interactions
+       in the same section explain the real compounding problem.
+    3. Respect provenance. Each claim is tagged on-site / public /
+       hypothesis / owner. NEVER promote a hypothesis to a fact. If a
+       recommendation rests on a hypothesis, flag the hypothesis
+       explicitly in your answer.
+    4. Flag extrapolation. If a question needs information not in this
+       graph, say so — do not invent.
+    5. The one-liner states the non-obvious structural claim. If your
+       answer contradicts it, you have probably ignored the vector.
+
+  gate:
+    # Tunable like analogy_floor + payment_toggle. Allowed values:
+    # profile_edit | five_projects | session_plan. Default is the deepest
+    # commitment that still sits BEFORE booking.
+    export_gate_level: session_plan
+    counter_argument_recorded: >
+      Lowering to "five_projects" would roughly double export volume.
+      That becomes the right call only when funnelEvents shows
+      (a) booking-from-exporter rate has not dropped meaningfully from
+      its current level, AND (b) a measurable share of exports correlate
+      with referral traffic the operator can attribute. Until that
+      signal exists, the conservative gate stays — the decision is
+      empirically settleable, not arguable.
+
+  must_not:
+    - "offer a JSON option or any second format"
+    - "remove the method preamble by default (user must opt OUT, not in)"
+    - "drop the provenance tag from any claim in the export"
+    - "include data the user has not seen on the page (no hidden field exfil)"
+    - "include corrections / superseded history; export the LIVE projection only"
