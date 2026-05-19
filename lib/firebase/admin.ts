@@ -26,8 +26,25 @@ function init(): App {
   return app;
 }
 
+let dbConfigured = false;
+
 export function adminDb(): Firestore {
-  return getFirestore(init());
+  const db = getFirestore(init());
+  if (!dbConfigured) {
+    // Allow `undefined` in nested fields. Without this, any axis_position
+    // claim with an unset `deviation` / `candidateA` / `candidateB` /
+    // `disambiguatingQuestion` would fail to write — and the failure was
+    // being silently swallowed by the streaming route's per-claim catch,
+    // producing the "Reading…" bug on reload (claims existed in memory just
+    // long enough to derive hard_problems, then disappeared).
+    try {
+      db.settings({ ignoreUndefinedProperties: true });
+    } catch {
+      // Settings can only be applied once per app; safe to no-op on retry.
+    }
+    dbConfigured = true;
+  }
+  return db;
 }
 
 export function adminAuth(): Auth {

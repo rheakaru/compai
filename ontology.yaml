@@ -226,12 +226,14 @@ interactions:
       domain solves alone.
     hot_problem: "traceability-aware finite-capacity scheduling of a high-variety routing under regulatory lock"
     predicts: >
-      Off-the-shelf ERP rejection. This shape's source-of-truth lives in
-      bespoke files (a custom production tracker, a shared spreadsheet
-      run by a senior engineer) because no rigid platform fits the
-      certified-sequence + variety combination. Bespoke owned AI tooling
-      that absorbs the existing source-of-truth file and outperforms it
-      beats adopting another rigid platform.
+      This shape PREDICTS off-the-shelf ERP rejection. The process is
+      too idiosyncratic to fit a rigid template, so large ERP rollouts
+      tend not to take (observed at Bliss: a prior ERP attempt failed
+      because it could not bend to how the floor actually worked). This
+      is itself a strong signal: bespoke, owned, AI-assisted tooling
+      that absorbs the existing source-of-truth file beats another
+      rigid platform for companies in this shape. Transferable, not a
+      Bliss quirk.
     seen_in: bliss_aerospace
 
 # ------------------------------------------------------------
@@ -279,31 +281,6 @@ role_split:
     what makes honest self-description self-interested. Never present the
     split as a verdict; present it as leverage and runway.
 
-  # The role layer LEADS with this question, before any open-ended
-  # "describe your role" prompt. A named source-of-truth document is
-  # the highest-weighted input to role classification — free-text
-  # self-description is secondary. Across roles, the small set of
-  # named source-of-truth documents IS the company's operating spine.
-  primary_elicitation:
-    question: "What is the one document you cannot do your job without?"
-    rationale: >
-      The file someone reaches for first IS their role's center of
-      gravity. It compresses what they actually do better than any
-      paragraph of self-description, and across roles it surfaces
-      the company's real operating spine (which is rarely the ERP
-      and almost always a bespoke file).
-    weight: primary
-    invitee_framing: >
-      "The file you can't work without is exactly where the leverage
-      is" — AI suggestions in your career strategy must explicitly
-      reference and aim to outperform that file, not replace it with
-      generic tooling.
-    aggregate_use: >
-      The deduplicated list of source-of-truth documents named across
-      roles is surfaced on the company profile as "what this company
-      actually runs on" and feeds the five-projects generator as the
-      concrete artifacts projects should target.
-
   translation:
     definition: >
       Converting a well-defined input into a well-defined output; running
@@ -318,11 +295,30 @@ role_split:
       outcome rather than an output. This grows, dramatically.
     signals: [defines_correctness_under_ambiguity, holds_cross_ticket_context, owns_outcome_not_output, irreducible_responsibility]
 
+  # Highest-signal elicitation, learned from the field (Bliss session,
+  # field note 01). Do NOT lead with "describe your role" — it yields
+  # vague prose. Lead with: "Name the one document you cannot do your
+  # job without." Answers converge fast, and the convergence IS the
+  # structural map: the file each person names is the source of truth
+  # for their slice of the company. The role layer should ask this
+  # first and weight a named source-of-truth document far above
+  # free-text self-description.
+  primary_elicitation:
+    question: "What is the one document you cannot do your job without?"
+    why: >
+      Converges the room on a small set of real artifacts faster than
+      any open-ended prompt. The named file is the role's source of
+      truth and the concrete thing any AI intervention for that role
+      must absorb and outperform. Watch how FEW files get named — that
+      small set is the company's real operating spine.
+    feeds: [role_split_classification, company_source_of_truth_signal]
+
   derivation_rule: >
     Classify each described role-activity as translation or judgement,
     with evidence and provenance, using the SAME append-only / correction
     model as company-axis claims. A role is a companyId-scoped subject;
-    its claims are role-activities.
+    its claims are role-activities. A named source-of-truth document is
+    the strongest single input — prioritise it over narrative.
 
   invitee_deliverable: >
     PRIMARY output to the invitee, shown first and largest: the exposed
@@ -337,3 +333,72 @@ role_split:
     inviter-only view may contradict in substance what the invitee saw;
     the only permitted difference is aggregation level. Violating this
     collapses trust for every future invitee in that company.
+
+# ============================================================
+# SESSION PROJECTION  — the 4th node of the chain.
+# shape -> hard problem -> transferable solutions -> 5 projects
+#   -> WHAT ONE DAY WITH RHEA TURNS THOSE INTO.
+# Computed from the SAME vector + hard-problem map. NOT a generic
+# sales deck (that already exists at sessions.html). The value is
+# that this plan is demonstrably THEIRS, projected through the
+# real session structure below.
+# ============================================================
+session_projection:
+  principle: >
+    Render the company's own diagnosis as a one-day itinerary using
+    the real session shape. Every element must trace back to a
+    specific axis position, deviation, or interaction already shown
+    to the user. If a line could appear on any company's plan, it is
+    wrong — cut it or make it specific.
+
+  # The real session arc, extracted from the Bliss deck (44 slides)
+  # and the sessions.html offer. The projector maps the company's
+  # diagnosis onto these beats; it does not invent a structure.
+  session_arc:
+    - beat: scope_one_build
+      from_deck: "By 5pm today — one working dashboard, not a strategy deck"
+      project_from: "the single anchor project from the 5-projects output"
+    - beat: source_of_truth_ritual
+      from_deck: "When 9 of you name the same document — WIP + PO"
+      project_from: "company_source_of_truth_signal; name the file this company most likely runs on given its shape"
+    - beat: value_in_first_hour
+      from_playbook: "show the pre-built thing within the first hour"
+      project_from: "what a first-hour prototype of THIS company's anchor project looks like"
+    - beat: five_stage_dashboard
+      from_deck: "Input / View / Analyze / Insight / Action — dashboards that get used"
+      project_from: "walk the anchor project through the 5 stages with this company's actual data nouns"
+    - beat: skeptic_turn
+      from_playbook: "the skeptic who ran over time"
+      project_from: "name the role most likely to be the skeptic for this shape and what flips them"
+    - beat: ownership_close
+      from_deck_and_offer: "on your machine, your keys, no vendor — teach to fish"
+      project_from: "what specifically this company owns and can extend the day after"
+
+  closing_spine: >
+    End on the deck's own close: "You can outsource your thinking.
+    You can't outsource your understanding." The free diagnosis gave
+    them understanding; the session is where they build on it; the
+    one thing that cannot be outsourced is the senior person in the
+    room — which is also the single non-negotiable on sessions.html.
+    Diagnosis = understanding (free). Session = building (paid).
+    Irreducible human = the senior person. Tie all three.
+
+  gate:
+    type: commitment_nonmonetary      # confirmed non-monetary; exact form TBD by operator
+    commitment_mechanism: undefined   # operator still deciding (richer co. info? named sponsor? NDA? scheduling intent?). Build as a pluggable step with a clear seam; ship a labelled placeholder, do not hardcode.
+    payment_toggle:                   # retained ONLY as a later A/B; not the intended mechanism
+      enabled: false                  # DEFAULT OFF; flippable without code change, like analogy_floor
+      amount_inr: 1000
+      rationale_against: >
+        A pre-session micro-payment asks the prospect to pay to be
+        convinced to pay, and recategorises a 1-lakh-same-day operator
+        as someone collecting small sums personally — corroding the
+        anchor sessions.html establishes. Kept as a toggle so it can
+        be A/B'd against funnel data, not settled by argument. Off
+        unless deliberately switched on.
+
+  must_not:
+    - "be a generic session description (sessions.html already is that)"
+    - "introduce session beats not in session_arc (the arc is the moat, grown per real session)"
+    - "contradict sessions.html facts: 1 lakh/day, same-day, one senior person non-negotiable, Bangalore/SF only"
+    - "promise outcomes the diagnosis does not support"

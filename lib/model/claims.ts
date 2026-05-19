@@ -105,4 +105,13 @@ export interface CompanyDoc {
   completedAt?: number | null;
   ontologyVersionHash: string;
   branding?: BrandingSnapshot | null;
+  // Session-plan persisted state. The 4th chain node; only renders after
+  // /api/session-plan returns. The gate variant is recorded so funnel
+  // analysis can later A/B different commitment forms.
+  sessionPlan?: {
+    generatedAt: number;
+    payload: unknown; // typed as SessionPlanContent at the call-site
+    gateVariantId: string;
+    gateCommitment?: Record<string, string>;
+  } | null;
 }

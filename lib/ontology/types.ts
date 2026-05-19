@@ -93,6 +93,30 @@ export interface RoleSplit {
   trust_invariant: string;
 }
 
+export interface SessionArcBeat {
+  beat: string;
+  from_deck?: string;
+  from_playbook?: string;
+  from_deck_and_offer?: string;
+  project_from: string;
+}
+
+export interface SessionProjection {
+  principle: string;
+  session_arc: SessionArcBeat[];
+  closing_spine: string;
+  gate: {
+    type: string;
+    commitment_mechanism: string;
+    payment_toggle: {
+      enabled: boolean;
+      amount_inr: number;
+      rationale_against: string;
+    };
+  };
+  must_not: string[];
+}
+
 export interface Ontology {
   meta: {
     version: string;
@@ -104,6 +128,7 @@ export interface Ontology {
   interactions: Interaction[];
   analogy_library: AnalogyEntry[];
   role_split: RoleSplit;
+  session_projection?: SessionProjection;
 }
 
 export interface AxisPosition {

@@ -2,8 +2,10 @@ import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
 import { loadOntology } from '@/lib/ontology/loader';
 import { Profile } from '@/components/Profile';
+import { resolveGate } from '@/lib/gate/commitment';
 import type { BrandingSnapshot, Claim, CompanyDoc } from '@/lib/model/claims';
 import type { FiveProjects } from '@/lib/agent/projects';
+import type { SessionPlanContent } from '@/lib/agent/session-plan';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +14,11 @@ interface PersistedCompanyDoc extends CompanyDoc {
   projects?: {
     generatedAt: number;
     payload: FiveProjects;
+  };
+  sessionPlan?: {
+    generatedAt: number;
+    payload: SessionPlanContent;
+    gateVariantId: string;
   };
 }
 
@@ -22,6 +29,7 @@ export default async function CompanyPage({
 }) {
   const { companyId } = await params;
   const { ontology } = loadOntology();
+  const sessionGate = resolveGate(ontology);
 
   const companyRef = adminDb().collection('companies').doc(companyId);
   const companySnap = await companyRef.get();
@@ -41,6 +49,8 @@ export default async function CompanyPage({
       companyUrl={company.url}
       initialProjects={company.projects?.payload ?? null}
       initialBranding={company.branding ?? null}
+      initialSessionPlan={company.sessionPlan?.payload ?? null}
+      sessionGate={sessionGate}
     />
   );
 }

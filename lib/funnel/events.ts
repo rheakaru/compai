@@ -13,7 +13,9 @@ export type FunnelStage =
   | 'stack_submitted'
   | 'projects_viewed'
   | 'analogy_floor_cleared'
-  | 'analogy_honest_stop';
+  | 'analogy_honest_stop'
+  | 'session_plan_viewed'
+  | 'session_plan_gate_passed';
 
 export interface FunnelEvent {
   id: string;

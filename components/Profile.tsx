@@ -22,8 +22,11 @@ import { TransferableSolutions } from './TransferableSolutions';
 import { AnalogyAndProjects } from './AnalogyAndProjects';
 import { BrandHeader } from './BrandHeader';
 import { InviteOwnerSection } from './InviteOwnerSection';
+import { SessionPlanSection } from './SessionPlan/SessionPlanSection';
 import { AXIS_DISPLAY_ORDER } from '@/lib/ontology/display-labels';
 import type { FiveProjects } from '@/lib/agent/projects';
+import type { SessionPlanContent } from '@/lib/agent/session-plan';
+import type { ResolvedGate } from '@/lib/gate/commitment';
 
 export interface ProfileHandle {
   appendClaim: (claim: Claim) => void;
@@ -39,6 +42,8 @@ interface ProfileProps {
   streaming?: boolean;
   initialProjects?: FiveProjects | null;
   initialBranding?: BrandingSnapshot | null;
+  initialSessionPlan?: SessionPlanContent | null;
+  sessionGate?: ResolvedGate | null;
 }
 
 export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
@@ -49,7 +54,9 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     companyUrl,
     streaming = false,
     initialProjects = null,
-    initialBranding = null
+    initialBranding = null,
+    initialSessionPlan = null,
+    sessionGate = null
   },
   ref
 ) {
@@ -311,6 +318,21 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           <section>
             <SectionHeader title="Your 5 AI projects" />
             <AnalogyAndProjects companyId={companyId} initialProjects={initialProjects} />
+          </section>
+        )}
+
+        {!streaming && companyId && sessionGate && initialProjects && (
+          <section>
+            <SectionHeader
+              title="Your one day with Rhea"
+              subtitle="The 4th node: the fixed session arc, inhabited by your diagnosis. Same six beats every company gets; what fills each beat is yours."
+            />
+            <SessionPlanSection
+              companyId={companyId}
+              companyName={branding?.name ?? null}
+              gate={sessionGate}
+              initialPlan={initialSessionPlan}
+            />
           </section>
         )}
 

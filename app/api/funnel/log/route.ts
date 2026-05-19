@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 const CLIENT_LOGGABLE: FunnelStage[] = [
   'profile_viewed',
   'edit_started',
-  'projects_viewed'
+  'projects_viewed',
+  'session_plan_viewed'
 ];
 
 const Body = z.object({
