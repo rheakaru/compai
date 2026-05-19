@@ -33,6 +33,7 @@ export function InvitedRoleClient({
 }) {
   const initialPhase: Phase = status === 'completed' ? 'done' : 'input';
   const [phase, setPhase] = useState<Phase>(initialPhase);
+  const [sourceOfTruthDoc, setSourceOfTruthDoc] = useState('');
   const [description, setDescription] = useState('');
   const [claims, setClaims] = useState<RoleClaim[]>(initialClaims);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +67,11 @@ export function InvitedRoleClient({
         const res = await fetch('/api/roles/derive', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ token, description: description.trim() })
+          body: JSON.stringify({
+            token,
+            description: description.trim(),
+            sourceOfTruthDoc: sourceOfTruthDoc.trim() || undefined
+          })
         });
         if (!res.ok || !res.body) {
           const text = await res.text().catch(() => '');
@@ -105,7 +110,7 @@ export function InvitedRoleClient({
         setPhase('input');
       }
     },
-    [description, token]
+    [description, sourceOfTruthDoc, token]
   );
 
   const brandStyle = {
@@ -142,14 +147,37 @@ export function InvitedRoleClient({
               </p>
             </div>
 
+            <div
+              className="card border-l-4"
+              style={{ borderLeftColor: 'var(--brand, #c64a1f)' }}
+            >
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-700">
+                Start here
+              </label>
+              <p className="mt-1 text-[16px] font-semibold leading-snug text-ink-900">
+                What is the one document you cannot do your job without?
+              </p>
+              <p className="mt-1 text-xs text-ink-500">
+                Name the file by name — a spreadsheet, an SOP, a shared doc, a tracker.
+                This is the most useful thing you can tell us. The leverage is right there.
+              </p>
+              <input
+                value={sourceOfTruthDoc}
+                onChange={e => setSourceOfTruthDoc(e.target.value)}
+                className="mt-3 w-full rounded-md border border-ink-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none placeholder:text-ink-300 focus:border-ink-400"
+                placeholder="e.g. ProductionTracker.xlsx — the master schedule one engineer keeps"
+                autoFocus
+              />
+            </div>
+
             <div>
               <label className="text-[11px] uppercase tracking-wider text-ink-500">
-                What does a normal day or week look like?
+                And then — what does a normal day or week look like?
               </label>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                rows={10}
+                rows={9}
                 className="mt-1 w-full resize-none rounded-md border border-ink-200 bg-white px-4 py-3 text-sm shadow-sm outline-none placeholder:text-ink-300 focus:border-ink-400"
                 placeholder={[
                   "Be specific. What do you actually do?",
@@ -158,7 +186,6 @@ export function InvitedRoleClient({
                   "Who do you coordinate with and how?",
                   "What problems take up the most of your time?"
                 ].join('\n')}
-                autoFocus
               />
             </div>
             <button

@@ -36,6 +36,26 @@ function buildSystemPrompt(): string {
   const phil = ontology.role_split.philosophy;
   const deliverable = ontology.role_split.invitee_deliverable;
   const trust = ontology.role_split.trust_invariant;
+  const elicit = ontology.role_split.primary_elicitation;
+
+  const elicitBlock = elicit
+    ? `
+# Primary elicitation — the source-of-truth document is the highest-weighted input
+
+The user is asked first: "${elicit.question}"
+${elicit.rationale}
+
+Weight: ${elicit.weight}. The named document is more informative than any paragraph of self-description.
+
+Invitee framing: ${elicit.invitee_framing}
+
+When the user has named a source-of-truth document:
+- Treat it as the role's center of gravity. The role's activities orbit it.
+- In your career strategy, EXPLICITLY reference the file by name. Tell them what it actually is in their work and why it matters — name it once early, then once again in the AI-in-role section.
+- Your AI-in-role tips must aim to OUTPERFORM that specific file, not replace it with a generic tool. Phrase the tips as "absorb [the file] and beat it at X" rather than "use [generic AI tool]."
+- If they did NOT name a document, gently note the absence in the closing note ("it's worth finding the one document you actually live in") without making it a verdict.
+`
+    : '';
 
   return `You analyze a person's description of their job and produce two outputs in sequence:
 
@@ -54,7 +74,7 @@ Signals: ${j.signals.join(', ')}
 
 # Philosophy
 ${phil}
-
+${elicitBlock}
 # The career strategy (PRIMARY DELIVERABLE)
 ${deliverable}
 
@@ -78,7 +98,7 @@ For each distinct activity (typically 4–8 per role), emit:
 {"type":"activity","activity":"<short noun phrase: what they actually do>","classification":"translation"|"judgement","evidence":[{"source":"role_description","quote":"<short quote from their text>","provenance":"user_provided"}],"confidence":0.0-1.0}
 
 After all activities, emit ONE career_strategy object:
-{"type":"career_strategy","strategy":{"exposedSurface":"<one sentence stating the translation surface plainly>","judgementCore":"<one sentence on what they already do that grows>","movesTowardJudgement":["<concrete move 1>","<move 2>","<move 3>","..."],"aiInRoleTips":["<tip 1>","<tip 2>","<tip 3>","..."],"closingNote":"<one short paragraph: leverage + runway, never a verdict>"}}
+{"type":"career_strategy","strategy":{"exposedSurface":"<one sentence stating the translation surface plainly>","judgementCore":"<one sentence on what they already do that grows>","movesTowardJudgement":["<concrete move 1>","<move 2>","<move 3>","..."],"aiInRoleTips":["<tip 1>","<tip 2>","<tip 3>","..."],"closingNote":"<one short paragraph: leverage + runway, never a verdict>","sourceOfTruthAnchor":"<one sentence naming the file AND stating where its leverage is; null if no file named>"}}
 
 # What NOT to do
 
@@ -92,12 +112,17 @@ After all activities, emit ONE career_strategy object:
 export async function* streamRoleDerivation(opts: {
   roleTitle: string;
   description: string;
+  sourceOfTruthDoc?: string | null;
   companyContext?: string;
 }): AsyncGenerator<RoleEvent> {
   const system = buildSystemPrompt();
+  const docBlock = opts.sourceOfTruthDoc?.trim()
+    ? `# THE FILE THEY CAN'T WORK WITHOUT (primary input — weight this above the free text)\n${opts.sourceOfTruthDoc.trim()}\n\nThis named file is the role's center of gravity. Reference it explicitly in the career strategy. Frame the AI tips as outperforming THIS file specifically, not replacing it with generic tools.`
+    : `# THE FILE THEY CAN'T WORK WITHOUT\n(They did not name one. Note this gently in the closing — it's worth finding the one document they actually live in.)`;
   const message = [
     `# Role title\n${opts.roleTitle}`,
     opts.companyContext ? `# Company context\n${opts.companyContext}` : null,
+    docBlock,
     `# Their description of the role\n${opts.description}`,
     `\nClassify the distinct activities and produce their career strategy per the system instructions.`
   ]

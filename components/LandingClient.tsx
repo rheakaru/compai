@@ -46,6 +46,17 @@ export function LandingClient({ ontology }: { ontology: Ontology }) {
           throw new Error(text || `HTTP ${res.status}`);
         }
 
+        // Cache hit: server already has a completed analysis for this URL +
+        // user/session. Redirect to it instead of re-running the agent.
+        const ctype = res.headers.get('content-type') ?? '';
+        if (ctype.includes('application/json')) {
+          const data = (await res.json()) as { companyId?: string; alreadyCompleted?: boolean };
+          if (data.companyId) {
+            window.location.href = `/c/${data.companyId}`;
+            return;
+          }
+        }
+
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';

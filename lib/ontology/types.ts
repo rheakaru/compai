@@ -60,6 +60,9 @@ export interface Interaction {
   compounding_mechanism: string;
   hot_problem: string;
   seen_in?: string;
+  // When the interaction fires, this is the transferable prediction it
+  // carries. Used by the 5-projects generator to shift framing.
+  predicts?: string;
 }
 
 export interface ConsequenceRulesV2 {
@@ -72,8 +75,17 @@ export interface ConsequenceRulesV2 {
   invariant: string;
 }
 
+export interface PrimaryElicitation {
+  question: string;
+  rationale: string;
+  weight: string;
+  invitee_framing: string;
+  aggregate_use: string;
+}
+
 export interface RoleSplit {
   philosophy: string;
+  primary_elicitation?: PrimaryElicitation;
   translation: { definition: string; signals: string[] };
   judgement: { definition: string; signals: string[] };
   derivation_rule: string;

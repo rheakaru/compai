@@ -24,7 +24,8 @@ export const maxDuration = 300;
 
 const Body = z.object({
   token: z.string().min(1),
-  description: z.string().min(20).max(8000)
+  description: z.string().min(20).max(8000),
+  sourceOfTruthDoc: z.string().max(500).optional().nullable()
 });
 
 const KNOWN_PROVENANCE = new Set<Provenance>([
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       headers: { 'content-type': 'application/json' }
     });
   }
-  const { token, description } = parsed.data;
+  const { token, description, sourceOfTruthDoc } = parsed.data;
 
   const db = adminDb();
   const idxSnap = await db.collection('inviteIndex').doc(token).get();
@@ -81,12 +82,16 @@ export async function POST(req: NextRequest) {
   const role = roleSnap.data() as RoleDoc;
 
   // Mark started and bind invitee identity (uid if signed in, else session cookie).
+  // sourceOfTruthDoc is the highest-weighted input to role classification —
+  // persisted on the role doc so it survives across page loads and is available
+  // to the company-level aggregate.
   await roleRef.update({
     status: 'started',
     startedAt: Date.now(),
     inviteeUid: user?.uid ?? role.inviteeUid ?? null,
     inviteeSessionId: role.inviteeSessionId ?? sessionId,
-    inviteeEmail: user?.email ?? role.inviteeEmail ?? null
+    inviteeEmail: user?.email ?? role.inviteeEmail ?? null,
+    sourceOfTruthDoc: sourceOfTruthDoc?.trim() || null
   });
 
   // Company context (lightweight): name + url for the agent prompt only.
@@ -109,6 +114,7 @@ export async function POST(req: NextRequest) {
         for await (const event of streamRoleDerivation({
           roleTitle: role.roleTitle,
           description,
+          sourceOfTruthDoc: sourceOfTruthDoc?.trim() || null,
           companyContext
         })) {
           if (event.type === 'activity') {
@@ -148,10 +154,15 @@ export async function POST(req: NextRequest) {
             }
           } else if (event.type === 'career_strategy') {
             careerStrategy = event.strategy;
+            // If the agent forgot to echo the file, fold it in so the
+            // strategy view always shows it when the invitee named one.
+            if (sourceOfTruthDoc?.trim() && !careerStrategy.sourceOfTruthAnchor) {
+              careerStrategy.sourceOfTruthAnchor = sourceOfTruthDoc.trim();
+            }
             const claim: CareerStrategyClaim = {
               id: randomUUID(),
               kind: 'career_strategy',
-              content: event.strategy,
+              content: careerStrategy,
               provenance: 'agent_hypothesis',
               confidence: 0.75,
               supersededBy: null,

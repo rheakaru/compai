@@ -8,6 +8,8 @@ import { logFunnelEvent } from '@/lib/funnel/events';
 import { loadOntology } from '@/lib/ontology/loader';
 import { matchAnalogy } from '@/lib/model/analogy';
 import { generateFiveProjects, type FiveProjects } from '@/lib/agent/projects';
+import { detectDeclaredInteractions } from '@/lib/model/interactions';
+import { computeRoleAggregate } from '@/lib/role/aggregate';
 import type {
   AxisPositionClaim,
   Claim,
@@ -96,6 +98,22 @@ export async function POST(req: NextRequest) {
   const { ontology } = loadOntology();
   const analogy = matchAnalogy(axisClaims, ontology);
 
+  // Source-of-truth documents are the highest-priority concrete artifacts for
+  // the projects generator (per the primary_elicitation block in ontology.yaml).
+  // The aggregate also gives us role-derived signals to feed back into projects.
+  const roleAggregate = await computeRoleAggregate(companyId);
+  const sourceOfTruthDocs = roleAggregate.sourceOfTruthDocs;
+
+  // Declared interactions whose `predicts` clause should shape framing.
+  const firedInteractions = detectDeclaredInteractions(axisClaims, ontology)
+    .map(f => {
+      const declared = ontology.interactions?.find(i => i.id === f.interactionId);
+      return declared?.predicts
+        ? { id: f.interactionId, hotProblem: f.hotProblem, predicts: declared.predicts }
+        : null;
+    })
+    .filter((x): x is { id: string; hotProblem: string; predicts: string } => x !== null);
+
   // Log the floor decision as a funnel meta — this is the operator's worklist
   // for "which analogy_library entries to author next."
   await logFunnelEvent({
@@ -118,7 +136,9 @@ export async function POST(req: NextRequest) {
       axisClaims,
       hotProblems,
       stack: fullStack,
-      analogy
+      analogy,
+      sourceOfTruthDocs,
+      firedInteractions
     });
   } catch (err) {
     return json(

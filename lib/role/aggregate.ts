@@ -13,6 +13,10 @@ export interface RoleAggregate {
   totalJudgementActivities: number;
   translationHeavyRoleCount: number; // > 60% translation
   judgementHeavyRoleCount: number;   // > 60% judgement
+  // Source-of-truth documents named across roles. Deduplicated. This IS the
+  // company's operating spine. Shown on the profile and fed to projects.
+  // No per-role attribution exposed — only the deduplicated list.
+  sourceOfTruthDocs: Array<{ name: string; mentionCount: number }>;
   // Roster: status + title + invitee email (or "—"). Substance is not exposed.
   roster: Array<{
     roleId: string;
@@ -40,8 +44,16 @@ export async function computeRoleAggregate(companyId: string): Promise<RoleAggre
   let translationHeavy = 0;
   let judgementHeavy = 0;
   const completedShares: number[] = [];
+  const docCounts = new Map<string, number>();
 
   for (const role of roles) {
+    if (role.sourceOfTruthDoc && role.sourceOfTruthDoc.trim()) {
+      // Normalize for dedup: lowercase + collapse whitespace. Display uses the
+      // first-seen casing.
+      const raw = role.sourceOfTruthDoc.trim();
+      const key = raw.toLowerCase().replace(/\s+/g, ' ');
+      docCounts.set(key, (docCounts.get(key) ?? 0) + 1);
+    }
     if (role.status !== 'completed') continue;
     const claimsSnap = await db
       .collection('companies')
@@ -73,6 +85,19 @@ export async function computeRoleAggregate(companyId: string): Promise<RoleAggre
     if (jd / total > 0.6) judgementHeavy++;
   }
 
+  // Build the deduplicated source-of-truth list, keeping the first-seen
+  // casing for display.
+  const firstSeenCasing = new Map<string, string>();
+  for (const role of roles) {
+    const raw = role.sourceOfTruthDoc?.trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase().replace(/\s+/g, ' ');
+    if (!firstSeenCasing.has(key)) firstSeenCasing.set(key, raw);
+  }
+  const sourceOfTruthDocs = [...docCounts.entries()]
+    .map(([key, count]) => ({ name: firstSeenCasing.get(key) ?? key, mentionCount: count }))
+    .sort((a, b) => b.mentionCount - a.mentionCount);
+
   return {
     rolesInvited: roles.length,
     rolesStarted: roles.filter(r => r.status !== 'pending').length,
@@ -86,6 +111,7 @@ export async function computeRoleAggregate(companyId: string): Promise<RoleAggre
     totalJudgementActivities: totalJudgement,
     translationHeavyRoleCount: translationHeavy,
     judgementHeavyRoleCount: judgementHeavy,
+    sourceOfTruthDocs,
     roster: roles
       .sort((a, b) => b.createdAt - a.createdAt)
       .map(r => ({

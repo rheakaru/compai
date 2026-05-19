@@ -10,7 +10,7 @@ import { logFunnelEvent } from '@/lib/funnel/events';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { extractBranding } from '@/lib/branding/extract';
 import { adminDb } from '@/lib/firebase/admin';
-import type { AxisPositionClaim, Claim, BrandingSnapshot } from '@/lib/model/claims';
+import type { AxisPositionClaim, Claim, BrandingSnapshot, CompanyDoc } from '@/lib/model/claims';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +29,37 @@ function normalizeUrl(raw: string): string {
   return raw.startsWith('http') ? raw : `https://${raw}`;
 }
 
+/**
+ * Find an existing COMPLETED company for this URL that belongs to the same
+ * user (or anonymous session). Per-user/session dedup — we don't reuse other
+ * users' analyses because their corrections diverge.
+ *
+ * Skipped when notes are present; notes are real input, not a key to dedup on.
+ */
+async function findExistingCompletedCompany(opts: {
+  url: string;
+  ownerUid: string | null;
+  sessionId: string;
+}): Promise<string | null> {
+  const snap = await adminDb()
+    .collection('companies')
+    .where('url', '==', opts.url)
+    .limit(20)
+    .get();
+
+  const candidates = snap.docs
+    .map(d => ({ id: d.id, data: d.data() as CompanyDoc }))
+    .filter(({ data }) => {
+      if (!data.completedAt) return false;
+      if (opts.ownerUid) return data.ownerUid === opts.ownerUid;
+      // Anonymous: dedup only against other anonymous docs from THIS session.
+      return !data.ownerUid && data.sessionId === opts.sessionId;
+    })
+    .sort((a, b) => (b.data.createdAt ?? 0) - (a.data.createdAt ?? 0));
+
+  return candidates[0]?.id ?? null;
+}
+
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { url?: string; notes?: string } | null;
   const rawUrl = body?.url?.trim();
@@ -43,6 +74,33 @@ export async function POST(req: NextRequest) {
   const sessionId = await getOrCreateSessionId();
   const user = await getUserFromAuthHeader(req.headers.get('authorization'));
   const { hash } = loadOntology();
+
+  // Cache hit: same user/session already has a completed analysis for this URL.
+  // Skip dedup when notes are present — notes are real input and may produce a
+  // different read of the same company.
+  const notes = body?.notes?.trim();
+  if (!notes) {
+    const existingId = await findExistingCompletedCompany({
+      url,
+      ownerUid: user?.uid ?? null,
+      sessionId
+    });
+    if (existingId) {
+      void logFunnelEvent({
+        sessionId,
+        ownerUid: user?.uid ?? null,
+        companyId: existingId,
+        companyUrl: url,
+        stage: 'url_submitted',
+        meta: { cacheHit: true }
+      });
+      return new Response(
+        JSON.stringify({ companyId: existingId, alreadyCompleted: true }),
+        { headers: { 'content-type': 'application/json' } }
+      );
+    }
+  }
+
   const companyId = await createCompany({
     url,
     sessionId,
@@ -141,6 +199,16 @@ export async function POST(req: NextRequest) {
             continue;
           }
           send({ type: 'claim', claim: persistable });
+        }
+
+        // Mark the company complete so future pastes of this URL skip the agent.
+        try {
+          await adminDb()
+            .collection('companies')
+            .doc(companyId)
+            .set({ completedAt: Date.now() }, { merge: true });
+        } catch {
+          // non-fatal — at worst we re-run the agent next time
         }
       } catch (err) {
         send({ type: 'error', message: err instanceof Error ? err.message : String(err) });

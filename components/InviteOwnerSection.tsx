@@ -116,6 +116,9 @@ export function InviteOwnerSection({ companyId }: { companyId: string }) {
         )}
       </form>
 
+      {aggregate && aggregate.sourceOfTruthDocs.length > 0 && (
+        <OperatingSpine docs={aggregate.sourceOfTruthDocs} />
+      )}
       {aggregate && aggregate.rolesInvited > 0 && (
         <>
           <AggregateMetrics aggregate={aggregate} />
@@ -125,6 +128,39 @@ export function InviteOwnerSection({ companyId }: { companyId: string }) {
       {aggregate && aggregate.rolesInvited === 0 && !loading && (
         <p className="text-xs text-ink-400">No invites yet.</p>
       )}
+    </div>
+  );
+}
+
+function OperatingSpine({
+  docs
+}: {
+  docs: Array<{ name: string; mentionCount: number }>;
+}) {
+  return (
+    <div className="card border-l-4" style={{ borderLeftColor: 'var(--brand, #c64a1f)' }}>
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+        What this company actually runs on
+      </h3>
+      <p className="mt-1 text-[11px] text-ink-400">
+        The files coworkers said they can&apos;t do their job without. This is the company&apos;s
+        real operating spine — and exactly where AI leverage lives.
+      </p>
+      <ul className="mt-3 space-y-2">
+        {docs.map(d => (
+          <li
+            key={d.name}
+            className="flex items-baseline justify-between gap-3 rounded border border-ink-100 bg-ink-50/60 px-3 py-2"
+          >
+            <span className="font-mono text-sm text-ink-900">{d.name}</span>
+            {d.mentionCount > 1 && (
+              <span className="text-[11px] text-ink-500">
+                named by {d.mentionCount} {d.mentionCount === 1 ? 'role' : 'roles'}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -99,6 +99,10 @@ export interface CompanyDoc {
   url: string;
   name: string | null;
   createdAt: number;
+  // Set when the initial research stream finishes. Drives the
+  // "you already analyzed this" dedup in /api/research — without this,
+  // every paste of the same URL would re-run the agent.
+  completedAt?: number | null;
   ontologyVersionHash: string;
   branding?: BrandingSnapshot | null;
 }

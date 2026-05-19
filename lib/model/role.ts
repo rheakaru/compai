@@ -17,6 +17,10 @@ export interface RoleDoc {
   startedAt: number | null;
   completedAt: number | null;
   ontologyVersionHash: string;
+  // Per the primary_elicitation block in ontology.yaml: the named document
+  // the invitee said they can't do their job without. This is the role's
+  // center of gravity — weighted above the free-text description.
+  sourceOfTruthDoc?: string | null;
 }
 
 export interface InviteIndexDoc {
@@ -45,6 +49,9 @@ export interface CareerStrategyContent {
   movesTowardJudgement: string[];  // 3-5 concrete next moves
   aiInRoleTips: string[];          // 3-5 AI-in-your-role tips that accelerate the shift
   closingNote: string;             // one paragraph framing leverage + runway
+  // Per the primary_elicitation block: the agent MUST reference the named
+  // source-of-truth file and frame the leverage as "outperform this file."
+  sourceOfTruthAnchor?: string | null;
 }
 
 export interface RoleActivityClaim {

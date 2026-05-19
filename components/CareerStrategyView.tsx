@@ -8,6 +8,17 @@ export function CareerStrategyView({ strategy }: { strategy: CareerStrategyConte
       <div className="card border-l-4" style={{ borderLeftColor: 'var(--brand, #c64a1f)' }}>
         <p className="text-[11px] uppercase tracking-wider text-ink-500">Your career strategy</p>
 
+        {strategy.sourceOfTruthAnchor && (
+          <div className="mt-4 rounded-md bg-ink-50 p-3">
+            <p className="text-[11px] uppercase tracking-wider text-ink-500">
+              The file you can&apos;t work without — where the leverage is
+            </p>
+            <p className="mt-1.5 text-[15px] font-medium leading-snug text-ink-900">
+              {strategy.sourceOfTruthAnchor}
+            </p>
+          </div>
+        )}
+
         <div className="mt-4">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
             The exposed surface, plainly

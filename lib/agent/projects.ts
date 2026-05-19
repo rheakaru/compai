@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { loadOntology } from '@/lib/ontology/loader';
 import type { AxisPositionClaim, HardProblemClaim, OneLinerClaim } from '@/lib/model/claims';
 import type { CompanyStack } from '@/lib/model/stack';
-import type { AnalogyEntry } from '@/lib/ontology/types';
+import type { AnalogyEntry, Interaction } from '@/lib/ontology/types';
 
 let client: Anthropic | null = null;
 function getClient() {
@@ -30,6 +30,14 @@ A JSON object with exactly five entries:
 - Stack-aware credibility is the entire conversion mechanism. Generic AI suggestions destroy it. If you cannot name a real connector for the declared stack, prefer a different project.
 - Descriptive, never corrective. Do not tell the company it is positioned wrong.
 - No fabrication. If the position vector and stack make a project class infeasible, omit it rather than invent.
+
+# Source-of-truth files take priority over generic stack tools
+
+When the user has named source-of-truth documents (the files coworkers said they can't do their job without), THOSE are the concrete artifacts your projects must target. A project that "absorbs ProductionTracker.xlsx and outperforms it" beats a project that "uses a generic AI agent" — every time. The named file IS where the leverage is.
+
+# When variety × traceability fires — bespoke beats platform
+
+When the interaction "variety_x_regulatory_traceability" is firing (you'll see it in the input below), it predicts off-the-shelf ERP rejection. Bespoke owned AI tooling that ABSORBS the existing source-of-truth file and OUTPERFORMS it beats adopting another rigid platform. Frame the anchor project accordingly: "absorb your existing file" rather than "adopt a new tool." Do NOT suggest replacing the spreadsheet with a SaaS product.
 
 # Output format
 
@@ -65,6 +73,8 @@ export async function generateFiveProjects(opts: {
   hotProblems: HardProblemClaim[];
   stack: CompanyStack;
   analogy: { entry: AnalogyEntry; score: number; aboveFloor: boolean } | null;
+  sourceOfTruthDocs?: Array<{ name: string; mentionCount: number }>;
+  firedInteractions?: Array<{ id: string; hotProblem: string; predicts?: string }>;
 }): Promise<FiveProjects> {
   const { ontology } = loadOntology();
 
@@ -91,11 +101,28 @@ export async function generateFiveProjects(opts: {
     ? `Solved-domain anchor (above floor): ${opts.analogy.entry.solved_domains.map(d => d.domain).join('; ')}.\nResidue (the actual project): ${opts.analogy.entry.residue}\nPosture-shift: ${opts.analogy.entry.posture_shift}`
     : 'No analogy above the quality floor — design projects from the shape and hard-problem map directly.';
 
+  const docs = opts.sourceOfTruthDocs ?? [];
+  const docBlock = docs.length > 0
+    ? `These are the files coworkers at this company said they can't do their job without — the operating spine:\n${docs
+        .map(d => `- ${d.name}${d.mentionCount > 1 ? ` (named by ${d.mentionCount} roles)` : ''}`)
+        .join('\n')}\n\nYour projects must target THESE artifacts. Phrase the anchor as "absorb [the named file] and outperform it" — not "use a generic agent."`
+    : 'No source-of-truth files captured (no roles invited or no docs named).';
+
+  const interactionBlock = (opts.firedInteractions ?? [])
+    .filter(i => i.predicts)
+    .map(i => `- ${i.id}: ${i.predicts}`)
+    .join('\n');
+  const interactionFraming = interactionBlock
+    ? `# Firing interactions and their transferable predictions\n${interactionBlock}`
+    : '# Firing interactions\n(none with transferable predictions)';
+
   const user = [
     `# One-liner\n${opts.oneLiner?.content.sentence ?? '(none)'}`,
     `# Axis vector\n${axisLines}`,
     `# Top hot problems\n${hotLines}`,
     `# Declared stack\n${stackBlock}`,
+    `# Source-of-truth files (highest-priority concrete artifacts)\n${docBlock}`,
+    interactionFraming,
     `# Analogy context\n${analogyBlock}`
   ].join('\n\n');
 

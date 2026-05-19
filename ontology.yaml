@@ -225,6 +225,13 @@ interactions:
       variety is constrained by traceability — the residue neither
       domain solves alone.
     hot_problem: "traceability-aware finite-capacity scheduling of a high-variety routing under regulatory lock"
+    predicts: >
+      Off-the-shelf ERP rejection. This shape's source-of-truth lives in
+      bespoke files (a custom production tracker, a shared spreadsheet
+      run by a senior engineer) because no rigid platform fits the
+      certified-sequence + variety combination. Bespoke owned AI tooling
+      that absorbs the existing source-of-truth file and outperforms it
+      beats adopting another rigid platform.
     seen_in: bliss_aerospace
 
 # ------------------------------------------------------------
@@ -271,6 +278,31 @@ role_split:
     career strategy that moves them toward judgement — that framing is
     what makes honest self-description self-interested. Never present the
     split as a verdict; present it as leverage and runway.
+
+  # The role layer LEADS with this question, before any open-ended
+  # "describe your role" prompt. A named source-of-truth document is
+  # the highest-weighted input to role classification — free-text
+  # self-description is secondary. Across roles, the small set of
+  # named source-of-truth documents IS the company's operating spine.
+  primary_elicitation:
+    question: "What is the one document you cannot do your job without?"
+    rationale: >
+      The file someone reaches for first IS their role's center of
+      gravity. It compresses what they actually do better than any
+      paragraph of self-description, and across roles it surfaces
+      the company's real operating spine (which is rarely the ERP
+      and almost always a bespoke file).
+    weight: primary
+    invitee_framing: >
+      "The file you can't work without is exactly where the leverage
+      is" — AI suggestions in your career strategy must explicitly
+      reference and aim to outperform that file, not replace it with
+      generic tooling.
+    aggregate_use: >
+      The deduplicated list of source-of-truth documents named across
+      roles is surfaced on the company profile as "what this company
+      actually runs on" and feeds the five-projects generator as the
+      concrete artifacts projects should target.
 
   translation:
     definition: >
