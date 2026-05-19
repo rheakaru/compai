@@ -87,11 +87,12 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------
-      // Roles (Phase 4 — security skeleton present now). The
-      // invitee writes their own role; the inviter (company
-      // owner) sees aggregate. NO inviter-only view of substance
-      // that contradicts the invitee — enforced by exposing only
-      // server-aggregated documents to the inviter.
+      // Roles (Phase 4). The invitee describes their role; the
+      // inviter (company owner) sees aggregate. NO inviter-only
+      // view of substance that contradicts what the invitee saw
+      // — enforced by exposing only the server-computed aggregate
+      // through the API. Per-activity claims are readable ONLY by
+      // the invitee themselves.
       // -------------------------------------------------------
       match /roles/{roleId} {
         function parentOwner() {
@@ -103,21 +104,35 @@ service cloud.firestore {
         function isInvitee() {
           return isAuthed() && resource.data.inviteeUid == uid();
         }
-        // Inviter can read role meta (NOT per-activity claims), invitee can read their own.
+        // Inviter can read role metadata (title, status, invitee email)
+        // — the role doc itself contains no substance. Invitee reads
+        // their own role meta. The actual activity classifications and
+        // career strategy live in /claims and are invitee-only.
         allow read: if isInvitee() || isCompanyOwner() || isOperator();
-        allow write: if false; // server-managed via Admin SDK
+        allow write: if false; // server-managed via Admin SDK only
 
         match /claims/{claimId} {
           function inviteeUid() {
             return get(/databases/$(database)/documents/companies/$(companyId)/roles/$(roleId)).data.inviteeUid;
           }
-          // Only the invitee themselves can read their per-activity claims;
-          // the inviter never gets a substance-different view. Aggregate
-          // projections are served via the server (Admin SDK) only.
+          // INVITEE-ONLY READ. The inviter never gets a substance-
+          // different view of these. The aggregate API is the only
+          // legitimate way for the inviter to learn from these claims,
+          // and it never exposes per-invitee substance.
           allow read: if isAuthed() && inviteeUid() == uid();
           allow write: if false;
         }
       }
+    }
+
+    // ===========================================================
+    // Invite index — server-managed lookup table from opaque
+    // invite token to {companyId, roleId}. Anyone with the token
+    // can open the page; the server reads the index via Admin SDK.
+    // Clients never read or write this directly.
+    // ===========================================================
+    match /inviteIndex/{token} {
+      allow read, write: if false;
     }
 
     // ===========================================================

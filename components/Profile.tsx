@@ -21,6 +21,7 @@ import { useAuth } from './AuthProvider';
 import { TransferableSolutions } from './TransferableSolutions';
 import { AnalogyAndProjects } from './AnalogyAndProjects';
 import { BrandHeader } from './BrandHeader';
+import { InviteOwnerSection } from './InviteOwnerSection';
 import type { FiveProjects } from '@/lib/agent/projects';
 
 export interface ProfileHandle {
@@ -317,6 +318,16 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           <section>
             <SectionHeader title="Your 5 AI projects" />
             <AnalogyAndProjects companyId={companyId} initialProjects={initialProjects} />
+          </section>
+        )}
+
+        {!streaming && companyId && user && (
+          <section>
+            <SectionHeader
+              title="Roles"
+              subtitle="Invite coworkers, see only the aggregate."
+            />
+            <InviteOwnerSection companyId={companyId} />
           </section>
         )}
 
