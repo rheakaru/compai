@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/components/AuthProvider';
+import { AuthBar } from '@/components/AuthBar';
 
 export const metadata: Metadata = {
   title: 'compAI — structural diagnosis for businesses',
@@ -10,7 +12,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <div className="fixed right-4 top-3 z-40">
+            <AuthBar />
+          </div>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }

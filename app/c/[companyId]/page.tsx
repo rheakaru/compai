@@ -3,8 +3,16 @@ import { adminDb } from '@/lib/firebase/admin';
 import { loadOntology } from '@/lib/ontology/loader';
 import { Profile } from '@/components/Profile';
 import type { Claim, CompanyDoc } from '@/lib/model/claims';
+import type { FiveProjects } from '@/lib/agent/projects';
 
 export const dynamic = 'force-dynamic';
+
+interface PersistedCompanyDoc extends CompanyDoc {
+  projects?: {
+    generatedAt: number;
+    payload: FiveProjects;
+  };
+}
 
 export default async function CompanyPage({
   params
@@ -19,7 +27,7 @@ export default async function CompanyPage({
   if (!companySnap.exists) {
     notFound();
   }
-  const company = companySnap.data() as CompanyDoc;
+  const company = companySnap.data() as PersistedCompanyDoc;
 
   const claimsSnap = await companyRef.collection('claims').get();
   const claims = claimsSnap.docs.map(d => d.data() as Claim);
@@ -34,7 +42,13 @@ export default async function CompanyPage({
           </a>
         </div>
       </div>
-      <Profile claims={claims} ontology={ontology} streaming={false} />
+      <Profile
+        initialClaims={claims}
+        ontology={ontology}
+        companyId={companyId}
+        companyUrl={company.url}
+        initialProjects={company.projects?.payload ?? null}
+      />
     </div>
   );
 }

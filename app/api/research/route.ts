@@ -5,6 +5,8 @@ import { createCompany, eventToClaim, persistClaim } from '@/lib/agent/persist';
 import { loadOntology } from '@/lib/ontology/loader';
 import { getOrCreateSessionId } from '@/lib/firebase/session';
 import { computeHardProblemMap } from '@/lib/model/projection';
+import { logFunnelEvent } from '@/lib/funnel/events';
+import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import type { AxisPositionClaim, Claim } from '@/lib/model/claims';
 
 export const runtime = 'nodejs';
@@ -36,12 +38,21 @@ export async function POST(req: NextRequest) {
   const url = normalizeUrl(rawUrl);
 
   const sessionId = await getOrCreateSessionId();
+  const user = await getUserFromAuthHeader(req.headers.get('authorization'));
   const { hash } = loadOntology();
   const companyId = await createCompany({
     url,
     sessionId,
-    ownerUid: null,
+    ownerUid: user?.uid ?? null,
     ontologyVersionHash: hash
+  });
+
+  void logFunnelEvent({
+    sessionId,
+    ownerUid: user?.uid ?? null,
+    companyId,
+    companyUrl: url,
+    stage: 'url_submitted'
   });
 
   const encoder = new TextEncoder();

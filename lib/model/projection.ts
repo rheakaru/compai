@@ -18,8 +18,13 @@ export interface Profile {
   openQuestions: Array<{ axisId: string; question: string; rank: number }>;
 }
 
+function isTombstoned(c: Claim): boolean {
+  const content = (c as { content?: { _tombstoned?: boolean } }).content;
+  return content?._tombstoned === true;
+}
+
 export function projectFromClaims(allClaims: Claim[], ontology: Ontology): Profile {
-  const live = allClaims.filter(c => c.supersededBy === null);
+  const live = allClaims.filter(c => c.supersededBy === null && !isTombstoned(c));
 
   const facts = live.filter((c): c is FactClaim => c.kind === 'fact');
   const axes = live.filter((c): c is AxisPositionClaim => c.kind === 'axis_position');
