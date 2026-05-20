@@ -89,13 +89,31 @@ Examples of the kind of fact each category captures:
 
 ## 2. Axis positions — one PER axis (all 9)
 
-For each axis, emit ONE axis_position object. The technical position stays for the engine; the **plainSummary** is the user-facing answer in plain English.
+For each axis, emit ONE axis_position object.
+
+**Two fields, two jobs. Do not mix them.**
+
+- The "position" field is the CONTROLLED VOCABULARY token from the spec above. Nothing else. No parens. No em-dashes. No clarification text. Just the token — MTO, high, concentrated, long_positive, assembler_converter, low_aov_high_freq, etc. If you want to add "(actually more like X)" to position, you're doing it wrong — that text belongs in plainSummary.
+- The "plainSummary" field is the user-facing answer in plain English (≤ 18 words, no jargon, specific to THIS company). This is what the user reads. MANDATORY on every axis_position.
 
 For confident reads (confidence >= 0.6):
-{"type":"axis_position","axisId":"<id>","position":"<technical value>","confidence":0.6-1.0,"plainSummary":"<<= 18 words, plain English, no jargon, specific to this company>","evidence":[{"source":"<url or short ref>","quote":"<short quote>","provenance":"..."}]}
+{"type":"axis_position","axisId":"<id>","position":"<JUST THE TOKEN>","confidence":0.6-1.0,"plainSummary":"<<= 18 words, plain English, specific to this company>","evidence":[{"source":"<url or short ref>","quote":"<short quote>","provenance":"..."}]}
 
 For uncertain reads (confidence < 0.6) — do not guess:
-{"type":"axis_position","axisId":"<id>","position":"<best guess>","confidence":<0.6,"plainSummary":"<<= 18 words on which way it likely leans, but flag the uncertainty>","evidence":[...],"candidateA":{"position":"<x>","implication":"<one plain sentence>"},"candidateB":{"position":"<y>","implication":"<one plain sentence>"},"disambiguatingQuestion":"<the single best question>"}
+{"type":"axis_position","axisId":"<id>","position":"<JUST THE TOKEN>","confidence":<0.6,"plainSummary":"<<= 18 words on which way it likely leans, with uncertainty flagged>","evidence":[...],"candidateA":{"position":"<token>","implication":"<one plain sentence>"},"candidateB":{"position":"<token>","implication":"<one plain sentence>"},"disambiguatingQuestion":"<the single best question>"}
+
+### Concrete examples of correct field separation
+
+✓ {"position":"MTO","plainSummary":"You build only when an order lands — nothing sits waiting on the shelf."}
+✓ {"position":"concentrated","plainSummary":"Five customers are essentially the entire B2B revenue base — losing any one is existential."}
+✓ {"position":"long_positive","plainSummary":"Cash is locked up for weeks — you pay procurement days before customers settle invoices."}
+✓ {"position":"high_vol_low_var","plainSummary":"~1500 orders a day across a narrow SKU set — same things, many times."}
+
+### Wrong field separation — never emit these
+
+✗ {"position":"long_positive (structurally negative working capital gap)","plainSummary":""}        ← clarification belongs in plainSummary
+✗ {"position":"mid-to-high (hierarchy-leaning) — own packing warehouses","plainSummary":""}        ← position must be a single token from the spec
+✗ {"position":"extremely high","plainSummary":""}                                                  ← invented label; use the controlled vocab
 
 ### Examples of GOOD plainSummary lines
 

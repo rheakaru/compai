@@ -6,7 +6,7 @@ import type { AxisPositionClaim } from '@/lib/model/claims';
 import type { Axis, CorrectionType } from '@/lib/ontology/types';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { axisIcon } from '@/lib/ontology/axis-icons';
-import { getAxisLabel } from '@/lib/ontology/display-labels';
+import { getAxisLabel, resolveAxisHeadline } from '@/lib/ontology/display-labels';
 
 export interface AxisEditPayload {
   axisId: string;
@@ -44,9 +44,16 @@ export function EditableAxisCard({
   const evidenceCount = claim?.content.evidence.length ?? 0;
   const label = getAxisLabel(axis.id, axis.name);
 
-  // The headline answer: plainSummary when present, fallback to the technical
-  // position. New analyses will always have plainSummary.
-  const headlineAnswer = claim?.content.plainSummary ?? claim?.content.position ?? '';
+  // The headline answer: plainSummary -> position-label fallback -> raw token.
+  // resolveAxisHeadline guarantees plain English even when the agent forgets
+  // to emit plainSummary or stuffs clarification inside the position field.
+  const headlineAnswer = claim
+    ? resolveAxisHeadline({
+        axisId: axis.id,
+        position: claim.content.position,
+        plainSummary: claim.content.plainSummary
+      })
+    : '';
 
   const openEdit = () => {
     if (!claim) return;
