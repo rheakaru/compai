@@ -10,6 +10,7 @@ import { logFunnelEvent } from '@/lib/funnel/events';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { extractBranding } from '@/lib/branding/extract';
 import { adminDb } from '@/lib/firebase/admin';
+import { coerceRole, isGraphNodeType, type GraphNode } from '@/lib/model/graph';
 import type { AxisPositionClaim, Claim, BrandingSnapshot, CompanyDoc } from '@/lib/model/claims';
 
 export const runtime = 'nodejs';
@@ -152,6 +153,51 @@ export async function POST(req: NextRequest) {
 
       try {
         for await (const event of streamResearch({ url, extraNotes: body?.notes })) {
+          if (event.type === 'graph_node') {
+            // POLE+O graph node — written to a separate subcollection.
+            // Not a claim; not part of the consequence computation.
+            const nodeType = isGraphNodeType(event.nodeType) ? event.nodeType : null;
+            const name = typeof event.name === 'string' ? event.name.trim().slice(0, 200) : '';
+            if (!nodeType || !name) {
+              continue;
+            }
+            const provRaw = typeof event.provenance === 'string' ? event.provenance : 'agent_hypothesis';
+            const provenance =
+              provRaw === 'found_on_site' || provRaw === 'inferred_public' || provRaw === 'agent_hypothesis'
+                ? provRaw
+                : 'agent_hypothesis';
+            const node: GraphNode = {
+              id: randomUUID(),
+              companyId,
+              type: nodeType,
+              role: coerceRole(nodeType, event.role),
+              name,
+              notes:
+                typeof event.notes === 'string' && event.notes.trim()
+                  ? event.notes.trim().slice(0, 400)
+                  : undefined,
+              source: 'agent',
+              provenance,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              deletedAt: null
+            };
+            try {
+              await adminDb()
+                .collection('companies')
+                .doc(companyId)
+                .collection('graphNodes')
+                .doc(node.id)
+                .set(node);
+              send({ type: 'graph_node', node });
+            } catch (err) {
+              send({
+                type: 'error',
+                message: `Failed to persist graph node: ${err instanceof Error ? err.message : String(err)}`
+              });
+            }
+            continue;
+          }
           if (event.type === 'interaction') {
             // Agent-surfaced compounding pair. Always agent_hypothesis.
             const axes = Array.isArray(event.axes) ? (event.axes as string[]) : [];

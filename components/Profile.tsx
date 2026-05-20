@@ -24,11 +24,13 @@ import { BrandHeader } from './BrandHeader';
 import { InviteOwnerSection } from './InviteOwnerSection';
 import { SessionPlanSection } from './SessionPlan/SessionPlanSection';
 import { ContextExportButton } from './ContextExportButton';
+import { ContextGraphSection } from './ContextGraph/ContextGraphSection';
 import { AXIS_DISPLAY_ORDER } from '@/lib/ontology/display-labels';
 import { exportGateOpen, resolveExportGateLevel } from '@/lib/export/gate';
 import type { FiveProjects } from '@/lib/agent/projects';
 import type { SessionPlanContent } from '@/lib/agent/session-plan';
 import type { ResolvedGate } from '@/lib/gate/commitment';
+import type { GraphNode } from '@/lib/model/graph';
 
 export interface ProfileHandle {
   appendClaim: (claim: Claim) => void;
@@ -46,6 +48,7 @@ interface ProfileProps {
   initialBranding?: BrandingSnapshot | null;
   initialSessionPlan?: SessionPlanContent | null;
   sessionGate?: ResolvedGate | null;
+  initialGraphNodes?: GraphNode[];
 }
 
 export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
@@ -58,7 +61,8 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     initialProjects = null,
     initialBranding = null,
     initialSessionPlan = null,
-    sessionGate = null
+    sessionGate = null,
+    initialGraphNodes = []
   },
   ref
 ) {
@@ -282,12 +286,22 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           />
         )}
 
+        {!streaming && companyId && (
+          <section>
+            <ContextGraphSection
+              companyId={companyId}
+              initialNodes={initialGraphNodes}
+              canEdit={canEdit}
+            />
+          </section>
+        )}
+
         <section>
           <SectionHeader
             title="Shape"
-            subtitle="The 9 structural axes. Click any card to see evidence."
+            subtitle="Where you sit on 9 structural axes. Click any card to see evidence."
           />
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {orderedAxes.map(axis => (
               <EditableAxisCard
                 key={axis.id}

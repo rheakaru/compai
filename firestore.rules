@@ -87,6 +87,23 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------
+      // POLE+O graph nodes — owner-only context the prospect
+      // enriches manually. Writes go through API routes (server
+      // verifies auth + ownership via Admin SDK). Clients can read
+      // for their own company.
+      // -------------------------------------------------------
+      match /graphNodes/{nodeId} {
+        function parentOwner() {
+          return get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid;
+        }
+        function isCompanyOwner() {
+          return isAuthed() && parentOwner() == uid();
+        }
+        allow read: if isCompanyOwner() || isOperator();
+        allow write: if false;
+      }
+
+      // -------------------------------------------------------
       // Roles (Phase 4). The invitee describes their role; the
       // inviter (company owner) sees aggregate. NO inviter-only
       // view of substance that contradicts what the invitee saw

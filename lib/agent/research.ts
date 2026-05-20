@@ -14,7 +14,15 @@ function getClient() {
 }
 
 export interface ResearchEvent {
-  type: 'fact' | 'axis_position' | 'interaction' | 'one_liner' | 'meta' | 'error' | 'done';
+  type:
+    | 'fact'
+    | 'axis_position'
+    | 'interaction'
+    | 'graph_node'
+    | 'one_liner'
+    | 'meta'
+    | 'error'
+    | 'done';
   [key: string]: unknown;
 }
 

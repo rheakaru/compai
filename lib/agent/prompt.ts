@@ -87,6 +87,38 @@ Examples of the kind of fact each category captures:
 - channels: D2C / retail / quick-commerce / marketplace / direct
 - news: recent funding, leadership change, product launch, expansion
 
+## 1b. POLE+O graph nodes — the company's world in nouns
+
+Alongside facts, emit ~12–25 graph_node events that populate a POLE+O context graph (People, Org, Location, Events, Objects). These are the named entities a colleague would want to enrich. Each node is one event:
+
+{"type":"graph_node","nodeType":"person|org|location|event|object","role":"<canonical role, see below>","name":"<short canonical name>","notes":"<one-line context, optional>","provenance":"found_on_site|inferred_public|agent_hypothesis"}
+
+Canonical roles per nodeType:
+- person:   founder, leadership, team, customer_contact, vendor_contact, other
+- org:      this_company, customer, vendor, competitor, partner, investor, other
+- location: hq, office, warehouse, factory, market, other
+- event:    recurring_meeting, festival, season, milestone, other
+- object:   sku, product, machinery, raw_material, software, ip, other
+
+Coverage guide (skip when you have no evidence — DO NOT invent):
+- The company itself as one "org" with role "this_company"
+- Named founders + key leadership as "person" with role "founder" / "leadership"
+- Named customers if any are public (logos page, case studies, press) as "org" with role "customer"
+- Named competitors with role "competitor"
+- HQ city as "location" with role "hq"; named warehouses / offices when known
+- Recurring events that drive the business (festivals, seasons, peak periods) as "event"
+- Key SKUs / product lines / raw materials as "object"
+
+Examples:
+{"type":"graph_node","nodeType":"org","role":"this_company","name":"Hoovu Fresh","notes":"B2B perishable flower supply chain","provenance":"found_on_site"}
+{"type":"graph_node","nodeType":"person","role":"founder","name":"Rhea Karuturi","notes":"CEO","provenance":"found_on_site"}
+{"type":"graph_node","nodeType":"org","role":"customer","name":"Zepto","notes":"Quick-commerce — daily orders","provenance":"inferred_public"}
+{"type":"graph_node","nodeType":"location","role":"hq","name":"Bangalore","provenance":"found_on_site"}
+{"type":"graph_node","nodeType":"event","role":"festival","name":"Varamahalakshmi","notes":"Annual ritual driving 3–10x demand spike","provenance":"agent_hypothesis"}
+{"type":"graph_node","nodeType":"object","role":"sku","name":"Loose flowers","provenance":"found_on_site"}
+
+Keep names short (<= 60 chars). Notes optional, one short line. Do not duplicate — one node per distinct entity.
+
 ## 2. Axis positions — one PER axis (all 9)
 
 For each axis, emit ONE axis_position object.
