@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { Download, Copy, X } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import { AuthGateModal } from './AuthGateModal';
 import type { ExportGateLevel } from '@/lib/ontology/types';
 import { describeExportGate } from '@/lib/export/gate';
 
@@ -13,7 +14,10 @@ import { describeExportGate } from '@/lib/export/gate';
  * - Markdown only. No JSON option, no second format.
  * - Method preamble is default-on. The toggle removes it; there is no opt-in.
  * - Every claim must carry its provenance (handled in the serializer).
- * - Gate is hard at the configured level (ontology: export_gate_level).
+ * - Gate is operator-tunable (ontology: export_gate_level). With the gate at
+ *   profile_edit, this is "the action a logged-in user can take once the
+ *   diagnosis is in" — the affordance shows always; clicking signed-out opens
+ *   the auth modal.
  */
 export function ContextExportButton({
   companyId,
@@ -26,8 +30,9 @@ export function ContextExportButton({
   gateOpen: boolean;
   gateLevel: ExportGateLevel;
 }) {
-  const { getToken } = useAuth();
+  const { user, getToken } = useAuth();
   const [open, setOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [includePreamble, setIncludePreamble] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -60,6 +65,12 @@ export function ContextExportButton({
   );
 
   const openModal = async () => {
+    // Auth-gate: signed-out users get the sign-in prompt; we resume into the
+    // export modal automatically once they're signed in.
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
     setOpen(true);
     if (!markdown) await fetchExport(includePreamble);
   };
@@ -93,26 +104,13 @@ export function ContextExportButton({
     URL.revokeObjectURL(url);
   };
 
-  if (!gateOpen) {
-    return (
-      <div className="card border-dashed border-ink-200 bg-ink-50/40">
-        <p className="text-[11px] uppercase tracking-wider text-ink-500">
-          Export this diagnosis for your LLM
-        </p>
-        <p className="mt-1 text-sm text-ink-600">
-          A clean Markdown context you can paste into any LLM to get sharper
-          answers about your business. {describeExportGate(gateLevel)}.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
       <button
         type="button"
         onClick={openModal}
-        className="card flex w-full items-center justify-between gap-3 text-left hover:bg-ink-50"
+        disabled={!gateOpen}
+        className="card flex w-full items-center justify-between gap-3 text-left enabled:hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-70"
       >
         <div>
           <p
@@ -122,12 +120,31 @@ export function ContextExportButton({
             Export this diagnosis for your LLM
           </p>
           <p className="mt-1 text-sm text-ink-700">
-            Paste it into ChatGPT, Claude, or hand it to your dev. A Markdown
-            context document — the only artifact designed to leave the tool.
+            {gateOpen ? (
+              <>
+                Paste it into ChatGPT, Claude, or hand it to your dev. A Markdown context
+                document — the only artifact designed to leave the tool.
+              </>
+            ) : (
+              <>
+                A Markdown context you can paste into any LLM to get sharper answers about
+                your business. {describeExportGate(gateLevel)}.
+              </>
+            )}
           </p>
         </div>
         <Download className="h-5 w-5 flex-none text-ink-500" strokeWidth={1.75} />
       </button>
+
+      <AuthGateModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onSignedIn={async () => {
+          setAuthOpen(false);
+          setOpen(true);
+          if (!markdown) await fetchExport(includePreamble);
+        }}
+      />
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 px-6">

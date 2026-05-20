@@ -13,7 +13,6 @@ export function ProblemMap({ claims }: { claims: HardProblemClaim[] }) {
   }
 
   const hot = claims.filter(c => !c.content.isDormant);
-  const dormant = claims.filter(c => c.content.isDormant);
   const topWeight = hot[0]?.content.weight ?? 1;
 
   return (
@@ -93,26 +92,6 @@ export function ProblemMap({ claims }: { claims: HardProblemClaim[] }) {
         </ol>
       </div>
 
-      {dormant.length > 0 && (
-        <div className="card opacity-70">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-            Dormant — what to ignore for this shape
-          </h3>
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {dormant.map(c => (
-              <li
-                key={c.id}
-                className="rounded border border-ink-200 bg-ink-50 px-2 py-0.5 text-[11px] text-ink-500 line-through decoration-ink-300"
-              >
-                {prettify(c.content.problemId)}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-[11px] text-ink-400">
-            Showing what to ignore is half the value — these matter for other shapes, not yours.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

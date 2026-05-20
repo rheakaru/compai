@@ -42,20 +42,14 @@ export function TransferableSolutions({
   }
 
   // Below the floor — HONEST STOP. No analogy. No hedge. No fabrication.
+  // The Book-a-session CTA lives in a quiet footer at the bottom of the page;
+  // we don't repeat it here to keep this section descriptive, not sales-y.
   return (
     <div className="card border-l-4 border-l-amber-500">
       <p className="text-[15px] text-ink-900">
         Your shape is clear — you can see it above. Mapping it to the specific solved domains that
         unlock solutions is exactly what the workshop does. The gap is the work.
       </p>
-      <a
-        href="https://rheakaru.github.io/sessions.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-4 inline-block rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
-      >
-        Book a session →
-      </a>
     </div>
   );
 }

@@ -25,12 +25,19 @@ import { InviteOwnerSection } from './InviteOwnerSection';
 import { SessionPlanSection } from './SessionPlan/SessionPlanSection';
 import { ContextExportButton } from './ContextExportButton';
 import { ContextGraphSection } from './ContextGraph/ContextGraphSection';
+import { BookSessionFooter } from './BookSessionFooter';
 import { AXIS_DISPLAY_ORDER } from '@/lib/ontology/display-labels';
 import { exportGateOpen, resolveExportGateLevel } from '@/lib/export/gate';
 import type { FiveProjects } from '@/lib/agent/projects';
 import type { SessionPlanContent } from '@/lib/agent/session-plan';
 import type { ResolvedGate } from '@/lib/gate/commitment';
 import type { GraphNode } from '@/lib/model/graph';
+
+// Feature flag — temporarily hidden while we refine the session-plan output.
+// Flip to true to restore the "Your one day with Rhea" section between
+// 5-projects and Export. All upstream code (agent, route, ontology block)
+// stays in place so this is a one-line toggle.
+const SHOW_SESSION_PLAN = false;
 
 export interface ProfileHandle {
   appendClaim: (claim: Claim) => void;
@@ -337,7 +344,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </section>
         )}
 
-        {!streaming && companyId && sessionGate && initialProjects && (
+        {SHOW_SESSION_PLAN && !streaming && companyId && sessionGate && initialProjects && (
           <section>
             <SectionHeader
               title="Your one day with Rhea"
@@ -403,6 +410,8 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
       />
 
       <WhatChanged diff={diff} />
+
+      {!streaming && <BookSessionFooter />}
     </div>
   );
 });

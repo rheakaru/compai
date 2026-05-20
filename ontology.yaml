@@ -468,9 +468,11 @@ context_graph_export:
 
   gate:
     # Tunable like analogy_floor + payment_toggle. Allowed values:
-    # profile_edit | five_projects | session_plan. Default is the deepest
-    # commitment that still sits BEFORE booking.
-    export_gate_level: session_plan
+    # profile_edit | five_projects | session_plan. Default is the most
+    # permissive — export is the action a logged-in user can take as soon
+    # as the diagnosis is in. Auth is still required (the API enforces
+    # ownership), so the gate is "logged-in user with a diagnosis."
+    export_gate_level: profile_edit
     counter_argument_recorded: >
       Lowering to "five_projects" would roughly double export volume.
       That becomes the right call only when funnelEvents shows
