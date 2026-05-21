@@ -18,13 +18,15 @@ export function CompanyNotes({
   companyUrl,
   initialNotes,
   canEdit,
-  onReanalyzeComplete
+  onReanalyzeComplete,
+  onEditStateChange
 }: {
   companyId: string;
   companyUrl: string | null;
   initialNotes: string;
   canEdit: boolean;
   onReanalyzeComplete?: () => void;
+  onEditStateChange?: (s: { editsUsed: number; maxEdits: number }) => void;
 }) {
   const { user, getToken } = useAuth();
   const [notes, setNotes] = useState(initialNotes);
@@ -61,7 +63,11 @@ export function CompanyNotes({
         body: JSON.stringify({ userNotes: notes })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json().catch(() => null)) as {
+        editState?: { editsUsed: number; maxEdits: number };
+      } | null;
       setSavedNotes(notes);
+      if (data?.editState && onEditStateChange) onEditStateChange(data.editState);
     } finally {
       setSaving(false);
     }
@@ -136,7 +142,9 @@ export function CompanyNotes({
     }
   };
 
-  if (!canEdit) return null;
+  // When locked, render in read-only mode (no Save/Re-analyze buttons) so
+  // the user can still see what they wrote.
+  const readOnly = !canEdit;
 
   return (
     <>
@@ -168,43 +176,49 @@ export function CompanyNotes({
           value={notes}
           onChange={e => setNotes(e.target.value)}
           rows={4}
-          disabled={reanalyzing}
-          placeholder="A few sentences about what the website won't say. Real customers, real numbers, internal SOPs, pricing, who you actually compete with."
+          disabled={reanalyzing || readOnly}
+          placeholder={
+            readOnly
+              ? 'No notes recorded.'
+              : "A few sentences about what the website won't say. Real customers, real numbers, internal SOPs, pricing, who you actually compete with."
+          }
           className="mt-3 w-full resize-none rounded border border-ink-200 bg-white px-3 py-2 text-sm shadow-sm outline-none placeholder:text-ink-300 focus:border-ink-400 disabled:bg-ink-50"
         />
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <p className="text-[11px] text-ink-400">
-            {reanalyzing
-              ? `Re-running analysis… ${Math.round(progress * 100)}%`
-              : dirty
-                ? 'Unsaved changes'
-                : savedNotes
-                  ? 'Saved.'
-                  : 'No notes yet.'}
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={!dirty || saving || reanalyzing}
-              className="rounded border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-800 hover:bg-ink-50 disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={reanalyze}
-              disabled={reanalyzing || (!savedNotes && !dirty)}
-              className="rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:bg-ink-300"
-              style={{
-                backgroundColor: reanalyzing || (!savedNotes && !dirty) ? undefined : 'var(--brand, #c64a1f)'
-              }}
-            >
-              {reanalyzing ? 'Re-analyzing…' : 'Re-run analysis'}
-            </button>
+        {!readOnly && (
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-[11px] text-ink-400">
+              {reanalyzing
+                ? `Re-running analysis… ${Math.round(progress * 100)}%`
+                : dirty
+                  ? 'Unsaved changes — each save uses one edit'
+                  : savedNotes
+                    ? 'Saved.'
+                    : 'No notes yet.'}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={save}
+                disabled={!dirty || saving || reanalyzing}
+                className="rounded border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-800 hover:bg-ink-50 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={reanalyze}
+                disabled={reanalyzing || (!savedNotes && !dirty)}
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:bg-ink-300"
+                style={{
+                  backgroundColor: reanalyzing || (!savedNotes && !dirty) ? undefined : 'var(--brand, #c64a1f)'
+                }}
+              >
+                {reanalyzing ? 'Re-analyzing…' : 'Re-run analysis'}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {reanalyzing && (
           <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-ink-100">

@@ -11,6 +11,7 @@ import { computeHotDormant } from '@/lib/model/projection';
 import { agentInteractionToFiring, type InteractionFiring } from '@/lib/model/interactions';
 import { generateSynthesis } from '@/lib/agent/synthesis';
 import { logFunnelEvent } from '@/lib/funnel/events';
+import { consumeEdit, editLockedResponse } from '@/lib/limits/edits';
 import type {
   AxisPositionClaim,
   Claim,
@@ -47,6 +48,9 @@ export async function POST(
   });
   if (!access) return new Response('company not found', { status: 404 });
   if (!access.canEdit) return new Response('forbidden', { status: 403 });
+
+  const edit = await consumeEdit(companyId);
+  if (!edit.ok) return editLockedResponse(edit.state);
 
   const db = adminDb();
   const companyRef = db.collection('companies').doc(companyId);

@@ -28,6 +28,11 @@ import { ContextExportButton } from './ContextExportButton';
 import { ContextGraphSection } from './ContextGraph/ContextGraphSection';
 import { BookSessionFooter } from './BookSessionFooter';
 import { CompanyNotes } from './CompanyNotes';
+import { EditsBadge } from './EditsBadge';
+
+// Mirrored from lib/limits/edits.ts (which is server-only and can't be
+// imported here). If the server default changes, change this too.
+const DEFAULT_MAX_EDITS = 3;
 import { AXIS_DISPLAY_ORDER } from '@/lib/ontology/display-labels';
 import { exportGateOpen, resolveExportGateLevel } from '@/lib/export/gate';
 import type { FiveProjects } from '@/lib/agent/projects';
@@ -60,6 +65,9 @@ interface ProfileProps {
   sessionGate?: ResolvedGate | null;
   initialGraphNodes?: GraphNode[];
   initialUserNotes?: string;
+  initialEditsUsed?: number;
+  initialMaxEdits?: number;
+  initialLockedAt?: number | null;
 }
 
 export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
@@ -74,13 +82,19 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     initialSessionPlan = null,
     sessionGate = null,
     initialGraphNodes = [],
-    initialUserNotes = ''
+    initialUserNotes = '',
+    initialEditsUsed = 0,
+    initialMaxEdits = DEFAULT_MAX_EDITS,
+    initialLockedAt = null
   },
   ref
 ) {
   const { user, getToken } = useAuth();
   const [claims, setClaims] = useState<Claim[]>(initialClaims);
   const [branding, setBranding] = useState<BrandingSnapshot | null>(initialBranding);
+  const [editsUsed, setEditsUsed] = useState(initialEditsUsed);
+  const [lockedAt, setLockedAt] = useState<number | null>(initialLockedAt);
+  const locked = lockedAt !== null || editsUsed >= initialMaxEdits;
   const [pendingEdit, setPendingEdit] = useState<AxisEditPayload | null>(null);
   const [authGateOpen, setAuthGateOpen] = useState(false);
   const [diff, setDiff] = useState<DiffSummary | null>(null);
@@ -170,7 +184,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     return m;
   }, [axisClaims]);
 
-  const canEdit = !!companyId && !streaming;
+  const canEdit = !!companyId && !streaming && !locked;
 
   const submitEdit = useCallback(
     async (payload: AxisEditPayload) => {
@@ -292,15 +306,52 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     <div className="min-h-screen" style={brandStyle}>
       <div ref={profileTopRef} />
       <BrandHeader url={companyUrl ?? null} branding={branding} />
+      {companyId && (
+        <div className="border-b border-ink-100 bg-white">
+          <div className="mx-auto flex max-w-4xl items-center justify-end gap-3 px-6 py-2">
+            <EditsBadge
+              editsUsed={editsUsed}
+              maxEdits={initialMaxEdits}
+              locked={locked}
+            />
+          </div>
+        </div>
+      )}
       <OneLiner claim={oneLiner} synthesis={synthesis} streaming={streaming} />
 
       <div className="mx-auto max-w-4xl space-y-10 px-6 py-8">
-        {!streaming && companyId && canEdit && (
+        {locked && (
+          <div className="card border-l-4 border-l-ink-800 bg-ink-50">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-800">
+              Document locked
+            </p>
+            <p className="mt-1 text-sm text-ink-700">
+              You&apos;ve used your {initialMaxEdits} free edits. The diagnosis you see is preserved
+              and remains exportable. To keep iterating — re-running the analysis, correcting cards,
+              inviting more coworkers — book a session with Rhea.
+            </p>
+            <a
+              href="https://rheakaru.github.io/sessions.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium hover:opacity-80"
+              style={{ color: 'var(--brand, #c64a1f)' }}
+            >
+              Book a session →
+            </a>
+          </div>
+        )}
+
+        {!streaming && companyId && (
           <CompanyNotes
             companyId={companyId}
             companyUrl={companyUrl ?? null}
             initialNotes={initialUserNotes}
             canEdit={canEdit}
+            onEditStateChange={s => {
+              setEditsUsed(s.editsUsed);
+              if (s.editsUsed >= s.maxEdits) setLockedAt(Date.now());
+            }}
           />
         )}
 

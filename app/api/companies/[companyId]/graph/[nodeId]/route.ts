@@ -5,6 +5,7 @@ import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { getOrCreateSessionId } from '@/lib/firebase/session';
 import { loadCompanyForAccess } from '@/lib/model/access';
 import { coerceRole, isGraphNodeType, type GraphNode } from '@/lib/model/graph';
+import { consumeEdit, editLockedResponse } from '@/lib/limits/edits';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,6 +64,9 @@ export async function PATCH(
   const existing = snap.data() as GraphNode;
   if (existing.deletedAt) return json({ error: 'deleted' }, 410);
 
+  const edit = await consumeEdit(companyId);
+  if (!edit.ok) return editLockedResponse(edit.state);
+
   const updates: Partial<GraphNode> = { updatedAt: Date.now() };
   const newType = parsed.data.type && isGraphNodeType(parsed.data.type) ? parsed.data.type : existing.type;
   if (parsed.data.type) updates.type = newType;
@@ -72,7 +76,7 @@ export async function PATCH(
     updates.notes = parsed.data.notes?.trim() ? parsed.data.notes.trim().slice(0, 400) : undefined;
   }
   await ref.update(updates);
-  return json({ ok: true, node: { ...existing, ...updates } });
+  return json({ ok: true, node: { ...existing, ...updates }, editState: edit.state });
 }
 
 export async function DELETE(
@@ -83,6 +87,9 @@ export async function DELETE(
   const guard = await authedOwnerOr401(req, companyId);
   if (guard instanceof Response) return guard;
 
+  const edit = await consumeEdit(companyId);
+  if (!edit.ok) return editLockedResponse(edit.state);
+
   const ref = adminDb()
     .collection('companies')
     .doc(companyId)
@@ -91,7 +98,7 @@ export async function DELETE(
   const snap = await ref.get();
   if (!snap.exists) return json({ error: 'not found' }, 404);
   await ref.update({ deletedAt: Date.now(), updatedAt: Date.now() });
-  return json({ ok: true });
+  return json({ ok: true, editState: edit.state });
 }
 
 function json(data: unknown, status = 200) {

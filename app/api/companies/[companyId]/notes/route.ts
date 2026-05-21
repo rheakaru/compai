@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { getOrCreateSessionId } from '@/lib/firebase/session';
 import { loadCompanyForAccess } from '@/lib/model/access';
+import { consumeEdit, editLockedResponse } from '@/lib/limits/edits';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,12 +33,15 @@ export async function PATCH(
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json({ error: 'bad request' }, 400);
 
+  const edit = await consumeEdit(companyId);
+  if (!edit.ok) return editLockedResponse(edit.state);
+
   await adminDb()
     .collection('companies')
     .doc(companyId)
     .set({ userNotes: parsed.data.userNotes }, { merge: true });
 
-  return json({ ok: true });
+  return json({ ok: true, editState: edit.state });
 }
 
 function json(data: unknown, status = 200) {

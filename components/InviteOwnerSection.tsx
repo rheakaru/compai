@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
+import { RoleStrategyModal } from './RoleStrategyModal';
 import type { RoleAggregate } from '@/lib/role/aggregate';
 
 export function InviteOwnerSection({ companyId }: { companyId: string }) {
@@ -12,6 +13,7 @@ export function InviteOwnerSection({ companyId }: { companyId: string }) {
   const [roleTitle, setRoleTitle] = useState('');
   const [creating, setCreating] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [openRoleId, setOpenRoleId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!user) return;
@@ -122,9 +124,20 @@ export function InviteOwnerSection({ companyId }: { companyId: string }) {
       {aggregate && aggregate.rolesInvited > 0 && (
         <>
           <AggregateMetrics aggregate={aggregate} />
-          <Roster aggregate={aggregate} onCopy={copyLink} copiedToken={copiedToken} />
+          <Roster
+            aggregate={aggregate}
+            onCopy={copyLink}
+            copiedToken={copiedToken}
+            onOpenRole={setOpenRoleId}
+          />
         </>
       )}
+      <RoleStrategyModal
+        companyId={companyId}
+        roleId={openRoleId}
+        open={openRoleId !== null}
+        onClose={() => setOpenRoleId(null)}
+      />
       {aggregate && aggregate.rolesInvited === 0 && !loading && (
         <p className="text-xs text-ink-400">No invites yet.</p>
       )}
@@ -228,11 +241,13 @@ function Metric({ label, value }: { label: string; value: string }) {
 function Roster({
   aggregate,
   onCopy,
-  copiedToken
+  copiedToken,
+  onOpenRole
 }: {
   aggregate: RoleAggregate;
   onCopy: (token: string) => void;
   copiedToken: string | null;
+  onOpenRole: (roleId: string) => void;
 }) {
   return (
     <div className="card">
@@ -240,29 +255,71 @@ function Roster({
         Roster
       </h3>
       <p className="mt-1 text-[11px] text-ink-400">
-        Role titles and invitee status. Never their answers.
+        Click a completed role to see the polished career strategy. Raw text from the invitee is not shown.
       </p>
       <ul className="mt-3 divide-y divide-ink-100">
-        {aggregate.roster.map(r => (
-          <li key={r.roleId} className="flex items-center justify-between gap-3 py-2.5">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink-900">{r.roleTitle}</p>
-              <p className="truncate text-xs text-ink-500">{r.inviteeEmail ?? 'no sign-in yet'}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <StatusBadge status={r.status} />
-              {r.status !== 'completed' && (
-                <button
-                  type="button"
-                  onClick={() => onCopy(r.inviteToken)}
-                  className="rounded border border-ink-200 px-2 py-0.5 text-[11px] uppercase tracking-wide text-ink-500 hover:bg-ink-50 hover:text-ink-800"
-                >
-                  {copiedToken === r.inviteToken ? 'copied' : 'copy link'}
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
+        {aggregate.roster.map(r => {
+          const isCompleted = r.status === 'completed';
+          const trPct =
+            r.translationShare !== null ? Math.round(r.translationShare * 100) : null;
+          const clickable = isCompleted;
+          const InnerWrapper = clickable ? 'button' : 'div';
+          return (
+            <li key={r.roleId} className="py-1">
+              <InnerWrapper
+                type={clickable ? 'button' : undefined}
+                onClick={clickable ? () => onOpenRole(r.roleId) : undefined}
+                className={`flex w-full items-center justify-between gap-3 rounded px-1 py-1.5 text-left ${
+                  clickable ? 'hover:bg-ink-50' : ''
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink-900">{r.roleTitle}</p>
+                  <p className="truncate text-xs text-ink-500">
+                    {r.inviteeEmail ?? 'no sign-in yet'}
+                  </p>
+                </div>
+                {trPct !== null && (
+                  <div className="flex flex-none flex-col items-end" title={`${r.totalActivities} activities classified`}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-ink-100">
+                        <div
+                          className="h-full"
+                          style={{
+                            width: `${trPct}%`,
+                            backgroundColor: 'var(--brand, #c64a1f)',
+                            opacity: 0.55
+                          }}
+                        />
+                      </div>
+                      <span className="w-12 text-right text-[11px] font-mono text-ink-600">
+                        {trPct}% T
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-ink-400">
+                      {100 - trPct}% judgement · {r.totalActivities} acts
+                    </p>
+                  </div>
+                )}
+                <div className="flex flex-none items-center gap-2">
+                  <StatusBadge status={r.status} />
+                  {r.status !== 'completed' && (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onCopy(r.inviteToken);
+                      }}
+                      className="rounded border border-ink-200 px-2 py-0.5 text-[11px] uppercase tracking-wide text-ink-500 hover:bg-ink-50 hover:text-ink-800"
+                    >
+                      {copiedToken === r.inviteToken ? 'copied' : 'copy link'}
+                    </button>
+                  )}
+                </div>
+              </InnerWrapper>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

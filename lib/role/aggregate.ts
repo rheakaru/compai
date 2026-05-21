@@ -17,7 +17,9 @@ export interface RoleAggregate {
   // company's operating spine. Shown on the profile and fed to projects.
   // No per-role attribution exposed — only the deduplicated list.
   sourceOfTruthDocs: Array<{ name: string; mentionCount: number }>;
-  // Roster: status + title + invitee email (or "—"). Substance is not exposed.
+  // Roster: status + title + invitee email + (for completed roles) the
+  // translation share so the owner can see at-a-glance which roles skew
+  // automatable. Substance (raw activity quotes) is NOT exposed.
   roster: Array<{
     roleId: string;
     roleTitle: string;
@@ -25,6 +27,8 @@ export interface RoleAggregate {
     status: RoleDoc['status'];
     completedAt: number | null;
     inviteToken: string;
+    translationShare: number | null; // 0..1 if completed, null otherwise
+    totalActivities: number;
   }>;
 }
 
@@ -45,6 +49,8 @@ export async function computeRoleAggregate(companyId: string): Promise<RoleAggre
   let judgementHeavy = 0;
   const completedShares: number[] = [];
   const docCounts = new Map<string, number>();
+  // Per-role splits, keyed by roleId, populated only for completed roles.
+  const perRole = new Map<string, { translationShare: number; total: number }>();
 
   for (const role of roles) {
     if (role.sourceOfTruthDoc && role.sourceOfTruthDoc.trim()) {
@@ -81,6 +87,7 @@ export async function computeRoleAggregate(companyId: string): Promise<RoleAggre
     totalJudgement += jd;
     const share = tr / total;
     completedShares.push(share);
+    perRole.set(role.roleId, { translationShare: share, total });
     if (share > 0.6) translationHeavy++;
     if (jd / total > 0.6) judgementHeavy++;
   }
@@ -114,13 +121,18 @@ export async function computeRoleAggregate(companyId: string): Promise<RoleAggre
     sourceOfTruthDocs,
     roster: roles
       .sort((a, b) => b.createdAt - a.createdAt)
-      .map(r => ({
-        roleId: r.roleId,
-        roleTitle: r.roleTitle,
-        inviteeEmail: r.inviteeEmail,
-        status: r.status,
-        completedAt: r.completedAt,
-        inviteToken: r.inviteToken
-      }))
+      .map(r => {
+        const split = perRole.get(r.roleId);
+        return {
+          roleId: r.roleId,
+          roleTitle: r.roleTitle,
+          inviteeEmail: r.inviteeEmail,
+          status: r.status,
+          completedAt: r.completedAt,
+          inviteToken: r.inviteToken,
+          translationShare: split?.translationShare ?? null,
+          totalActivities: split?.total ?? 0
+        };
+      })
   };
 }

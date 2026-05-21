@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../AuthProvider';
 import { GraphNodeChip } from './GraphNodeChip';
 import { BulkAddModal } from './BulkAddModal';
+import { ContextGraphView } from './ContextGraphView';
 import { AuthGateModal } from '../AuthGateModal';
 
 export function ContextGraphSection({
@@ -29,6 +30,7 @@ export function ContextGraphSection({
   const [authOpen, setAuthOpen] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillTried, setBackfillTried] = useState(false);
+  const [view, setView] = useState<'graph' | 'list'>('graph');
 
   // Live-refresh on mount in case streaming wrote nodes after SSR.
   useEffect(() => {
@@ -121,19 +123,53 @@ export function ContextGraphSection({
               People, orgs, places, events, and things that make up your world. We auto-added what we found publicly — add the rest, edit anything that&apos;s off.
             </p>
           </div>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={openAdd}
-              className="flex flex-none items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-white"
-              style={{ backgroundColor: 'var(--brand, #c64a1f)' }}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add nodes
-            </button>
-          )}
+          <div className="flex flex-none items-center gap-2">
+            <div className="flex rounded-md border border-ink-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setView('graph')}
+                className={`rounded px-2 py-1 text-[11px] font-medium ${
+                  view === 'graph' ? 'text-white' : 'text-ink-600 hover:text-ink-900'
+                }`}
+                style={view === 'graph' ? { backgroundColor: 'var(--brand, #c64a1f)' } : {}}
+              >
+                graph
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('list')}
+                className={`rounded px-2 py-1 text-[11px] font-medium ${
+                  view === 'list' ? 'text-white' : 'text-ink-600 hover:text-ink-900'
+                }`}
+                style={view === 'list' ? { backgroundColor: 'var(--brand, #c64a1f)' } : {}}
+              >
+                list
+              </button>
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={openAdd}
+                className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-white"
+                style={{ backgroundColor: 'var(--brand, #c64a1f)' }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add nodes
+              </button>
+            )}
+          </div>
         </div>
 
+        {view === 'graph' && totalNodes > 0 && (
+          <div className="mt-5">
+            <ContextGraphView nodes={nodes} />
+            <p className="mt-2 text-[11px] text-ink-400">
+              Hub-and-spoke: every node connects to the company at the centre. Hover to inspect; switch to list to edit.
+            </p>
+          </div>
+        )}
+
+        {view === 'list' && (
         <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {GRAPH_TYPE_ORDER.map(type => {
             const items = grouped.get(type) ?? [];
@@ -169,6 +205,7 @@ export function ContextGraphSection({
             );
           })}
         </div>
+        )}
 
         {totalNodes === 0 && (
           <p className="mt-5 rounded border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2 text-xs text-ink-500">

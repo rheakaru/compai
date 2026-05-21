@@ -135,6 +135,13 @@ export interface CompanyDoc {
   // Owner-editable context the agent reads on re-analysis. Persisted
   // across the lifetime of the company so it builds up.
   userNotes?: string | null;
+  // Free-tier edit limiter. Increments on every meaningful write action
+  // (note save, axis correction, graph node add/edit/delete, role invite,
+  // re-analysis). Once editsUsed >= maxEdits, the page enters locked
+  // state and the only way forward is to book a session.
+  editsUsed?: number;
+  maxEdits?: number;
+  lockedAt?: number | null;
   // Session-plan persisted state. The 4th chain node; only renders after
   // /api/session-plan returns. The gate variant is recorded so funnel
   // analysis can later A/B different commitment forms.

@@ -9,6 +9,7 @@ import { logFunnelEvent } from '@/lib/funnel/events';
 import { regenerateOneLiner } from '@/lib/agent/oneliner';
 import { computeHotDormant } from '@/lib/model/projection';
 import { loadOntology } from '@/lib/ontology/loader';
+import { consumeEdit, editLockedResponse } from '@/lib/limits/edits';
 import type {
   AxisPositionClaim,
   Claim,
@@ -70,6 +71,9 @@ export async function POST(req: NextRequest) {
     // owner mismatch: this user signed in but doesn't own this company
     return json({ error: 'forbidden' }, 403);
   }
+
+  const edit = await consumeEdit(companyId);
+  if (!edit.ok) return editLockedResponse(edit.state);
 
   const db = adminDb();
   const oldClaimRef = db.collection('companies').doc(companyId).collection('claims').doc(claimId);

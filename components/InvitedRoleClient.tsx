@@ -142,8 +142,7 @@ export function InvitedRoleClient({
               </p>
               <p className="mt-3 text-sm text-ink-600">
                 Honest descriptions produce useful strategies. Inflated ones produce useless ones.
-                The strategy is yours; the company owner only sees aggregate patterns, never your
-                individual answers.
+                The polished strategy you see at the end <span className="font-medium">is visible to the person who invited you</span> — they don&apos;t see the raw text you wrote here, but they do see the analysis of your role. If you&apos;d rather keep something private, leave it out.
               </p>
             </div>
 
