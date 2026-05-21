@@ -27,6 +27,8 @@ export function ContextGraphSection({
   const [nodes, setNodes] = useState<GraphNode[]>(initialNodes);
   const [modalOpen, setModalOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillTried, setBackfillTried] = useState(false);
 
   // Live-refresh on mount in case streaming wrote nodes after SSR.
   useEffect(() => {
@@ -48,6 +50,34 @@ export function ContextGraphSection({
       cancelled = true;
     };
   }, [companyId, getToken]);
+
+  // Auto-backfill: if the graph is empty AND the user is signed in AND owner,
+  // trigger one server-side extraction from the existing diagnosis. Idempotent
+  // server-side, so refreshing this page after the call is safe.
+  useEffect(() => {
+    if (!user || !canEdit || backfillTried || backfilling) return;
+    if (nodes.length > 0) return;
+    setBackfillTried(true);
+    (async () => {
+      setBackfilling(true);
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api/companies/${companyId}/graph/backfill`, {
+          method: 'POST',
+          headers: token ? { authorization: `Bearer ${token}` } : {}
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { nodes?: GraphNode[] };
+        if (Array.isArray(data.nodes) && data.nodes.length > 0) {
+          setNodes(data.nodes);
+        }
+      } catch {
+        // silent — the manual "Add nodes" path still works
+      } finally {
+        setBackfilling(false);
+      }
+    })();
+  }, [user, canEdit, backfillTried, backfilling, nodes.length, companyId, getToken]);
 
   const grouped = useMemo(() => {
     const map = new Map<GraphNodeType, GraphNode[]>();
@@ -142,9 +172,13 @@ export function ContextGraphSection({
 
         {totalNodes === 0 && (
           <p className="mt-5 rounded border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2 text-xs text-ink-500">
-            {canEdit
-              ? 'No nodes yet — the agent only emits these on fresh runs. Use "Add nodes" to start.'
-              : 'No context graph nodes yet.'}
+            {backfilling
+              ? 'Extracting your context graph from the diagnosis…'
+              : !user && canEdit
+                ? 'Sign in to auto-populate this graph from your diagnosis, or add nodes manually.'
+                : canEdit
+                  ? 'No nodes yet — use "Add nodes" to add some manually.'
+                  : 'No context graph nodes yet.'}
           </p>
         )}
       </div>
