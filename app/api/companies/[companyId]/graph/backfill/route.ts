@@ -3,10 +3,12 @@ import { adminDb } from '@/lib/firebase/admin';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { getOrCreateSessionId } from '@/lib/firebase/session';
 import { loadCompanyForAccess } from '@/lib/model/access';
+import { randomUUID } from 'node:crypto';
 import {
   buildGraphNode,
   dedupeAgainstExisting,
-  extractGraphNodes
+  extractGraphNodes,
+  resolveEdge
 } from '@/lib/agent/graph-extract';
 import type {
   AxisPositionClaim,
@@ -16,7 +18,7 @@ import type {
   FactClaim,
   OneLinerClaim
 } from '@/lib/model/claims';
-import type { GraphNode } from '@/lib/model/graph';
+import type { GraphEdge, GraphNode } from '@/lib/model/graph';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -102,20 +104,35 @@ export async function POST(
   }
 
   // Dedupe (defensive; existing should already be empty here).
-  const fresh = dedupeAgainstExisting(extracted, existing);
+  const fresh = dedupeAgainstExisting(extracted.nodes, existing);
   const nodes: GraphNode[] = fresh.map(e => buildGraphNode({ companyId, extracted: e }));
 
   if (nodes.length === 0) {
-    return json({ ok: true, nodes: [] });
+    return json({ ok: true, nodes: [], edges: [] });
+  }
+
+  // Resolve agent-emitted edges (which reference nodes by name) against the
+  // freshly-built nodes. Drop any whose endpoints can't be matched.
+  const nameToId = new Map<string, string>();
+  for (const n of nodes) nameToId.set(n.name.toLowerCase().trim(), n.id);
+  const edges: GraphEdge[] = [];
+  for (const e of extracted.edges) {
+    const resolved = resolveEdge({ extracted: e, nameToNodeId: nameToId, companyId });
+    if (!resolved) continue;
+    resolved.id = randomUUID();
+    edges.push(resolved);
   }
 
   const batch = db.batch();
   for (const n of nodes) {
     batch.set(companyRef.collection('graphNodes').doc(n.id), n);
   }
+  for (const e of edges) {
+    batch.set(companyRef.collection('graphEdges').doc(e.id), e);
+  }
   await batch.commit();
 
-  return json({ ok: true, nodes });
+  return json({ ok: true, nodes, edges });
 }
 
 function json(data: unknown, status = 200) {

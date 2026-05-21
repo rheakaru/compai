@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import {
   GRAPH_TYPE_HINTS,
   GRAPH_TYPE_LABELS,
   GRAPH_TYPE_ORDER,
+  type GraphEdge,
   type GraphNode,
   type GraphNodeType
 } from '@/lib/model/graph';
@@ -18,14 +20,17 @@ import { AuthGateModal } from '../AuthGateModal';
 export function ContextGraphSection({
   companyId,
   initialNodes,
+  initialEdges = [],
   canEdit
 }: {
   companyId: string;
   initialNodes: GraphNode[];
+  initialEdges?: GraphEdge[];
   canEdit: boolean;
 }) {
   const { user, getToken } = useAuth();
   const [nodes, setNodes] = useState<GraphNode[]>(initialNodes);
+  const [edges, setEdges] = useState<GraphEdge[]>(initialEdges);
   const [modalOpen, setModalOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
@@ -42,8 +47,10 @@ export function ContextGraphSection({
           headers: token ? { authorization: `Bearer ${token}` } : {}
         });
         if (!res.ok) return;
-        const data = (await res.json()) as { nodes: GraphNode[] };
-        if (!cancelled) setNodes(data.nodes);
+        const data = (await res.json()) as { nodes: GraphNode[]; edges?: GraphEdge[] };
+        if (cancelled) return;
+        setNodes(data.nodes);
+        if (Array.isArray(data.edges)) setEdges(data.edges);
       } catch {
         // ignore
       }
@@ -69,10 +76,11 @@ export function ContextGraphSection({
           headers: token ? { authorization: `Bearer ${token}` } : {}
         });
         if (!res.ok) return;
-        const data = (await res.json()) as { nodes?: GraphNode[] };
+        const data = (await res.json()) as { nodes?: GraphNode[]; edges?: GraphEdge[] };
         if (Array.isArray(data.nodes) && data.nodes.length > 0) {
           setNodes(data.nodes);
         }
+        if (Array.isArray(data.edges)) setEdges(data.edges);
       } catch {
         // silent — the manual "Add nodes" path still works
       } finally {
@@ -93,6 +101,22 @@ export function ContextGraphSection({
 
   const onAdded = (added: GraphNode[]) => {
     setNodes(prev => [...prev, ...added]);
+  };
+  const onEdgesAdded = (added: GraphEdge[]) => {
+    setEdges(prev => [...prev, ...added]);
+  };
+  const onEdgeDeleted = async (edgeId: string) => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/companies/${companyId}/graph/edges/${edgeId}`, {
+        method: 'DELETE',
+        headers: token ? { authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) return;
+      setEdges(prev => prev.filter(e => e.id !== edgeId));
+    } catch {
+      // ignore
+    }
   };
   const onUpdated = (updated: GraphNode) => {
     setNodes(prev => prev.map(n => (n.id === updated.id ? updated : n)));
@@ -162,14 +186,81 @@ export function ContextGraphSection({
 
         {view === 'graph' && totalNodes > 0 && (
           <div className="mt-5">
-            <ContextGraphView nodes={nodes} />
+            <ContextGraphView nodes={nodes} edges={edges} />
             <p className="mt-2 text-[11px] text-ink-400">
-              Hub-and-spoke: every node connects to the company at the centre. Hover to inspect; switch to list to edit.
+              Coloured lines are real relationships ({edges.length} of them); grey spokes connect each node to the company. Hover any line for the label. Switch to list to add or remove.
             </p>
           </div>
         )}
 
         {view === 'list' && (
+        <>
+        {/* Links subsection — relationships between the nodes above. */}
+        {(edges.length > 0 || canEdit) && (
+          <div className="mt-5">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-700">
+                Links · {edges.length}
+              </p>
+              <p className="text-[10px] text-ink-400">
+                Connect SKUs to customers, customers to locations, etc.
+              </p>
+            </div>
+            {edges.length === 0 ? (
+              <p className="mt-2 text-xs italic text-ink-400">
+                {canEdit
+                  ? 'No relationships yet — click "Add nodes" → "Links" tab to add some.'
+                  : 'No relationships yet.'}
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1.5">
+                {edges.map(edge => {
+                  const fromNode = nodes.find(n => n.id === edge.fromNodeId);
+                  const toNode = nodes.find(n => n.id === edge.toNodeId);
+                  if (!fromNode || !toNode) return null;
+                  return (
+                    <li
+                      key={edge.id}
+                      className="group flex items-center gap-2 rounded border border-ink-100 bg-white px-2.5 py-1.5 text-xs"
+                    >
+                      <span className="truncate font-medium text-ink-900">{fromNode.name}</span>
+                      <span
+                        className="flex-none rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white"
+                        style={{ backgroundColor: 'var(--brand, #c64a1f)' }}
+                      >
+                        {edge.label}
+                      </span>
+                      <span className="truncate font-medium text-ink-900">{toNode.name}</span>
+                      {edge.notes && (
+                        <span className="truncate text-[11px] text-ink-500">· {edge.notes}</span>
+                      )}
+                      <div className="ml-auto flex flex-none items-center gap-1">
+                        <span
+                          className={`badge ${
+                            edge.source === 'agent' ? 'badge-hypothesis' : 'badge-user'
+                          }`}
+                        >
+                          {edge.source === 'agent' ? 'agent' : 'you'}
+                        </span>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => onEdgeDeleted(edge.id)}
+                            className="rounded p-1 text-ink-400 opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-700 group-hover:opacity-100"
+                            title="Delete link"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
         <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {GRAPH_TYPE_ORDER.map(type => {
             const items = grouped.get(type) ?? [];
@@ -205,6 +296,7 @@ export function ContextGraphSection({
             );
           })}
         </div>
+        </>
         )}
 
         {totalNodes === 0 && (
@@ -225,6 +317,8 @@ export function ContextGraphSection({
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onAdded={onAdded}
+        existingNodes={nodes}
+        onEdgesAdded={onEdgesAdded}
       />
       <AuthGateModal
         open={authOpen}

@@ -6,7 +6,7 @@ import { resolveGate } from '@/lib/gate/commitment';
 import type { BrandingSnapshot, Claim, CompanyDoc } from '@/lib/model/claims';
 import type { FiveProjects } from '@/lib/agent/projects';
 import type { SessionPlanContent } from '@/lib/agent/session-plan';
-import type { GraphNode } from '@/lib/model/graph';
+import type { GraphEdge, GraphNode } from '@/lib/model/graph';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,14 +39,19 @@ export default async function CompanyPage({
   }
   const company = companySnap.data() as PersistedCompanyDoc;
 
-  const [claimsSnap, graphSnap] = await Promise.all([
+  const [claimsSnap, graphSnap, edgesSnap] = await Promise.all([
     companyRef.collection('claims').get(),
-    companyRef.collection('graphNodes').get()
+    companyRef.collection('graphNodes').get(),
+    companyRef.collection('graphEdges').get()
   ]);
   const claims = claimsSnap.docs.map(d => d.data() as Claim);
   const graphNodes = graphSnap.docs
     .map(d => d.data() as GraphNode)
     .filter(n => !n.deletedAt)
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const graphEdges = edgesSnap.docs
+    .map(d => d.data() as GraphEdge)
+    .filter(e => !e.deletedAt)
     .sort((a, b) => a.createdAt - b.createdAt);
 
   return (
@@ -60,6 +65,7 @@ export default async function CompanyPage({
       initialSessionPlan={company.sessionPlan?.payload ?? null}
       sessionGate={sessionGate}
       initialGraphNodes={graphNodes}
+      initialGraphEdges={graphEdges}
       initialUserNotes={company.userNotes ?? ''}
     />
   );

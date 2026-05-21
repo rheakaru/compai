@@ -5,6 +5,7 @@ import {
   GRAPH_ROLE_LABELS,
   GRAPH_TYPE_LABELS,
   GRAPH_TYPE_ORDER,
+  type GraphEdge,
   type GraphNode,
   type GraphNodeType
 } from '@/lib/model/graph';
@@ -91,10 +92,17 @@ const NODE_COLORS: Record<GraphNodeType, string> = {
   object: '#f59e0b'      // amber
 };
 
-export function ContextGraphView({ nodes }: { nodes: GraphNode[] }) {
-  const [hoverId, setHoverId] = useState<string | null>(null);
+export function ContextGraphView({
+  nodes,
+  edges = []
+}: {
+  nodes: GraphNode[];
+  edges?: GraphEdge[];
+}) {
+  const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
+  const [hoverEdgeId, setHoverEdgeId] = useState<string | null>(null);
 
-  const { center, peripheral } = useMemo(() => {
+  const { center, peripheral, byId } = useMemo(() => {
     const live = nodes.filter(n => !n.deletedAt);
     const centerNode =
       live.find(n => n.type === 'org' && n.role === 'this_company') ??
@@ -117,10 +125,21 @@ export function ContextGraphView({ nodes }: { nodes: GraphNode[] }) {
       cluster.forEach((node, i) => positioned.push({ node, x: positions[i].x, y: positions[i].y }));
     }
 
-    return { center: centerNode, peripheral: positioned };
+    const map = new Map<string, PositionedNode>();
+    for (const p of positioned) map.set(p.node.id, p);
+    if (centerNode) {
+      map.set(centerNode.id, { node: centerNode, x: CENTER_X, y: CENTER_Y });
+    }
+
+    return { center: centerNode, peripheral: positioned, byId: map };
   }, [nodes]);
 
-  const hoverNode = peripheral.find(p => p.node.id === hoverId);
+  const liveEdges = useMemo(() => edges.filter(e => !e.deletedAt), [edges]);
+
+  const hoverNode = peripheral.find(p => p.node.id === hoverNodeId);
+  const hoverEdge = liveEdges.find(e => e.id === hoverEdgeId);
+  const hoverEdgeFrom = hoverEdge ? byId.get(hoverEdge.fromNodeId) : null;
+  const hoverEdgeTo = hoverEdge ? byId.get(hoverEdge.toNodeId) : null;
 
   if (peripheral.length === 0 && !center) {
     return (
@@ -140,18 +159,56 @@ export function ContextGraphView({ nodes }: { nodes: GraphNode[] }) {
         role="img"
         aria-label="POLE+O context graph"
       >
-        {/* Spokes: from center to each peripheral node */}
+        {/* Spokes: from center to each peripheral node (light grey background layer) */}
         {peripheral.map(p => (
           <line
-            key={`edge-${p.node.id}`}
+            key={`spoke-${p.node.id}`}
             x1={CENTER_X}
             y1={CENTER_Y}
             x2={p.x}
             y2={p.y}
             stroke="rgba(86,86,77,0.18)"
-            strokeWidth={hoverId === p.node.id ? 1.5 : 1}
+            strokeWidth={hoverNodeId === p.node.id ? 1.5 : 1}
           />
         ))}
+
+        {/* Real relationships: brand-coloured lines between connected nodes */}
+        {liveEdges.map(edge => {
+          const from = byId.get(edge.fromNodeId);
+          const to = byId.get(edge.toNodeId);
+          if (!from || !to) return null;
+          const isHover = hoverEdgeId === edge.id;
+          const isHyp = edge.source === 'agent';
+          return (
+            <g key={`edge-${edge.id}`}>
+              {/* Wide invisible hover target so the thin line is easy to grab */}
+              <line
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                stroke="transparent"
+                strokeWidth={12}
+                onMouseEnter={() => setHoverEdgeId(edge.id)}
+                onMouseLeave={() =>
+                  setHoverEdgeId(prev => (prev === edge.id ? null : prev))
+                }
+                className="cursor-default"
+              />
+              <line
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                stroke="var(--brand, #c64a1f)"
+                strokeWidth={isHover ? 2.5 : 1.5}
+                strokeDasharray={isHyp ? '4 3' : undefined}
+                opacity={isHover ? 1 : 0.75}
+                pointerEvents="none"
+              />
+            </g>
+          );
+        })}
 
         {/* Type labels on the perimeter */}
         {GRAPH_TYPE_ORDER.map(t => {
@@ -213,16 +270,18 @@ export function ContextGraphView({ nodes }: { nodes: GraphNode[] }) {
         {peripheral.map(p => (
           <g
             key={p.node.id}
-            onMouseEnter={() => setHoverId(p.node.id)}
-            onMouseLeave={() => setHoverId(prev => (prev === p.node.id ? null : prev))}
+            onMouseEnter={() => setHoverNodeId(p.node.id)}
+            onMouseLeave={() =>
+              setHoverNodeId(prev => (prev === p.node.id ? null : prev))
+            }
             className="cursor-default"
           >
             <circle
               cx={p.x}
               cy={p.y}
-              r={hoverId === p.node.id ? NODE_R + 2 : NODE_R}
+              r={hoverNodeId === p.node.id ? NODE_R + 2 : NODE_R}
               fill={NODE_COLORS[p.node.type]}
-              opacity={hoverId === null || hoverId === p.node.id ? 1 : 0.55}
+              opacity={hoverNodeId === null || hoverNodeId === p.node.id ? 1 : 0.55}
               stroke="white"
               strokeWidth={1.5}
             />
@@ -233,7 +292,7 @@ export function ContextGraphView({ nodes }: { nodes: GraphNode[] }) {
               dominantBaseline="middle"
               className="fill-ink-700 pointer-events-none select-none"
               fontSize="10.5"
-              opacity={hoverId === null || hoverId === p.node.id ? 1 : 0.45}
+              opacity={hoverNodeId === null || hoverNodeId === p.node.id ? 1 : 0.45}
             >
               {truncate(p.node.name, 20)}
             </text>
@@ -250,6 +309,22 @@ export function ContextGraphView({ nodes }: { nodes: GraphNode[] }) {
           <p className="mt-1 text-sm font-medium text-ink-900">{hoverNode.node.name}</p>
           {hoverNode.node.notes && (
             <p className="mt-1 text-xs leading-snug text-ink-600">{hoverNode.node.notes}</p>
+          )}
+        </div>
+      )}
+
+      {hoverEdge && hoverEdgeFrom && hoverEdgeTo && (
+        <div className="pointer-events-none absolute right-3 top-3 max-w-[280px] rounded-md border border-ink-200 bg-white/95 px-3 py-2 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-ink-500">
+            Link {hoverEdge.source === 'agent' ? '· hypothesis' : ''}
+          </p>
+          <p className="mt-1 text-sm text-ink-900">
+            <span className="font-medium">{hoverEdgeFrom.node.name}</span>{' '}
+            <span style={{ color: 'var(--brand, #c64a1f)' }}>{hoverEdge.label}</span>{' '}
+            <span className="font-medium">{hoverEdgeTo.node.name}</span>
+          </p>
+          {hoverEdge.notes && (
+            <p className="mt-1 text-xs leading-snug text-ink-600">{hoverEdge.notes}</p>
           )}
         </div>
       )}

@@ -2,8 +2,10 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { randomUUID } from 'node:crypto';
 import {
+  coerceEdgeLabel,
   coerceRole,
   isGraphNodeType,
+  type GraphEdge,
   type GraphNode,
   type GraphNodeType
 } from '@/lib/model/graph';
@@ -74,13 +76,29 @@ Emit 12–25 nodes total. Cover what the diagnosis already supports:
 - Provenance: tag found_on_site only when the source URL is the company's own site; inferred_public for news / third-party sources; agent_hypothesis for anything you're inferring without a direct citation.
 - One node per distinct entity. Do not duplicate.
 
+# Edges — relationships between nodes
+
+After the nodes, also emit edges where the diagnosis clearly supports a connection. Common relationships to look for:
+- Org "sells to" Org (the company sells to a customer org)
+- Org "supplies" Org (a vendor supplies this company)
+- Org / Person "located at" Location
+- Org "competes with" Org
+- Event "drives demand for" Object
+- Object "sourced from" Org
+- Person "works at" Org
+
+Rules:
+- Reference nodes by their EXACT \`name\` field as emitted in the nodes list above. The matcher is name-based.
+- Skip edges you can't substantiate from the diagnosis. Do NOT invent connections.
+- 0–15 edges. Quality over quantity. If you have no clear relationships, emit none.
+
 # Output
 
 ONE JSON object on ONE line:
 
-{"nodes":[{"nodeType":"...","role":"...","name":"...","notes":"...","provenance":"..."},{...}]}
+{"nodes":[{"nodeType":"...","role":"...","name":"...","notes":"...","provenance":"..."}],"edges":[{"from":"<exact node name>","to":"<exact node name>","label":"sells to|supplies|...","notes":"...","provenance":"..."}]}
 
-No prose. No markdown fences. No keys other than "nodes".`;
+No prose. No markdown fences. Only "nodes" and "edges" keys.`;
 
 export interface GraphExtractInput {
   companyName: string | null;
@@ -98,9 +116,22 @@ export interface ExtractedGraphNode {
   provenance: Provenance;
 }
 
+export interface ExtractedGraphEdge {
+  from: string;        // matches an ExtractedGraphNode.name
+  to: string;
+  label: string;
+  notes?: string;
+  provenance: Provenance;
+}
+
+export interface GraphExtractResult {
+  nodes: ExtractedGraphNode[];
+  edges: ExtractedGraphEdge[];
+}
+
 export async function extractGraphNodes(
   input: GraphExtractInput
-): Promise<ExtractedGraphNode[]> {
+): Promise<GraphExtractResult> {
   const factLines = input.facts
     .map(f => {
       const cat = f.content.category ? `[${f.content.category}] ` : '';
@@ -161,15 +192,22 @@ export async function extractGraphNodes(
       notes?: unknown;
       provenance?: unknown;
     }>;
+    edges?: Array<{
+      from?: unknown;
+      to?: unknown;
+      label?: unknown;
+      notes?: unknown;
+      provenance?: unknown;
+    }>;
   };
 
-  const raw = Array.isArray(parsed.nodes) ? parsed.nodes : [];
-  const out: ExtractedGraphNode[] = [];
-  for (const n of raw) {
+  const rawNodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+  const nodes: ExtractedGraphNode[] = [];
+  for (const n of rawNodes) {
     if (!isGraphNodeType(n.nodeType)) continue;
     const name = typeof n.name === 'string' ? n.name.trim().slice(0, 200) : '';
     if (!name) continue;
-    out.push({
+    nodes.push({
       nodeType: n.nodeType,
       role: coerceRole(n.nodeType, n.role),
       name,
@@ -180,7 +218,26 @@ export async function extractGraphNodes(
       provenance: coerceProvenance(n.provenance)
     });
   }
-  return out;
+
+  const rawEdges = Array.isArray(parsed.edges) ? parsed.edges : [];
+  const edges: ExtractedGraphEdge[] = [];
+  for (const e of rawEdges) {
+    const from = typeof e.from === 'string' ? e.from.trim() : '';
+    const to = typeof e.to === 'string' ? e.to.trim() : '';
+    if (!from || !to || from === to) continue;
+    edges.push({
+      from,
+      to,
+      label: coerceEdgeLabel(e.label),
+      notes:
+        typeof e.notes === 'string' && e.notes.trim()
+          ? e.notes.trim().slice(0, 400)
+          : undefined,
+      provenance: coerceProvenance(e.provenance)
+    });
+  }
+
+  return { nodes, edges };
 }
 
 /**
@@ -230,4 +287,33 @@ export function dedupeAgainstExisting(
     out.push(e);
   }
   return out;
+}
+
+/**
+ * Resolve an agent-emitted edge (with from/to as node NAMES) into a
+ * GraphEdge with from/to as node IDS, using a name -> id lookup. Returns
+ * null when either endpoint can't be resolved.
+ */
+export function resolveEdge(opts: {
+  extracted: ExtractedGraphEdge;
+  nameToNodeId: Map<string, string>;
+  companyId: string;
+}): GraphEdge | null {
+  const fromId = opts.nameToNodeId.get(opts.extracted.from.toLowerCase().trim());
+  const toId = opts.nameToNodeId.get(opts.extracted.to.toLowerCase().trim());
+  if (!fromId || !toId || fromId === toId) return null;
+  const now = Date.now();
+  return {
+    id: '', // assigned at persist time
+    companyId: opts.companyId,
+    fromNodeId: fromId,
+    toNodeId: toId,
+    label: opts.extracted.label,
+    notes: opts.extracted.notes,
+    source: 'agent',
+    provenance: opts.extracted.provenance,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null
+  };
 }

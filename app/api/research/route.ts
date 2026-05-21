@@ -10,7 +10,7 @@ import { logFunnelEvent } from '@/lib/funnel/events';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { extractBranding } from '@/lib/branding/extract';
 import { adminDb } from '@/lib/firebase/admin';
-import { buildGraphNode, extractGraphNodes } from '@/lib/agent/graph-extract';
+import { buildGraphNode, extractGraphNodes, resolveEdge } from '@/lib/agent/graph-extract';
 import { generateSynthesis } from '@/lib/agent/synthesis';
 import type {
   AxisPositionClaim,
@@ -292,8 +292,10 @@ export async function POST(req: NextRequest) {
             axisClaims
           });
           const graphBatch = adminDb().batch();
-          for (const e of extracted) {
+          const nameToId = new Map<string, string>();
+          for (const e of extracted.nodes) {
             const node = buildGraphNode({ companyId, extracted: e });
+            nameToId.set(node.name.toLowerCase().trim(), node.id);
             graphBatch.set(
               adminDb()
                 .collection('companies')
@@ -303,6 +305,24 @@ export async function POST(req: NextRequest) {
               node
             );
             send({ type: 'graph_node', node });
+          }
+          // Resolve agent-emitted edges against the freshly created nodes.
+          for (const edgeIn of extracted.edges) {
+            const resolved = resolveEdge({
+              extracted: edgeIn,
+              nameToNodeId: nameToId,
+              companyId
+            });
+            if (!resolved) continue;
+            resolved.id = randomUUID();
+            graphBatch.set(
+              adminDb()
+                .collection('companies')
+                .doc(companyId)
+                .collection('graphEdges')
+                .doc(resolved.id),
+              resolved
+            );
           }
           await graphBatch.commit();
         } catch (err) {

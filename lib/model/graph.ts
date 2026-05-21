@@ -97,6 +97,48 @@ export interface GraphNode {
   deletedAt: number | null;
 }
 
+/**
+ * A directed relationship between two graph nodes. Labels are free text but
+ * EDGE_LABEL_OPTIONS suggests common verbs so the picker is a quick dropdown
+ * in the bulk-add modal. Stored at companies/{id}/graphEdges/{edgeId}.
+ */
+export interface GraphEdge {
+  id: string;
+  companyId: string;
+  fromNodeId: string;
+  toNodeId: string;
+  label: string;            // "sells to", "supplies", "located at", etc.
+  notes?: string;
+  source: 'agent' | 'user';
+  provenance: Provenance;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export const EDGE_LABEL_OPTIONS: string[] = [
+  'sells to',
+  'buys from',
+  'supplies',
+  'sources from',
+  'located at',
+  'happens at',
+  'drives demand for',
+  'uses',
+  'owns',
+  'works at',
+  'reports to',
+  'competes with',
+  'partners with',
+  'belongs to',
+  'other'
+];
+
+export function coerceEdgeLabel(raw: unknown): string {
+  if (typeof raw !== 'string') return 'related to';
+  return raw.trim().slice(0, 60) || 'related to';
+}
+
 export function isGraphNodeType(v: unknown): v is GraphNodeType {
   return v === 'person' || v === 'org' || v === 'location' || v === 'event' || v === 'object';
 }

@@ -38,7 +38,7 @@ import { exportGateOpen, resolveExportGateLevel } from '@/lib/export/gate';
 import type { FiveProjects } from '@/lib/agent/projects';
 import type { SessionPlanContent } from '@/lib/agent/session-plan';
 import type { ResolvedGate } from '@/lib/gate/commitment';
-import type { GraphNode } from '@/lib/model/graph';
+import type { GraphEdge, GraphNode } from '@/lib/model/graph';
 
 // Feature flags — sections that are off until we refine them. All upstream
 // code (agents, routes, components) stays in place so these are one-line
@@ -64,6 +64,7 @@ interface ProfileProps {
   initialSessionPlan?: SessionPlanContent | null;
   sessionGate?: ResolvedGate | null;
   initialGraphNodes?: GraphNode[];
+  initialGraphEdges?: GraphEdge[];
   initialUserNotes?: string;
   initialEditsUsed?: number;
   initialMaxEdits?: number;
@@ -82,6 +83,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     initialSessionPlan = null,
     sessionGate = null,
     initialGraphNodes = [],
+    initialGraphEdges = [],
     initialUserNotes = '',
     initialEditsUsed = 0,
     initialMaxEdits = DEFAULT_MAX_EDITS,
@@ -368,6 +370,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
             <ContextGraphSection
               companyId={companyId}
               initialNodes={initialGraphNodes}
+              initialEdges={initialGraphEdges}
               canEdit={canEdit}
             />
           </section>
