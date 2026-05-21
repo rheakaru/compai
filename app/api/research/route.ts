@@ -116,7 +116,8 @@ export async function POST(req: NextRequest) {
     url,
     sessionId,
     ownerUid: user?.uid ?? null,
-    ontologyVersionHash: hash
+    ontologyVersionHash: hash,
+    userNotes: body?.notes ?? null
   });
 
   void logFunnelEvent({

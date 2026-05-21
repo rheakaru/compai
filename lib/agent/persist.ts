@@ -33,6 +33,11 @@ export async function createCompany(opts: {
   sessionId: string;
   ownerUid: string | null;
   ontologyVersionHash: string;
+  // Notes the user pasted on the landing page alongside the URL. We persist
+  // them so the "Your context" box on the company page is pre-filled with
+  // what they wrote — and so re-analysis reads the same notes as additional
+  // context.
+  userNotes?: string | null;
 }): Promise<string> {
   const companyId = randomUUID();
   const doc: CompanyDoc = {
@@ -41,7 +46,8 @@ export async function createCompany(opts: {
     url: opts.url,
     name: null,
     createdAt: Date.now(),
-    ontologyVersionHash: opts.ontologyVersionHash
+    ontologyVersionHash: opts.ontologyVersionHash,
+    userNotes: opts.userNotes?.trim() || null
   };
   await adminDb().collection('companies').doc(companyId).set(doc);
   return companyId;
