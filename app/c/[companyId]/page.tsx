@@ -60,6 +60,7 @@ export default async function CompanyPage({
       initialSessionPlan={company.sessionPlan?.payload ?? null}
       sessionGate={sessionGate}
       initialGraphNodes={graphNodes}
+      initialUserNotes={company.userNotes ?? ''}
     />
   );
 }

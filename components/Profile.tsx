@@ -7,7 +7,8 @@ import type {
   Claim,
   FactClaim,
   HardProblemClaim,
-  OneLinerClaim
+  OneLinerClaim,
+  SynthesisClaim
 } from '@/lib/model/claims';
 import type { Ontology } from '@/lib/ontology/types';
 import { OneLiner } from './OneLiner';
@@ -26,6 +27,7 @@ import { SessionPlanSection } from './SessionPlan/SessionPlanSection';
 import { ContextExportButton } from './ContextExportButton';
 import { ContextGraphSection } from './ContextGraph/ContextGraphSection';
 import { BookSessionFooter } from './BookSessionFooter';
+import { CompanyNotes } from './CompanyNotes';
 import { AXIS_DISPLAY_ORDER } from '@/lib/ontology/display-labels';
 import { exportGateOpen, resolveExportGateLevel } from '@/lib/export/gate';
 import type { FiveProjects } from '@/lib/agent/projects';
@@ -33,11 +35,12 @@ import type { SessionPlanContent } from '@/lib/agent/session-plan';
 import type { ResolvedGate } from '@/lib/gate/commitment';
 import type { GraphNode } from '@/lib/model/graph';
 
-// Feature flag — temporarily hidden while we refine the session-plan output.
-// Flip to true to restore the "Your one day with Rhea" section between
-// 5-projects and Export. All upstream code (agent, route, ontology block)
-// stays in place so this is a one-line toggle.
+// Feature flags — sections that are off until we refine them. All upstream
+// code (agents, routes, components) stays in place so these are one-line
+// toggles to bring back later.
 const SHOW_SESSION_PLAN = false;
+const SHOW_TRANSFERABLE_SOLUTIONS = false;
+const SHOW_FIVE_PROJECTS = false;
 
 export interface ProfileHandle {
   appendClaim: (claim: Claim) => void;
@@ -56,6 +59,7 @@ interface ProfileProps {
   initialSessionPlan?: SessionPlanContent | null;
   sessionGate?: ResolvedGate | null;
   initialGraphNodes?: GraphNode[];
+  initialUserNotes?: string;
 }
 
 export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
@@ -69,7 +73,8 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     initialBranding = null,
     initialSessionPlan = null,
     sessionGate = null,
-    initialGraphNodes = []
+    initialGraphNodes = [],
+    initialUserNotes = ''
   },
   ref
 ) {
@@ -122,6 +127,11 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
 
   const oneLiner = useMemo(() => {
     const all = live.filter((c): c is OneLinerClaim => c.kind === 'one_liner');
+    return all.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  }, [live]);
+
+  const synthesis = useMemo(() => {
+    const all = live.filter((c): c is SynthesisClaim => c.kind === 'synthesis');
     return all.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
   }, [live]);
 
@@ -282,9 +292,18 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     <div className="min-h-screen" style={brandStyle}>
       <div ref={profileTopRef} />
       <BrandHeader url={companyUrl ?? null} branding={branding} />
-      <OneLiner claim={oneLiner} streaming={streaming} />
+      <OneLiner claim={oneLiner} synthesis={synthesis} streaming={streaming} />
 
       <div className="mx-auto max-w-4xl space-y-10 px-6 py-8">
+        {!streaming && companyId && canEdit && (
+          <CompanyNotes
+            companyId={companyId}
+            companyUrl={companyUrl ?? null}
+            initialNotes={initialUserNotes}
+            canEdit={canEdit}
+          />
+        )}
+
         {!streaming && (
           <OpenQuestionsPanel
             axisClaims={axisClaims}
@@ -325,19 +344,19 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
         <section>
           <SectionHeader
             title="What's hard"
-            subtitle="Computed from the axes — not a vibe."
+            subtitle="Based on literature on company types and the axes we plotted you against."
           />
           <ProblemMap claims={hardProblems} />
         </section>
 
-        {!streaming && axisClaims.length >= 5 && (
+        {SHOW_TRANSFERABLE_SOLUTIONS && !streaming && axisClaims.length >= 5 && (
           <section>
             <SectionHeader title="Transferable solutions" />
             <TransferableSolutions axisClaims={axisClaims} ontology={ontology} />
           </section>
         )}
 
-        {!streaming && companyId && axisClaims.length >= 5 && (
+        {SHOW_FIVE_PROJECTS && !streaming && companyId && axisClaims.length >= 5 && (
           <section>
             <SectionHeader title="Your 5 AI projects" />
             <AnalogyAndProjects companyId={companyId} initialProjects={initialProjects} />

@@ -11,13 +11,16 @@ import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import { extractBranding } from '@/lib/branding/extract';
 import { adminDb } from '@/lib/firebase/admin';
 import { buildGraphNode, extractGraphNodes } from '@/lib/agent/graph-extract';
+import { generateSynthesis } from '@/lib/agent/synthesis';
 import type {
   AxisPositionClaim,
   Claim,
   BrandingSnapshot,
   CompanyDoc,
   FactClaim,
-  OneLinerClaim
+  HardProblemClaim,
+  OneLinerClaim,
+  SynthesisClaim
 } from '@/lib/model/claims';
 
 export const runtime = 'nodejs';
@@ -207,6 +210,52 @@ export async function POST(req: NextRequest) {
             continue;
           }
           send({ type: 'claim', claim: persistable });
+        }
+
+        // Synthesis — 2-4 sentence "read deeper" elaboration on the one-liner.
+        // Dedicated Sonnet pass like graph-extract; the main research stream
+        // is already crowded.
+        try {
+          const liveOneLinerSnap = await adminDb()
+            .collection('companies')
+            .doc(companyId)
+            .collection('claims')
+            .where('kind', '==', 'one_liner')
+            .where('supersededBy', '==', null)
+            .get();
+          const liveOneLiner =
+            liveOneLinerSnap.docs
+              .map(d => d.data() as OneLinerClaim)
+              .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+          const liveHotProblems = derived.filter(
+            (h): h is HardProblemClaim => h.kind === 'hard_problem' && !h.content.isDormant
+          );
+          const synthesis = await generateSynthesis({
+            oneLiner: liveOneLiner,
+            axisClaims,
+            hotProblems: liveHotProblems
+          });
+          if (synthesis.text) {
+            const claim: SynthesisClaim = {
+              id: randomUUID(),
+              kind: 'synthesis',
+              content: {
+                text: synthesis.text,
+                lowConfidence: synthesis.lowConfidence
+              },
+              provenance: 'agent_hypothesis',
+              confidence: synthesis.lowConfidence ? 0.4 : 0.75,
+              supersededBy: null,
+              createdAt: Date.now()
+            };
+            await persistClaim(companyId, claim);
+            send({ type: 'claim', claim });
+          }
+        } catch (err) {
+          send({
+            type: 'error',
+            message: `Synthesis failed: ${err instanceof Error ? err.message : String(err)}`
+          });
         }
 
         // POLE+O graph extraction — runs AFTER the main stream against the

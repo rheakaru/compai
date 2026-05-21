@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
 import type { FunnelEvent, FunnelStage } from '@/lib/funnel/events';
+import type { CompanyDoc } from '@/lib/model/claims';
+import type { RoleDoc } from '@/lib/model/role';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -96,7 +98,82 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => b.lastSeen - a.lastSeen);
 
-  return new Response(JSON.stringify({ journeys }), {
+  // -------------------------------------------------------------------
+  // Per-company aggregation. Gives the operator a company-centric view
+  // alongside the session-centric journeys.
+  // -------------------------------------------------------------------
+  const companiesSnap = await adminDb()
+    .collection('companies')
+    .orderBy('createdAt', 'desc')
+    .limit(500)
+    .get();
+
+  const companies = await Promise.all(
+    companiesSnap.docs.map(async doc => {
+      const company = doc.data() as CompanyDoc & {
+        branding?: { name?: string | null } | null;
+        projects?: { generatedAt: number };
+      };
+      const companyId = doc.id;
+      const rolesSnap = await adminDb()
+        .collection('companies')
+        .doc(companyId)
+        .collection('roles')
+        .get();
+      const roles = rolesSnap.docs.map(r => r.data() as RoleDoc);
+
+      // Funnel slice for THIS company.
+      const companyEvents = events.filter(e => e.companyId === companyId);
+      const profileViews = companyEvents.filter(e => e.stage === 'profile_viewed').length;
+      const editsStarted = companyEvents.filter(e => e.stage === 'edit_started').length;
+      const editsSaved = companyEvents.filter(e => e.stage === 'edit_saved').length;
+      const exports = companyEvents.filter(e => e.stage === 'context_graph_exported').length;
+      const signInEvents = companyEvents.filter(e => e.stage === 'signed_in');
+      const signedInEmails = new Set<string>();
+      for (const e of signInEvents) {
+        if (typeof e.meta?.email === 'string') signedInEmails.add(e.meta.email as string);
+      }
+
+      let furthestStage: FunnelStage | null = null;
+      let furthestRank = -1;
+      let firstSeen = company.createdAt;
+      let lastSeen = company.createdAt;
+      for (const e of companyEvents) {
+        const r = STAGE_ORDER.indexOf(e.stage);
+        if (r > furthestRank) {
+          furthestRank = r;
+          furthestStage = e.stage;
+        }
+        firstSeen = Math.min(firstSeen, e.createdAt);
+        lastSeen = Math.max(lastSeen, e.createdAt);
+      }
+
+      return {
+        companyId,
+        url: company.url,
+        name: company.branding?.name ?? company.name ?? null,
+        ownerUid: company.ownerUid,
+        createdAt: company.createdAt,
+        completedAt: company.completedAt ?? null,
+        firstSeen,
+        lastSeen,
+        furthestStage,
+        profileViews,
+        editsStarted,
+        editsSaved,
+        exports,
+        rolesInvited: roles.length,
+        rolesCompleted: roles.filter(r => r.status === 'completed').length,
+        signedInUsers: signedInEmails.size,
+        projectsGenerated: !!company.projects?.generatedAt,
+        userNotesLength: (company.userNotes ?? '').length
+      };
+    })
+  );
+
+  companies.sort((a, b) => b.lastSeen - a.lastSeen);
+
+  return new Response(JSON.stringify({ journeys, companies }), {
     headers: { 'content-type': 'application/json' }
   });
 }

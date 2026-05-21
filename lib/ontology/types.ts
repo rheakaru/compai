@@ -11,7 +11,8 @@ export type ClaimKind =
   | 'axis_position'
   | 'hard_problem'
   | 'analogy'
-  | 'one_liner';
+  | 'one_liner'
+  | 'synthesis';
 
 export type AxisType = 'categorical' | 'spectrum' | 'categorical_2x2';
 

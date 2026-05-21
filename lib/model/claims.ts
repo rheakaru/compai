@@ -78,12 +78,23 @@ export interface OneLinerClaim extends BaseClaim {
   content: { sentence: string; lowConfidence: boolean };
 }
 
+export interface SynthesisClaim extends BaseClaim {
+  kind: 'synthesis';
+  content: {
+    // 2–5 sentences in plain English that build on the one-liner.
+    // The "read deeper" content that expands next to the one-liner.
+    text: string;
+    lowConfidence?: boolean;
+  };
+}
+
 export type Claim =
   | FactClaim
   | AxisPositionClaim
   | HardProblemClaim
   | AnalogyClaim
-  | OneLinerClaim;
+  | OneLinerClaim
+  | SynthesisClaim;
 
 export interface Correction {
   id: string;
@@ -121,6 +132,9 @@ export interface CompanyDoc {
   completedAt?: number | null;
   ontologyVersionHash: string;
   branding?: BrandingSnapshot | null;
+  // Owner-editable context the agent reads on re-analysis. Persisted
+  // across the lifetime of the company so it builds up.
+  userNotes?: string | null;
   // Session-plan persisted state. The 4th chain node; only renders after
   // /api/session-plan returns. The gate variant is recorded so funnel
   // analysis can later A/B different commitment forms.
