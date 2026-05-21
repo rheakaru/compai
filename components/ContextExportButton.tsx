@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Download, Copy, X } from 'lucide-react';
+import { Download, Copy, X, Gift } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { AuthGateModal } from './AuthGateModal';
 import type { ExportGateLevel } from '@/lib/ontology/types';
@@ -110,30 +110,50 @@ export function ContextExportButton({
         type="button"
         onClick={openModal}
         disabled={!gateOpen}
-        className="card flex w-full items-center justify-between gap-3 text-left enabled:hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-70"
+        className="group block w-full overflow-hidden rounded-xl border-2 text-left enabled:hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+        style={{
+          borderColor: 'var(--brand, #c64a1f)',
+          backgroundImage:
+            'linear-gradient(135deg, rgba(198,74,31,0.06) 0%, rgba(198,74,31,0.12) 100%)'
+        }}
       >
-        <div>
-          <p
-            className="text-[11px] font-semibold uppercase tracking-wider"
-            style={{ color: 'var(--brand, #c64a1f)' }}
+        <div className="flex items-center gap-4 p-5">
+          <div
+            className="flex h-12 w-12 flex-none items-center justify-center rounded-full"
+            style={{ backgroundColor: 'var(--brand, #c64a1f)' }}
           >
-            Export this diagnosis for your LLM
-          </p>
-          <p className="mt-1 text-sm text-ink-700">
-            {gateOpen ? (
-              <>
-                Paste it into ChatGPT, Claude, or hand it to your dev. A Markdown context
-                document — the only artifact designed to leave the tool.
-              </>
-            ) : (
-              <>
-                A Markdown context you can paste into any LLM to get sharper answers about
-                your business. {describeExportGate(gateLevel)}.
-              </>
-            )}
-          </p>
+            <Gift className="h-5 w-5 text-white" strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-[11px] font-semibold uppercase tracking-wider"
+              style={{ color: 'var(--brand, #c64a1f)' }}
+            >
+              Take this with you
+            </p>
+            <h3 className="mt-0.5 text-base font-semibold text-ink-900">
+              Export this diagnosis as LLM context
+            </h3>
+            <p className="mt-1 text-sm text-ink-700">
+              {gateOpen ? (
+                <>
+                  A Markdown document you can paste into ChatGPT, Claude, or hand to your dev.
+                  Every claim carries its provenance so the consuming model won&apos;t promote
+                  hypotheses to facts.
+                </>
+              ) : (
+                <>
+                  A Markdown context you can paste into any LLM. {describeExportGate(gateLevel)}.
+                </>
+              )}
+            </p>
+          </div>
+          <Download
+            className="h-5 w-5 flex-none transition-transform group-enabled:group-hover:translate-y-0.5"
+            style={{ color: 'var(--brand, #c64a1f)' }}
+            strokeWidth={2}
+          />
         </div>
-        <Download className="h-5 w-5 flex-none text-ink-500" strokeWidth={1.75} />
       </button>
 
       <AuthGateModal

@@ -392,13 +392,13 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </div>
         </section>
 
-        <section>
-          <SectionHeader
-            title="What's hard"
-            subtitle="Based on literature on company types and the axes we plotted you against."
-          />
+        <CollapsibleSection
+          title="What's hard"
+          subtitle="Based on literature on company types and the axes we plotted you against."
+          countLabel={`${hardProblems.filter(c => !c.content.isDormant).slice(0, 5).length} insights`}
+        >
           <ProblemMap claims={hardProblems} />
-        </section>
+        </CollapsibleSection>
 
         {SHOW_TRANSFERABLE_SOLUTIONS && !streaming && axisClaims.length >= 5 && (
           <section>
@@ -429,6 +429,23 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </section>
         )}
 
+        {!streaming && companyId && user && (
+          <section>
+            <SectionHeader
+              title="Roles"
+              subtitle="Invite coworkers, see only the aggregate."
+            />
+            <InviteOwnerSection companyId={companyId} />
+          </section>
+        )}
+
+        {facts.length > 0 && (
+          <FactsSection facts={facts} />
+        )}
+
+        {/* Export sits at the bottom as the takeaway — the artifact
+            designed to leave the tool. Visually distinct so it reads as
+            "here, take this with you," not as another mid-page action. */}
         {!streaming && companyId && (
           <section>
             <ContextExportButton
@@ -445,20 +462,6 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
               )}
             />
           </section>
-        )}
-
-        {!streaming && companyId && user && (
-          <section>
-            <SectionHeader
-              title="Roles"
-              subtitle="Invite coworkers, see only the aggregate."
-            />
-            <InviteOwnerSection companyId={companyId} />
-          </section>
-        )}
-
-        {facts.length > 0 && (
-          <FactsSection facts={facts} />
         )}
 
         {error && (
@@ -492,6 +495,39 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
       <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
       {subtitle && <p className="mt-0.5 text-xs text-ink-500">{subtitle}</p>}
     </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  countLabel,
+  children
+}: {
+  title: string;
+  subtitle?: string;
+  countLabel?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="mb-3 flex w-full items-baseline justify-between gap-3 text-left"
+      >
+        <div>
+          <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs text-ink-500">{subtitle}</p>}
+        </div>
+        <span className="flex flex-none items-center gap-1 text-[11px] uppercase tracking-wider text-ink-500">
+          {countLabel && <span>{countLabel}</span>}
+          <span aria-hidden>{open ? '▴' : '▾'}</span>
+        </span>
+      </button>
+      {open && children}
+    </section>
   );
 }
 
