@@ -16,7 +16,9 @@ export type FunnelStage =
   | 'analogy_honest_stop'
   | 'session_plan_viewed'
   | 'session_plan_gate_passed'
-  | 'context_graph_exported';
+  | 'context_graph_exported'
+  | 'connector_map_viewed'
+  | 'connector_map_honest_stop';
 
 export interface FunnelEvent {
   id: string;

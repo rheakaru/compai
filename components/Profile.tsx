@@ -28,6 +28,9 @@ import { ContextExportButton } from './ContextExportButton';
 import { ContextGraphSection } from './ContextGraph/ContextGraphSection';
 import { BookSessionFooter } from './BookSessionFooter';
 import { CompanyNotes } from './CompanyNotes';
+import { ConnectorMap } from './ConnectorMap';
+import type { ConnectorMapResult } from '@/lib/model/connector-map';
+import type { CompanyStack } from '@/lib/model/stack';
 import { Tour } from './Tour/Tour';
 import { PROFILE_TOUR_STEPS } from './Tour/profileTourSteps';
 import { PostureShift } from './PostureShift';
@@ -70,6 +73,8 @@ interface ProfileProps {
   initialGraphNodes?: GraphNode[];
   initialGraphEdges?: GraphEdge[];
   initialUserNotes?: string;
+  initialStack?: CompanyStack | null;
+  connectorMap?: ConnectorMapResult | null;
   initialEditsUsed?: number;
   initialMaxEdits?: number;
   initialLockedAt?: number | null;
@@ -89,6 +94,8 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     initialGraphNodes = [],
     initialGraphEdges = [],
     initialUserNotes = '',
+    initialStack = null,
+    connectorMap = null,
     initialEditsUsed = 0,
     initialMaxEdits = DEFAULT_MAX_EDITS,
     initialLockedAt = null
@@ -429,6 +436,17 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </section>
         )}
 
+        {!streaming && companyId && connectorMap && ontology.connector_map && (
+          <div data-tour="connector-map">
+            <ConnectorMap
+              result={connectorMap}
+              framing={ontology.connector_map.framing}
+              companyId={companyId}
+              companyUrl={companyUrl ?? null}
+            />
+          </div>
+        )}
+
         {SHOW_TRANSFERABLE_SOLUTIONS && !streaming && axisClaims.length >= 5 && (
           <section>
             <SectionHeader title="Transferable solutions" />
@@ -476,6 +494,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
               companyId={companyId}
               companyUrl={companyUrl ?? null}
               initialNotes={initialUserNotes}
+              initialStack={initialStack}
               canEdit={canEdit}
               onEditStateChange={s => {
                 setEditsUsed(s.editsUsed);
@@ -551,10 +570,11 @@ function CompanyNotesDemoted(props: {
   companyId: string;
   companyUrl: string | null;
   initialNotes: string;
+  initialStack: CompanyStack | null;
   canEdit: boolean;
   onEditStateChange: (s: { editsUsed: number; maxEdits: number }) => void;
 }) {
-  const [open, setOpen] = useState(props.initialNotes.length > 0);
+  const [open, setOpen] = useState(props.initialNotes.length > 0 || !!props.initialStack);
   return (
     <div className="rounded-md border border-ink-100">
       <button
@@ -580,6 +600,7 @@ function CompanyNotesDemoted(props: {
             companyId={props.companyId}
             companyUrl={props.companyUrl}
             initialNotes={props.initialNotes}
+            initialStack={props.initialStack}
             canEdit={props.canEdit}
             onEditStateChange={props.onEditStateChange}
           />

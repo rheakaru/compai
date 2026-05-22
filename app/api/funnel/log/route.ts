@@ -11,7 +11,9 @@ const CLIENT_LOGGABLE: FunnelStage[] = [
   'profile_viewed',
   'edit_started',
   'projects_viewed',
-  'session_plan_viewed'
+  'session_plan_viewed',
+  'connector_map_viewed',
+  'connector_map_honest_stop'
 ];
 
 const Body = z.object({

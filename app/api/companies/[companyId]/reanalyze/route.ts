@@ -101,10 +101,20 @@ export async function POST(
       const axisClaims: AxisPositionClaim[] = [];
       const agentInteractions: InteractionFiring[] = [];
 
+      // Fold the stack + operating files into the extra context so the
+      // research agent can reference them when deriving axes, the one-liner,
+      // and the hot list. This is what "submitting stack re-runs the
+      // analysis" produces.
+      const companyAny = company as typeof company & {
+        stack?: import('@/lib/model/stack').CompanyStack;
+      };
+      const stackBlock = stackToContextBlock(companyAny.stack);
+      const extraNotes = [company.userNotes ?? '', stackBlock].filter(Boolean).join('\n\n');
+
       try {
         for await (const event of streamResearch({
           url: company.url,
-          extraNotes: company.userNotes ?? undefined
+          extraNotes: extraNotes || undefined
         })) {
           if (event.type === 'interaction') {
             const axes = Array.isArray(event.axes) ? (event.axes as string[]) : [];
@@ -193,6 +203,7 @@ export async function POST(
     }
   });
 
+  // helper inlined at the bottom of the module — see below
   return new Response(stream, {
     headers: {
       'content-type': 'text/event-stream',
@@ -200,4 +211,24 @@ export async function POST(
       'x-accel-buffering': 'no'
     }
   });
+}
+
+function stackToContextBlock(
+  stack: import('@/lib/model/stack').CompanyStack | undefined
+): string {
+  if (!stack) return '';
+  const lines: string[] = [];
+  if (stack.erp && stack.erp.trim()) lines.push(`ERP / inventory: ${stack.erp.trim()}`);
+  if (stack.accounting && stack.accounting.trim()) lines.push(`Accounting: ${stack.accounting.trim()}`);
+  if (stack.suite && stack.suite !== 'none') {
+    lines.push(`Productivity suite: ${stack.suite}${stack.suiteOther ? ` (${stack.suiteOther})` : ''}`);
+  }
+  if (stack.meetings && stack.meetings.trim()) lines.push(`Meetings: ${stack.meetings.trim()}`);
+  if (stack.transcriber && stack.transcriber.trim()) lines.push(`AI transcriber: ${stack.transcriber.trim()}`);
+  if (stack.messaging && stack.messaging.trim()) lines.push(`Internal messaging: ${stack.messaging.trim()}`);
+  if (stack.operatingFiles && stack.operatingFiles.trim()) {
+    lines.push(`Files the operations actually run on: ${stack.operatingFiles.trim()}`);
+  }
+  if (lines.length === 0) return '';
+  return ['# Owner-declared stack', ...lines].join('\n');
 }

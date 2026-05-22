@@ -132,6 +132,45 @@ export interface ContextGraphExportConfig {
   must_not: string[];
 }
 
+export interface ConnectorWire {
+  from: string;
+  to: string;
+  via: string;
+  leverage: string;
+  what_it_unlocks: string;
+}
+
+export interface ConnectorPattern {
+  id: string;
+  fires_when_interaction?: string;   // matches an Interaction.id
+  fires_when?: string;                // free-text condition (stubs only)
+  wires: ConnectorWire[];             // empty for stubs — never invent
+  seen_in?: string;
+}
+
+export interface ConnectorMapConfig {
+  principle: string;
+  stack_capture?: {
+    when: string;
+    systems: Array<{ id: string; prompt: string }>;
+    operating_files: { prompt: string; why: string };
+    feeds: string[];
+  };
+  rendering?: { when: string; reason: string };
+  patterns: ConnectorPattern[];
+  honesty_floor?: {
+    rule?: string;
+    max_connections?: number;
+    config_flag?: string;
+  };
+  framing: {
+    headline: string;
+    narrative_link_to_export: string;
+    booking_pitch: string;
+  };
+  must_not: string[];
+}
+
 export interface Ontology {
   meta: {
     version: string;
@@ -145,6 +184,7 @@ export interface Ontology {
   role_split: RoleSplit;
   session_projection?: SessionProjection;
   context_graph_export?: ContextGraphExportConfig;
+  connector_map?: ConnectorMapConfig;
 }
 
 export interface AxisPosition {
