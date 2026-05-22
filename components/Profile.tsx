@@ -319,7 +319,13 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </div>
         </div>
       )}
-      <OneLiner claim={oneLiner} synthesis={synthesis} streaming={streaming} />
+      <OneLiner
+        claim={oneLiner}
+        synthesis={synthesis}
+        streaming={streaming}
+        companyId={companyId}
+        canFetchSynthesis={!!user && canEdit}
+      />
 
       <div className="mx-auto max-w-4xl space-y-10 px-6 py-8">
         {locked && (
