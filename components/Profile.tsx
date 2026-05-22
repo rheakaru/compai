@@ -29,6 +29,9 @@ import { ContextGraphSection } from './ContextGraph/ContextGraphSection';
 import { BookSessionFooter } from './BookSessionFooter';
 import { CompanyNotes } from './CompanyNotes';
 import { EditsBadge } from './EditsBadge';
+import { Tour } from './Tour/Tour';
+import { PROFILE_TOUR_STEPS } from './Tour/profileTourSteps';
+import { Play } from 'lucide-react';
 
 // Mirrored from lib/limits/edits.ts (which is server-only and can't be
 // imported here). If the server default changes, change this too.
@@ -97,6 +100,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
   const [editsUsed, setEditsUsed] = useState(initialEditsUsed);
   const [lockedAt, setLockedAt] = useState<number | null>(initialLockedAt);
   const locked = lockedAt !== null || editsUsed >= initialMaxEdits;
+  const [tourOpen, setTourOpen] = useState(false);
   const [pendingEdit, setPendingEdit] = useState<AxisEditPayload | null>(null);
   const [authGateOpen, setAuthGateOpen] = useState(false);
   const [diff, setDiff] = useState<DiffSummary | null>(null);
@@ -311,6 +315,15 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
       {companyId && (
         <div className="border-b border-ink-100 bg-white">
           <div className="mx-auto flex max-w-4xl items-center justify-end gap-3 px-6 py-2">
+            <button
+              type="button"
+              onClick={() => setTourOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-ink-700 hover:bg-ink-50"
+              title="Take a guided tour of the page"
+            >
+              <Play className="h-3 w-3" />
+              Take the tour
+            </button>
             <EditsBadge
               editsUsed={editsUsed}
               maxEdits={initialMaxEdits}
@@ -319,13 +332,15 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </div>
         </div>
       )}
-      <OneLiner
-        claim={oneLiner}
-        synthesis={synthesis}
-        streaming={streaming}
-        companyId={companyId}
-        canFetchSynthesis={!!user && canEdit}
-      />
+      <div data-tour="one-liner">
+        <OneLiner
+          claim={oneLiner}
+          synthesis={synthesis}
+          streaming={streaming}
+          companyId={companyId}
+          canFetchSynthesis={!!user && canEdit}
+        />
+      </div>
 
       <div className="mx-auto max-w-4xl space-y-10 px-6 py-8">
         {locked && (
@@ -351,16 +366,18 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
         )}
 
         {!streaming && companyId && (
-          <CompanyNotes
-            companyId={companyId}
-            companyUrl={companyUrl ?? null}
-            initialNotes={initialUserNotes}
-            canEdit={canEdit}
-            onEditStateChange={s => {
-              setEditsUsed(s.editsUsed);
-              if (s.editsUsed >= s.maxEdits) setLockedAt(Date.now());
-            }}
-          />
+          <div data-tour="company-notes">
+            <CompanyNotes
+              companyId={companyId}
+              companyUrl={companyUrl ?? null}
+              initialNotes={initialUserNotes}
+              canEdit={canEdit}
+              onEditStateChange={s => {
+                setEditsUsed(s.editsUsed);
+                if (s.editsUsed >= s.maxEdits) setLockedAt(Date.now());
+              }}
+            />
+          </div>
         )}
 
         {!streaming && (
@@ -372,7 +389,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
         )}
 
         {!streaming && companyId && (
-          <section>
+          <section data-tour="context-graph">
             <ContextGraphSection
               companyId={companyId}
               initialNodes={initialGraphNodes}
@@ -382,7 +399,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </section>
         )}
 
-        <section>
+        <section data-tour="shape">
           <SectionHeader
             title="Shape"
             subtitle="Where you sit on 9 structural axes. Click any card to see evidence."
@@ -401,13 +418,15 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </div>
         </section>
 
-        <CollapsibleSection
-          title="What's hard"
-          subtitle="Based on literature on company types and the axes we plotted you against."
-          countLabel={`${hardProblems.filter(c => !c.content.isDormant).slice(0, 5).length} insights`}
-        >
-          <ProblemMap claims={hardProblems} />
-        </CollapsibleSection>
+        <div data-tour="whats-hard">
+          <CollapsibleSection
+            title="What's hard"
+            subtitle="Based on literature on company types and the axes we plotted you against."
+            countLabel={`${hardProblems.filter(c => !c.content.isDormant).slice(0, 5).length} insights`}
+          >
+            <ProblemMap claims={hardProblems} />
+          </CollapsibleSection>
+        </div>
 
         {SHOW_TRANSFERABLE_SOLUTIONS && !streaming && axisClaims.length >= 5 && (
           <section>
@@ -439,7 +458,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
         )}
 
         {!streaming && companyId && user && (
-          <section>
+          <section data-tour="roles">
             <SectionHeader
               title="Roles"
               subtitle="Invite coworkers, see only the aggregate."
@@ -456,7 +475,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
             designed to leave the tool. Visually distinct so it reads as
             "here, take this with you," not as another mid-page action. */}
         {!streaming && companyId && (
-          <section>
+          <section data-tour="export">
             <ContextExportButton
               companyId={companyId}
               companyName={branding?.name ?? null}
@@ -494,6 +513,12 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
       <WhatChanged diff={diff} />
 
       {!streaming && <BookSessionFooter />}
+
+      <Tour
+        steps={PROFILE_TOUR_STEPS}
+        open={tourOpen}
+        onClose={() => setTourOpen(false)}
+      />
     </div>
   );
 });

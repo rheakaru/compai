@@ -38,7 +38,7 @@ export interface SessionPlanContent {
   drivers: string[];
 }
 
-const SYSTEM = `You generate the SESSION PLAN — the 4th and final node in compAI's chain (shape → hard problem → transferable solutions → 5 projects → THIS).
+const SYSTEM = `You generate the SESSION PLAN — the 4th and final node in Throughline's chain (shape → hard problem → transferable solutions → 5 projects → THIS).
 
 This is "what one day with Rhea turns those 5 projects into," rendered as a company-specific itinerary using a FIXED session arc.
 

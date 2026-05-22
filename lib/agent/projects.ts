@@ -15,7 +15,7 @@ function getClient() {
   return client;
 }
 
-const SYSTEM = `You generate the FIVE AI-projects output for compAI. This is the Gate 2 payoff: it earns the meeting or does not. Read every rule.
+const SYSTEM = `You generate the FIVE AI-projects output for Throughline. This is the Gate 2 payoff: it earns the meeting or does not. Read every rule.
 
 # What you are producing
 

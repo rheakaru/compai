@@ -122,7 +122,7 @@ export function InvitedRoleClient({
       <BrandHeader url={companyUrl} branding={branding} />
       <div className="mx-auto max-w-3xl px-6 py-8">
         <div className="mb-6">
-          <p className="text-[11px] uppercase tracking-wider text-ink-500">Invited to compAI</p>
+          <p className="text-[11px] uppercase tracking-wider text-ink-500">Invited to Throughline</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink-900">
             {roleTitle}
           </h1>
