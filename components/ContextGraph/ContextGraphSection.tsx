@@ -140,11 +140,9 @@ export function ContextGraphSection({
       <div className="card">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-              The shape, in nouns
-            </p>
+            <p className="text-base font-semibold text-ink-900">The shape, in nouns</p>
             <p className="mt-0.5 text-xs text-ink-500">
-              People, orgs, places, events, and things that make up your world. We auto-added what we found publicly — add the rest, edit anything that&apos;s off.
+              The people, orgs, places, events, and things that make up your world. We pulled what we could; add the rest.
             </p>
           </div>
           <div className="flex flex-none items-center gap-2">
@@ -184,12 +182,30 @@ export function ContextGraphSection({
           </div>
         </div>
 
-        {view === 'graph' && totalNodes > 0 && (
+        {view === 'graph' && totalNodes > 0 && edges.filter(e => !e.deletedAt).length >= 3 && (
           <div className="mt-5">
             <ContextGraphView nodes={nodes} edges={edges} />
             <p className="mt-2 text-[11px] text-ink-400">
-              Coloured lines are real relationships ({edges.length} of them); grey spokes connect each node to the company. Hover any line for the label. Switch to list to add or remove.
+              How the pieces of your business connect. Hover any line for the label.
             </p>
+          </div>
+        )}
+
+        {view === 'graph' && totalNodes > 0 && edges.filter(e => !e.deletedAt).length < 3 && (
+          <div className="mt-5 rounded-md border border-dashed border-ink-200 bg-ink-50/40 px-4 py-3 text-sm">
+            <p className="font-medium text-ink-800">Map how the pieces of your business connect →</p>
+            <p className="mt-1 text-xs text-ink-500">
+              Switch to list to see what we extracted; add a few relationships (SKU →
+              customer, customer → location) and the graph view fills in.
+            </p>
+            <button
+              type="button"
+              onClick={() => setView('list')}
+              className="mt-2 text-[12px] font-medium underline-offset-2 hover:underline"
+              style={{ color: 'var(--brand, #c64a1f)' }}
+            >
+              See what&apos;s in your context
+            </button>
           </div>
         )}
 

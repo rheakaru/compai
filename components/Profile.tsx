@@ -28,10 +28,11 @@ import { ContextExportButton } from './ContextExportButton';
 import { ContextGraphSection } from './ContextGraph/ContextGraphSection';
 import { BookSessionFooter } from './BookSessionFooter';
 import { CompanyNotes } from './CompanyNotes';
-import { EditsBadge } from './EditsBadge';
 import { Tour } from './Tour/Tour';
 import { PROFILE_TOUR_STEPS } from './Tour/profileTourSteps';
-import { Play } from 'lucide-react';
+import { PostureShift } from './PostureShift';
+import { WhatsHardProse } from './WhatsHardProse';
+import { Play, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Mirrored from lib/limits/edits.ts (which is server-only and can't be
 // imported here). If the server default changes, change this too.
@@ -313,34 +314,38 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
       <div ref={profileTopRef} />
       <BrandHeader url={companyUrl ?? null} branding={branding} />
       {companyId && (
-        <div className="border-b border-ink-100 bg-white">
-          <div className="mx-auto flex max-w-4xl items-center justify-end gap-3 px-6 py-2">
+        <div className="bg-white">
+          <div className="mx-auto flex max-w-4xl items-center justify-end gap-3 px-6 pt-3">
             <button
               type="button"
               onClick={() => setTourOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-ink-700 hover:bg-ink-50"
+              className="flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-ink-600 hover:bg-ink-50"
               title="Take a guided tour of the page"
             >
               <Play className="h-3 w-3" />
               Take the tour
             </button>
-            <EditsBadge
-              editsUsed={editsUsed}
-              maxEdits={initialMaxEdits}
-              locked={locked}
-            />
           </div>
         </div>
       )}
       <div data-tour="one-liner">
-        <OneLiner
-          claim={oneLiner}
-          synthesis={synthesis}
-          streaming={streaming}
-          companyId={companyId}
-          canFetchSynthesis={!!user && canEdit}
-        />
+        <OneLiner claim={oneLiner} streaming={streaming} />
       </div>
+
+      {/* Posture-shift sits directly under the hero one-liner — the "so what"
+          beat between abstract claim and the nine cards. Pure rendering of
+          the existing synthesis claim. */}
+      {!streaming && (
+        <div className="px-6 pb-2">
+          <div className="mx-auto max-w-4xl pl-7">
+            <PostureShift
+              synthesis={synthesis}
+              companyId={companyId}
+              canFetch={!!user && canEdit}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto max-w-4xl space-y-10 px-6 py-8">
         {locked && (
@@ -349,7 +354,7 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
               Document locked
             </p>
             <p className="mt-1 text-sm text-ink-700">
-              You&apos;ve used your {initialMaxEdits} free edits. The diagnosis you see is preserved
+              You&apos;ve hit your free edit limit. The diagnosis you see is preserved
               and remains exportable. To keep iterating — re-running the analysis, correcting cards,
               inviting more coworkers — book a session with Rhea.
             </p>
@@ -365,46 +370,27 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </div>
         )}
 
-        {!streaming && companyId && (
-          <div data-tour="company-notes">
-            <CompanyNotes
-              companyId={companyId}
-              companyUrl={companyUrl ?? null}
-              initialNotes={initialUserNotes}
-              canEdit={canEdit}
-              onEditStateChange={s => {
-                setEditsUsed(s.editsUsed);
-                if (s.editsUsed >= s.maxEdits) setLockedAt(Date.now());
-              }}
+        {/* WHAT'S HARD — expanded by default, written as prose. The single
+            most valuable section on the page; was previously collapsed. */}
+        <section data-tour="whats-hard">
+          <p className="text-base font-semibold text-ink-900">What&apos;s hard for a shape like yours</p>
+          <p className="mt-0.5 text-xs text-ink-500">Drawn from decades of business studies, applied to the nine axes below.</p>
+          <div className="mt-3">
+            <WhatsHardProse
+              hotProblems={hardProblems}
+              axisClaims={axisClaims}
+              ontology={ontology}
             />
           </div>
-        )}
+        </section>
 
-        {!streaming && (
-          <OpenQuestionsPanel
-            axisClaims={axisClaims}
-            ontology={ontology}
-            onAnswer={axisId => setScrollAxis(axisId)}
-          />
-        )}
-
-        {!streaming && companyId && (
-          <section data-tour="context-graph">
-            <ContextGraphSection
-              companyId={companyId}
-              initialNodes={initialGraphNodes}
-              initialEdges={initialGraphEdges}
-              canEdit={canEdit}
-            />
-          </section>
-        )}
-
+        {/* The nine axes — the receipts. Quiet framing, no engine variables. */}
         <section data-tour="shape">
-          <SectionHeader
-            title="Shape"
-            subtitle="Where you sit on 9 structural axes. Click any card to see evidence."
-          />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="text-base font-semibold text-ink-900">The receipts — nine axes</p>
+          <p className="mt-0.5 text-xs text-ink-500">
+            Where your business sits on 9 structural dimensions. Click any card to see what we&apos;re reading.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {orderedAxes.map(axis => (
               <EditableAxisCard
                 key={axis.id}
@@ -418,15 +404,30 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
           </div>
         </section>
 
-        <div data-tour="whats-hard">
-          <CollapsibleSection
-            title="What's hard"
-            subtitle="Based on literature on company types and the axes we plotted you against."
-            countLabel={`${hardProblems.filter(c => !c.content.isDormant).slice(0, 5).length} insights`}
-          >
-            <ProblemMap claims={hardProblems} />
-          </CollapsibleSection>
-        </div>
+        {!streaming && (
+          <OpenQuestionsPanel
+            axisClaims={axisClaims}
+            ontology={ontology}
+            onAnswer={axisId => setScrollAxis(axisId)}
+          />
+        )}
+
+        {/* ───────────────── SECONDARY SURFACES ──────────────────────────
+            Everything below the receipts is supporting material. Visible,
+            but de-prioritised. Context graph, role-invites, raw facts,
+            export, then the booking CTA. */}
+        <div className="my-2 border-t border-ink-200" aria-hidden />
+
+        {!streaming && companyId && (
+          <section data-tour="context-graph">
+            <ContextGraphSection
+              companyId={companyId}
+              initialNodes={initialGraphNodes}
+              initialEdges={initialGraphEdges}
+              canEdit={canEdit}
+            />
+          </section>
+        )}
 
         {SHOW_TRANSFERABLE_SOLUTIONS && !streaming && axisClaims.length >= 5 && (
           <section>
@@ -459,12 +460,29 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
 
         {!streaming && companyId && user && (
           <section data-tour="roles">
-            <SectionHeader
-              title="Roles"
-              subtitle="Invite coworkers, see only the aggregate."
-            />
-            <InviteOwnerSection companyId={companyId} />
+            <p className="text-base font-semibold text-ink-900">Your team</p>
+            <p className="mt-0.5 text-xs text-ink-500">
+              Send coworkers a private link. They get a career strategy; you get an aggregate read on where the team&apos;s leverage sits.
+            </p>
+            <div className="mt-3">
+              <InviteOwnerSection companyId={companyId} />
+            </div>
           </section>
+        )}
+
+        {!streaming && companyId && (
+          <div data-tour="company-notes">
+            <CompanyNotesDemoted
+              companyId={companyId}
+              companyUrl={companyUrl ?? null}
+              initialNotes={initialUserNotes}
+              canEdit={canEdit}
+              onEditStateChange={s => {
+                setEditsUsed(s.editsUsed);
+                if (s.editsUsed >= s.maxEdits) setLockedAt(Date.now());
+              }}
+            />
+          </div>
         )}
 
         {facts.length > 0 && (
@@ -522,6 +540,54 @@ export const Profile = forwardRef<ProfileHandle, ProfileProps>(function Profile(
     </div>
   );
 });
+
+/**
+ * Tertiary "add what the public web won't tell us" affordance. The notes
+ * input + re-run button used to sit second on the page; now it lives below
+ * the receipts behind a collapsible header so it doesn't fight the
+ * diagnosis for attention.
+ */
+function CompanyNotesDemoted(props: {
+  companyId: string;
+  companyUrl: string | null;
+  initialNotes: string;
+  canEdit: boolean;
+  onEditStateChange: (s: { editsUsed: number; maxEdits: number }) => void;
+}) {
+  const [open, setOpen] = useState(props.initialNotes.length > 0);
+  return (
+    <div className="rounded-md border border-ink-100">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-ink-50"
+      >
+        <div>
+          <p className="text-sm font-medium text-ink-800">
+            Add what the public web won&apos;t tell us
+          </p>
+          <p className="text-[11px] text-ink-500">
+            Real customers, internal SOPs, pricing — anything that sharpens the diagnosis.
+          </p>
+        </div>
+        <span className="text-ink-400">
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-ink-100 p-3">
+          <CompanyNotes
+            companyId={props.companyId}
+            companyUrl={props.companyUrl}
+            initialNotes={props.initialNotes}
+            canEdit={props.canEdit}
+            onEditStateChange={props.onEditStateChange}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (

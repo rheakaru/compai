@@ -186,12 +186,11 @@ function AggregateMetrics({ aggregate }: { aggregate: RoleAggregate }) {
 
   return (
     <div className="card">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-        Role-automation aggregate
+      <h3 className="text-sm font-semibold text-ink-900">
+        What you&apos;ll find inside each role
       </h3>
-      <p className="mt-1 text-[11px] text-ink-400">
-        Computed only across completed roles. Per-invitee substance is never shown here — that
-        would break the trust invariant that keeps invitee descriptions honest.
+      <p className="mt-1 text-xs text-ink-500">
+        You see only the aggregate. Each invitee sees their own — that&apos;s the deal that keeps what they tell us honest.
       </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <Metric label="Invited" value={String(aggregate.rolesInvited)} />
@@ -251,11 +250,9 @@ function Roster({
 }) {
   return (
     <div className="card">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-        Roster
-      </h3>
-      <p className="mt-1 text-[11px] text-ink-400">
-        Click a completed role to see the polished career strategy. Raw text from the invitee is not shown.
+      <h3 className="text-sm font-semibold text-ink-900">Roster</h3>
+      <p className="mt-1 text-xs text-ink-500">
+        Click any completed role to read the strategy that landed in their inbox.
       </p>
       <ul className="mt-3 divide-y divide-ink-100">
         {aggregate.roster.map(r => {

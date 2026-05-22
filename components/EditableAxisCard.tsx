@@ -84,9 +84,7 @@ export function EditableAxisCard({
               {label.handle || label.title}
             </p>
             <span className="flex-none whitespace-nowrap text-[10px] uppercase tracking-wide text-ink-400">
-              {isLoadBearing
-                ? `Load · #${axis.load_bearing_rank}`
-                : `Refining · #${axis.load_bearing_rank}`}
+              {isLoadBearing ? 'load-bearing' : 'refining the picture'}
             </span>
           </div>
         </div>
@@ -262,14 +260,11 @@ export function EditableAxisCard({
             >
               {expanded ? (
                 <>
-                  <ChevronUp className="h-3 w-3" /> hide why
+                  <ChevronUp className="h-3 w-3" /> hide evidence
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-3 w-3" /> see why
-                  {evidenceCount > 0 && (
-                    <span className="ml-1 text-ink-400">· {evidenceCount}</span>
-                  )}
+                  <ChevronDown className="h-3 w-3" /> show evidence
                 </>
               )}
             </button>
@@ -279,7 +274,7 @@ export function EditableAxisCard({
                 onClick={openEdit}
                 className="flex items-center gap-1 rounded border border-ink-200 px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink-500 hover:bg-ink-50 hover:text-ink-800"
               >
-                <Pencil className="h-3 w-3" /> correct
+                <Pencil className="h-3 w-3" /> this isn&apos;t right
               </button>
             )}
           </div>
