@@ -1,140 +1,178 @@
-# compAI
+# Throughline
 
-Public, self-serve structural-diagnosis tool for businesses. Paste a company URL, get an evidence-backed 9-axis read and the hot/dormant problem map computed from it. Built as the lead-gen surface for an AI-workshop consulting business — credibility of the free taste IS the conversion mechanism.
+**Paste a company URL. Get an evidence-backed structural diagnosis.**
 
-## Phase status
+Throughline (codename `compAI`) is a public, self-serve diagnostic tool for businesses. It reads what a company has put into the world — site, posts, press, hiring — and returns a structural reading: where the company sits on a 9-axis ontology, what's typically hard for a company shaped like that, and (with more input) which solved-domain analogies actually transfer.
 
-- **Phase 1 (shipped):** Anonymous Stage 0 — paste a URL, streamed research, 9 evidence-backed axis positions (with two-candidates + disambiguating question for low-confidence ones), computed hot/dormant problem map, computed one-liner, provenance badges, append-only Firestore claim log, ontology loaded from versioned YAML.
-- **Phase 2 (next):** Gate 1 commit-not-intent corrections + "what changed" diff.
-- **Phase 3 (next):** Gate 2 stack form + 5-projects + analogy quality-floor display.
-- **Phase 4 (next):** Role layer with invitee/inviter views.
+It is built as the lead-gen surface for an AI-workshop consulting practice. The credibility of the free read **is** the conversion mechanism, so the product is engineered to fail honestly rather than pad — a fabricated read negatively qualifies the lead.
+
+Live: a single text box. You paste a URL, watch the agent stream its work, and end up at a permalink profile you can correct, share, or export.
+
+---
+
+## What it does, in one screen
+
+1. **Paste a URL.** Anonymous, no signup.
+2. **Watch the read happen.** The server streams research events (web search → claim → axis position → problem map) over SSE. Every claim shows up with a **provenance badge** — `found_on_site`, `inferred_public`, `agent_hypothesis`, or `user_provided`.
+3. **Get the diagnosis.** A position on 9 structural axes (e.g., margin shape, scale of network, decision cadence). The axis vector then *computes* a weighted hot/dormant problem map via the ontology's consequence rules — the problems are derived, not guessed.
+4. **Correct it.** Low-confidence axes show two candidates and a disambiguating question instead of guessing. Your corrections sharpen the read visibly and are kept as an append-only event log.
+5. **Go deeper.** Add your stack and 5 representative projects to unlock nearest-neighbour matches in the 9-D space — transferable solutions from solved domains, gated by a strict analogy-quality floor (above the floor → show clean; below → honest stop, no middle band).
+
+---
+
+## Why it's built this way
+
+Most "AI tells you about your business" tools fabricate completeness. Throughline's central bet is the opposite: **honest degradation beats padded completeness**, especially when the output is a sales surface. So a few invariants are non-negotiable, and the rest of the architecture falls out of them.
+
+- **Provenance on every claim.** No claim is shown naked — you always see where it came from.
+- **Descriptive, never corrective.** The tool never tells a company it is "positioned wrong." It says: here's your shape, here's what's typically hard for this shape, here's where you deviate.
+- **Agent derives, user corrects.** Low-confidence reads expose their candidates and ask, instead of guessing and flagging.
+- **Append-only event log.** Profiles are *computed on read* from non-superseded claims. Nothing is overwritten. The trajectory is the product.
+- **Analogy quality floor.** A strict similarity threshold. Above it: a clean, unhedged analogy. Below it: no analogy at all, and an honest pitch for a working session instead. No middle band, ever.
+- **Server-side LLM.** The Anthropic key never reaches the browser. All model calls go through Next.js route handlers.
+
+---
 
 ## Architecture spine
 
-1. A company is a **position vector across 9 structural axes** (defined in `ontology.yaml`).
-2. The axis positions COMPUTE the weighted hot/dormant problem map via the ontology's consequence rules.
-3. Nearest-neighbour matches in the 9-D vector space (Phase 3) are the transferable-solution claim.
+1. A company is a **position vector across 9 structural axes**, defined in [`ontology.yaml`](./ontology.yaml) (versioned, hand-editable, git-diffable — the ontology is the moat asset).
+2. The axis positions **compute** the weighted hot/dormant problem map via the ontology's consequence rules.
+3. Nearest-neighbour matches in the 9-D vector space surface transferable solutions from solved domains.
 
-The data model is an **append-only event log of claims and corrections**; the profile is computed on read. Never overwrite. The trajectory IS the product.
+### Data model — append-only event log
 
 ```
 companies/{id}
   ownerUid, sessionId, url, createdAt, ontologyVersionHash
 
-companies/{id}/claims/{claimId}        APPEND-ONLY
+companies/{id}/claims/{claimId}                APPEND-ONLY
   kind: fact | axis_position | hard_problem | analogy | one_liner
   provenance: found_on_site | inferred_public | agent_hypothesis | user_provided
   confidence
-  supersededBy                          (only mutation allowed: null → claimId)
+  supersededBy                                 (only mutation: null → claimId)
 
-companies/{id}/corrections/{correctionId}   APPEND-ONLY
+companies/{id}/corrections/{correctionId}      APPEND-ONLY
   type: wrong_about_company | wrong_about_reading
 ```
 
-Provenance is shown on every claim. Hypotheses are visibly hypotheses, never asserted as facts.
+Funnel telemetry lives in a separate `funnelEvents/` collection — never smeared into claims. Anonymous `sessionId` rows are stitched to `ownerUid` on sign-in.
 
-## Local development
+### Stack
 
-```bash
-npm install
-cp .env.local.example .env.local         # then fill (see below)
-npm run dev                              # http://localhost:3000
-```
+- **Frontend:** Next.js 15 App Router, React 19, TypeScript, Tailwind.
+- **Backend:** Next.js route handlers (Node runtime) for the streaming research endpoint and server actions.
+- **LLM:** Anthropic API with built-in web search, streamed as NDJSON events.
+- **Persistence + auth:** Firebase (Firestore + Auth, anonymous + Google).
+- **Hosting:** Firebase App Hosting (auto-deploys on push to main; 300s timeout for streaming research).
 
-### `.env.local`
-
-The repo ships a generated `.env.local` already containing the dev keys. To regenerate from a service-account JSON:
-
-```bash
-node -e "console.log(JSON.stringify(require('./path/to/service-account.json')))" \
-  > /tmp/sa.oneline
-# paste into FIREBASE_ADMIN_CREDENTIALS in .env.local
-```
-
-Required vars:
-
-- `NEXT_PUBLIC_FIREBASE_*` — client config, safe to ship.
-- `FIREBASE_ADMIN_CREDENTIALS` — single-line JSON of the service-account file. **Server only**, never exposed to the browser.
-- `ANTHROPIC_API_KEY` — server only.
-
-## Grant yourself operator (custom claim)
-
-The operator sees `/admin/funnel` and edits the ontology. Operator status is a Firebase Auth **custom claim**, not a hardcoded email.
-
-```bash
-npm run set-operator -- rhea@rosebazaar.in
-# the user must sign out and back in for the claim to land in their token
-```
-
-## Deploy to Firebase App Hosting
-
-```bash
-# One-time
-firebase login
-firebase apphosting:secrets:set ANTHROPIC_API_KEY
-firebase apphosting:secrets:set FIREBASE_ADMIN_CREDENTIALS
-
-# Deploy security rules
-firebase deploy --only firestore:rules
-
-# Connect a backend (one-time)
-firebase apphosting:backends:create --project compai-57d55
-
-# Then push to your git remote — App Hosting auto-deploys on push.
-```
-
-`apphosting.yaml` sets a 300s timeout to support the long-running streaming research route, scales to zero, and binds secrets at runtime.
+---
 
 ## Repository layout
 
 ```
 app/
-  page.tsx                          landing (server component → loads ontology → client)
-  c/[companyId]/page.tsx            permalink profile page (SSR from Firestore)
-  api/research/route.ts             streaming SSE endpoint (web search + persist + derive)
-  globals.css
-  layout.tsx
+  page.tsx                          landing (server → loads ontology → client)
+  c/[companyId]/page.tsx            permalink profile (SSR from Firestore)
+  api/research/route.ts             streaming SSE endpoint
+  admin/funnel/                     operator-only funnel dashboard
+  invite/                           role-layer invitee surface
 components/
-  LandingClient.tsx                 input + SSE consumer; replaces URL on first event
-  Profile.tsx                       one-liner + axes + problem map + facts
-  AxisCard.tsx                      one axis with evidence, badge, low-conf candidates
-  OneLiner.tsx                      sticky pinned line
+  LandingClient.tsx                 input + SSE consumer
+  Profile.tsx                       one-liner + axes + problem map
+  AxisCard.tsx / EditableAxisCard   one axis with evidence + low-conf candidates
   ProblemMap.tsx                    hot/dormant problems
-  ProvenanceBadge.tsx               badge component, one per provenance kind
+  AnalogyAndProjects.tsx            5-projects + analogy floor display
+  ProvenanceBadge.tsx               one badge per provenance kind
+  ContextGraph/                     relational graph of facts
+  Tour/                             onboarding overlay
 lib/
-  ontology/
-    types.ts                        Ontology, Axis, AxisPosition, Provenance, etc.
-    loader.ts                       reads ontology.yaml + sha256 version hash
-  model/
-    claims.ts                       Claim / Correction / OpenQuestion types
-    projection.ts                   computeHardProblemMap, projectFromClaims, cosine
-    analogy.ts                      analogy-floor match logic (used Phase 3)
-  agent/
-    prompt.ts                       builds the research system prompt from ontology
-    research.ts                     streams NDJSON events from Anthropic + web search
-    persist.ts                      event → Claim → Firestore
-  firebase/
-    client.ts                       Web SDK init (browser only)
-    admin.ts                        Admin SDK init (server only, gated by service account)
-    session.ts                      anonymous session cookie management
+  ontology/                         loader + version hash for ontology.yaml
+  model/                            claims, projection (computeHardProblemMap), analogy floor
+  agent/                            prompt build, research stream, persist
+  firebase/                         client / admin / session
+  funnel/                           telemetry helpers (separate collection)
+  gate/                             Gate 1 / Gate 2 commit logic
+  role/                             invitee/inviter role layer
 scripts/
-  set-operator-claim.ts             grant operator: true to a user
-ontology.yaml                       THE moat asset, hand-editable, git-diffable
-firestore.rules                     per-ownerUid security, append-only claims
-firebase.json                       Firestore + App Hosting config
-apphosting.yaml                     App Hosting runtime + secrets binding
+  set-operator-claim.ts             grant operator: true via Admin SDK
+  verify-*.ts                       offline acceptance scripts
+ontology.yaml                       THE moat asset
+firestore.rules                     per-ownerUid, append-only enforced
+apphosting.yaml                     App Hosting runtime + secret bindings
 ```
 
-## Non-negotiable invariants (the product breaks if these slip)
+---
 
-- **Provenance on every claim.** No claim is shown naked.
-- **Descriptive, never corrective.** Never say a company is positioned wrong.
-- **Agent derives, user corrects.** Low-confidence axes show two candidates + a disambiguating question; they never guess-and-flag.
-- **No hallucinated completeness.** Padding is a defect, not a nicety.
-- **Append-only event log.** Profiles are computed on read; never overwrite.
-- **Anthropic key never reaches the browser.** All LLM calls are server-side.
-- **Analogy quality floor (Phase 3):** above the floor → show CLEAN, below → HONEST STOP. No middle band, ever.
+## Local development
 
-## Security note
+```bash
+npm install
+cp .env.local.example .env.local        # then fill in (see below)
+npm run dev                              # http://localhost:3000
+```
 
-Rotate the Firebase Admin service account and Anthropic API key after initial setup — both keys were shared in chat during development and should be treated as compromised.
+### `.env.local`
+
+```bash
+# Public Firebase config — ships to the browser by design.
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+
+# Server-only secrets. Never exposed to the browser.
+FIREBASE_ADMIN_CREDENTIALS={...service-account JSON, single line...}
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+To turn a service-account JSON into the single-line value:
+
+```bash
+node -e "console.log(JSON.stringify(require('./path/to/service-account.json')))"
+```
+
+### Grant yourself operator
+
+The operator role (sees `/admin/funnel`, edits the ontology) is a Firebase Auth **custom claim**, not a hardcoded email.
+
+```bash
+npm run set-operator -- you@example.com
+# user must sign out and back in for the claim to land in their token
+```
+
+---
+
+## Deploying to Firebase App Hosting
+
+```bash
+firebase login
+
+# One-time
+firebase apphosting:secrets:set ANTHROPIC_API_KEY
+firebase apphosting:secrets:set FIREBASE_ADMIN_CREDENTIALS
+firebase apphosting:backends:create --project <your-project>
+
+# Push security rules
+firebase deploy --only firestore:rules
+
+# Push to main — App Hosting auto-deploys.
+git push origin main
+```
+
+`apphosting.yaml` sets a 300s timeout for the long-running research stream, scales to zero, and binds secrets at runtime (they are not present in the repo).
+
+---
+
+## A note on the Firebase Web API key in the repo
+
+You'll see a `NEXT_PUBLIC_FIREBASE_API_KEY=AIza...` value in `.env.local.example` and `apphosting.yaml`. This is intentional. The Firebase Web API key is shipped to every browser that loads the site — it is an *identifier* for the project, not a secret. Security is enforced by [Firestore security rules](./firestore.rules) and the API-key referrer restrictions configured in GCP. See [Firebase's own guidance](https://firebase.google.com/docs/projects/api-keys) for the long version.
+
+The two values that *are* secret — the Firebase Admin service-account JSON and the Anthropic API key — live only in `.env.local` (gitignored) locally and in App Hosting's secret manager in production.
+
+---
+
+## License
+
+MIT. See [LICENSE](./LICENSE).
