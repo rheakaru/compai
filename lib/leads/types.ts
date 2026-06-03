@@ -75,6 +75,13 @@ export interface RecceDetails {
   notesUrl?: string;
 }
 
+/** A Google Calendar event the dashboard created for this lead. */
+export interface CalEventRef {
+  id: string;
+  htmlLink: string;
+  start: string; // ISO datetime
+}
+
 /**
  * The post-discovery journey checklist. Each flag corresponds to one of the
  * concrete steps the operator runs for every engagement.
@@ -120,6 +127,9 @@ export interface WorkshopLead {
   discoveryCallNotesUrl?: string;
   recce?: RecceDetails;
   workshopDate?: string;
+  /** Google Calendar events pushed from the dashboard, if scheduled. */
+  recceEvent?: CalEventRef;
+  workshopEvent?: CalEventRef;
   checklist: JourneyChecklist;
   /** Set true once payment has actually landed — counts as banked revenue. */
   paymentReceived: boolean;

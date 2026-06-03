@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import {
+  type CalToken,
+  type BusyInterval,
+  connectGoogleCalendar,
+  getBusy,
+  insertEvent,
+  isCalAuthError,
+  loadToken
+} from '@/lib/leads/calendar';
+import {
   DAY_RATE_INR,
   JUNE_TARGET_INR,
   LIKELIHOOD_LABELS,
@@ -42,6 +51,25 @@ export function LeadsDashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<LeadType | 'all'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [calToken, setCalToken] = useState<CalToken | null>(null);
+  const [calBusy, setCalBusy] = useState(false);
+
+  useEffect(() => {
+    setCalToken(loadToken());
+  }, []);
+
+  const connectCal = useCallback(async (): Promise<CalToken | null> => {
+    setCalBusy(true);
+    try {
+      const t = await connectGoogleCalendar();
+      setCalToken(t);
+      return t;
+    } catch {
+      return null;
+    } finally {
+      setCalBusy(false);
+    }
+  }, []);
 
   const authedFetch = useCallback(
     async (path: string, init?: RequestInit) => {
@@ -226,13 +254,28 @@ export function LeadsDashboard() {
               </FilterBtn>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={addLead}
-            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-600"
-          >
-            + Add lead
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => connectCal()}
+              disabled={calBusy}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                calToken
+                  ? 'border border-emerald-300 bg-emerald-50 text-emerald-800'
+                  : 'border border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+              }`}
+              title={calToken ? 'Calendar connected for this session' : 'Connect Google Calendar to plan dates'}
+            >
+              {calBusy ? 'Connecting…' : calToken ? '✓ Calendar connected' : 'Connect Google Calendar'}
+            </button>
+            <button
+              type="button"
+              onClick={addLead}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-600"
+            >
+              + Add lead
+            </button>
+          </div>
         </div>
 
         {visible.length === 0 ? (
@@ -263,6 +306,8 @@ export function LeadsDashboard() {
                     onToggle={() => setExpanded(expanded === l.id ? null : l.id)}
                     onPatch={patch}
                     onDelete={removeLead}
+                    calToken={calToken}
+                    onConnectCal={connectCal}
                   />
                 ))}
               </tbody>
@@ -283,13 +328,17 @@ function LeadRow({
   expanded,
   onToggle,
   onPatch,
-  onDelete
+  onDelete,
+  calToken,
+  onConnectCal
 }: {
   lead: WorkshopLead;
   expanded: boolean;
   onToggle: () => void;
   onPatch: (id: string, p: Partial<WorkshopLead>) => void;
   onDelete: (id: string) => void;
+  calToken: CalToken | null;
+  onConnectCal: () => Promise<CalToken | null>;
 }) {
   const value = leadValue(lead);
   const stages = lead.type === 'paid' ? STAGE_ORDER : OUTREACH_STAGES;
@@ -389,7 +438,13 @@ function LeadRow({
       {expanded && (
         <tr className="border-b border-ink-100 bg-ink-50/40">
           <td colSpan={8} className="px-4 py-4">
-            <LeadEditor lead={lead} onPatch={onPatch} onDelete={onDelete} />
+            <LeadEditor
+              lead={lead}
+              onPatch={onPatch}
+              onDelete={onDelete}
+              calToken={calToken}
+              onConnectCal={onConnectCal}
+            />
           </td>
         </tr>
       )}
@@ -400,11 +455,15 @@ function LeadRow({
 function LeadEditor({
   lead,
   onPatch,
-  onDelete
+  onDelete,
+  calToken,
+  onConnectCal
 }: {
   lead: WorkshopLead;
   onPatch: (id: string, p: Partial<WorkshopLead>) => void;
   onDelete: (id: string) => void;
+  calToken: CalToken | null;
+  onConnectCal: () => Promise<CalToken | null>;
 }) {
   const recce = lead.recce ?? {};
   const setRecce = (p: Partial<typeof recce>) => onPatch(lead.id, { recce: { ...recce, ...p } });
@@ -468,6 +527,8 @@ function LeadEditor({
             onSave={v => onPatch(lead.id, { workshopDate: v })}
           />
         </Field>
+
+        <CalendarSection lead={lead} calToken={calToken} onConnectCal={onConnectCal} onPatch={onPatch} />
       </div>
 
       {/* journey checklist */}
@@ -519,6 +580,246 @@ function LeadEditor({
           Delete lead
         </button>
       </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// Google Calendar: availability strip + push recce / workshop dates
+// ===========================================================================
+
+const AVAIL_DAYS = 21;
+const DEFAULT_DURATION_HOURS = 6; // an on-site day
+
+function pad(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+/** datetime-local value for tomorrow at 10:00, local time. */
+function defaultSlot(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(10, 0, 0, 0);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function dayKey(d: Date) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function CalendarSection({
+  lead,
+  calToken,
+  onConnectCal,
+  onPatch
+}: {
+  lead: WorkshopLead;
+  calToken: CalToken | null;
+  onConnectCal: () => Promise<CalToken | null>;
+  onPatch: (id: string, p: Partial<WorkshopLead>) => void;
+}) {
+  const [busy, setBusy] = useState<BusyInterval[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!calToken) {
+      setBusy(null);
+      return;
+    }
+    let cancelled = false;
+    const now = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + AVAIL_DAYS);
+    getBusy(calToken.accessToken, now, end)
+      .then(b => !cancelled && setBusy(b))
+      .catch(e => !cancelled && setErr(isCalAuthError(e) ? 'Calendar access expired — reconnect.' : 'Could not load availability.'));
+    return () => {
+      cancelled = true;
+    };
+  }, [calToken]);
+
+  if (!calToken) {
+    return (
+      <Field label="Google Calendar">
+        <button
+          type="button"
+          onClick={() => onConnectCal()}
+          className="rounded border border-ink-200 bg-white px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-50"
+        >
+          Connect to plan dates
+        </button>
+        <p className="mt-1 text-[11px] text-ink-400">See your availability and push recce / workshop dates to your calendar.</p>
+      </Field>
+    );
+  }
+
+  // Mark a day busy if any busy interval overlaps its 09:00–18:00 window.
+  const busyDays = new Set<string>();
+  if (busy) {
+    for (const b of busy) {
+      const s = new Date(b.start);
+      const e = new Date(b.end);
+      const cur = new Date(s);
+      cur.setHours(0, 0, 0, 0);
+      while (cur <= e) {
+        const winStart = new Date(cur);
+        winStart.setHours(9, 0, 0, 0);
+        const winEnd = new Date(cur);
+        winEnd.setHours(18, 0, 0, 0);
+        if (s < winEnd && e > winStart) busyDays.add(dayKey(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+  }
+
+  const days: Date[] = [];
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  for (let i = 0; i < AVAIL_DAYS; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+
+  return (
+    <Field label="Google Calendar">
+      {err && <p className="mb-2 text-[11px] text-rose-600">{err}</p>}
+      <p className="mb-1 text-[10px] uppercase tracking-wide text-ink-400">Next {AVAIL_DAYS} days · daytime availability</p>
+      <div className="flex flex-wrap gap-1">
+        {days.map(d => {
+          const isBusy = busyDays.has(dayKey(d));
+          const weekend = d.getDay() === 0 || d.getDay() === 6;
+          return (
+            <div
+              key={dayKey(d)}
+              title={`${d.toDateString()} — ${isBusy ? 'busy' : weekend ? 'weekend' : 'free'}`}
+              className={`flex h-9 w-8 flex-col items-center justify-center rounded text-[9px] ${
+                isBusy
+                  ? 'bg-rose-100 text-rose-700'
+                  : weekend
+                    ? 'bg-ink-100 text-ink-400'
+                    : 'bg-emerald-50 text-emerald-700'
+              }`}
+            >
+              <span>{['S', 'M', 'T', 'W', 'T', 'F', 'S'][d.getDay()]}</span>
+              <span className="font-medium">{d.getDate()}</span>
+            </div>
+          );
+        })}
+      </div>
+      {busy === null && !err && <p className="mt-1 text-[11px] text-ink-400">Loading availability…</p>}
+
+      <div className="mt-3 space-y-3">
+        <ScheduleRow
+          label="Recce day"
+          summary={`Recce — ${lead.company || lead.person || 'lead'}`}
+          location={lead.recce?.location}
+          existing={lead.recceEvent}
+          calToken={calToken}
+          onConnectCal={onConnectCal}
+          onScheduled={(ev, startIso) => onPatch(lead.id, { recceEvent: ev, recce: { ...(lead.recce ?? {}), date: startIso } })}
+        />
+        {lead.type === 'paid' && (
+          <ScheduleRow
+            label="Build day"
+            summary={`Workshop — ${lead.company || lead.person || 'lead'}`}
+            location={lead.recce?.location}
+            existing={lead.workshopEvent}
+            calToken={calToken}
+            onConnectCal={onConnectCal}
+            onScheduled={(ev, startIso) => onPatch(lead.id, { workshopEvent: ev, workshopDate: startIso })}
+          />
+        )}
+      </div>
+    </Field>
+  );
+}
+
+function ScheduleRow({
+  label,
+  summary,
+  location,
+  existing,
+  calToken,
+  onConnectCal,
+  onScheduled
+}: {
+  label: string;
+  summary: string;
+  location?: string;
+  existing?: WorkshopLead['recceEvent'];
+  calToken: CalToken;
+  onConnectCal: () => Promise<CalToken | null>;
+  onScheduled: (ev: { id: string; htmlLink: string; start: string }, startLabel: string) => void;
+}) {
+  const [slot, setSlot] = useState(defaultSlot());
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const add = async () => {
+    setSaving(true);
+    setErr(null);
+    const startDate = new Date(slot);
+    if (Number.isNaN(startDate.getTime())) {
+      setErr('Pick a date/time first.');
+      setSaving(false);
+      return;
+    }
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + DEFAULT_DURATION_HOURS);
+    let token: CalToken | null = calToken;
+    try {
+      const run = async (t: string) =>
+        insertEvent(t, { summary, location, start: startDate, end: endDate, description: 'Created from the Workshop Leads dashboard.' });
+      let ev;
+      try {
+        ev = await run(token.accessToken);
+      } catch (e) {
+        if (isCalAuthError(e)) {
+          token = await onConnectCal();
+          if (!token) throw new Error('Reconnect cancelled.');
+          ev = await run(token.accessToken);
+        } else throw e;
+      }
+      const label = startDate.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+      onScheduled({ id: ev.id, htmlLink: ev.htmlLink, start: label }, label);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not add event.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded border border-ink-200 bg-white p-2">
+      <p className="mb-1 text-[11px] font-medium text-ink-700">{label}</p>
+      {existing ? (
+        <p className="text-[11px] text-emerald-700">
+          ✓ On calendar ·{' '}
+          <a href={existing.htmlLink} target="_blank" rel="noreferrer" className="underline">
+            view event
+          </a>{' '}
+          <span className="text-ink-400">({existing.start})</span>
+        </p>
+      ) : null}
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="datetime-local"
+          value={slot}
+          onChange={e => setSlot(e.target.value)}
+          className="rounded border border-ink-200 bg-white px-1.5 py-1 text-[11px] text-ink-700"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={saving}
+          className="rounded bg-accent px-2 py-1 text-[11px] font-medium text-white hover:bg-accent-600 disabled:opacity-60"
+        >
+          {saving ? 'Adding…' : existing ? 'Re-add' : '+ Calendar'}
+        </button>
+      </div>
+      <p className="mt-1 text-[10px] text-ink-400">{DEFAULT_DURATION_HOURS}h on-site block</p>
+      {err && <p className="mt-1 text-[11px] text-rose-600">{err}</p>}
     </div>
   );
 }

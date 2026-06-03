@@ -30,6 +30,8 @@ const MUTABLE_KEYS: (keyof LeadInput)[] = [
   'discoveryCallNotesUrl',
   'recce',
   'workshopDate',
+  'recceEvent',
+  'workshopEvent',
   'checklist',
   'paymentReceived',
   'jobConnect',
