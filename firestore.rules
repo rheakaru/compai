@@ -162,6 +162,16 @@ service cloud.firestore {
     }
 
     // ===========================================================
+    // Workshop leads — the operator's private sales CRM. Fully
+    // server-managed: every read and write goes through the
+    // operator-gated /api/leads routes (Admin SDK, bypassing
+    // rules). Clients never touch this collection directly.
+    // ===========================================================
+    match /workshopLeads/{leadId} {
+      allow read, write: if false;
+    }
+
+    // ===========================================================
     // Anything else: deny.
     // ===========================================================
     match /{document=**} {
