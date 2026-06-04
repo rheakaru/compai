@@ -76,12 +76,26 @@ async function gcal(token: string, path: string, init?: RequestInit) {
       ...(init?.headers ?? {})
     }
   });
-  if (res.status === 401 || res.status === 403) {
+  if (res.ok) return res.json();
+
+  // Only a 401 means the token is actually expired/invalid — reconnecting helps.
+  if (res.status === 401) {
     clearToken();
     throw new CalAuthError('Calendar access expired — reconnect.');
   }
-  if (!res.ok) throw new Error(`Calendar API ${res.status}`);
-  return res.json();
+
+  // Surface Google's real message (e.g. "Calendar API has not been used in
+  // project … before or it is disabled"). A 403 here is usually a disabled
+  // API or a missing scope, NOT an expired token.
+  let detail = `Calendar API ${res.status}`;
+  try {
+    const body = await res.json();
+    const msg = body?.error?.message ?? body?.error?.errors?.[0]?.message;
+    if (msg) detail = msg;
+  } catch {
+    /* ignore */
+  }
+  throw new Error(detail);
 }
 
 export interface BusyInterval {

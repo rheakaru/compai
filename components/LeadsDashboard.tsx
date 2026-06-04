@@ -632,7 +632,11 @@ function CalendarSection({
     end.setDate(end.getDate() + AVAIL_DAYS);
     getBusy(calToken.accessToken, now, end)
       .then(b => !cancelled && setBusy(b))
-      .catch(e => !cancelled && setErr(isCalAuthError(e) ? 'Calendar access expired — reconnect.' : 'Could not load availability.'));
+      .catch(
+        e =>
+          !cancelled &&
+          setErr(isCalAuthError(e) ? 'Calendar access expired — reconnect.' : e instanceof Error ? e.message : 'Could not load availability.')
+      );
     return () => {
       cancelled = true;
     };
