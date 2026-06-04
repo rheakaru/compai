@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
 
   const lead: Omit<WorkshopLead, 'id'> = {
-    type: body.type ?? 'paid',
+    type: body.type ?? 'company',
+    billing: body.billing ?? 'paid',
     person: body.person?.trim() ?? '',
     company: body.company?.trim() ?? '',
     dateLabel: body.dateLabel?.trim() ?? '',

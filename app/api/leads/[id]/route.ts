@@ -19,6 +19,7 @@ async function requireOperator(req: NextRequest) {
 // by the server.
 const MUTABLE_KEYS: (keyof LeadInput)[] = [
   'type',
+  'billing',
   'person',
   'company',
   'dateLabel',

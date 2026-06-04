@@ -12,7 +12,9 @@ import {
   loadToken
 } from '@/lib/leads/calendar';
 import {
+  BILLING_LABELS,
   DAY_RATE_INR,
+  DEAD_STAGES,
   JUNE_TARGET_INR,
   LIKELIHOOD_LABELS,
   STAGE_LABELS,
@@ -21,20 +23,23 @@ import {
   formatINR,
   formatLakh,
   leadValue,
+  normalizeLead,
   revenueBuckets,
+  type Billing,
   type Likelihood,
   type LeadStage,
   type LeadType,
   type WorkshopLead
 } from '@/lib/leads/types';
 
-// Stages that make sense for top-of-funnel (org / free) rows.
+// Stages that make sense for free (top-of-funnel) rows — no invoice/payment.
 const OUTREACH_STAGES: LeadStage[] = [
   'interested',
   'discovery_call',
   'workshop_scheduled',
   'delivered',
   'closed',
+  'gone_cold',
   'lost'
 ];
 
@@ -101,7 +106,7 @@ export function LeadsDashboard() {
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = (await res.json()) as { leads: WorkshopLead[] };
-        setLeads(d.leads);
+        setLeads(d.leads.map(normalizeLead));
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -130,11 +135,12 @@ export function LeadsDashboard() {
     try {
       const res = await authedFetch('/api/leads', {
         method: 'POST',
-        body: JSON.stringify({ person: '', company: '', type: 'paid', stage: 'interested' })
+        body: JSON.stringify({ person: '', company: '', type: 'company', billing: 'paid', stage: 'interested' })
       });
       const d = (await res.json()) as { lead: WorkshopLead };
-      setLeads(prev => (prev ? [d.lead, ...prev] : [d.lead]));
-      setExpanded(d.lead.id);
+      const lead = normalizeLead(d.lead);
+      setLeads(prev => (prev ? [lead, ...prev] : [lead]));
+      setExpanded(lead.id);
     } catch {
       /* ignore */
     }
@@ -186,8 +192,8 @@ export function LeadsDashboard() {
   const visible = filter === 'all' ? all : all.filter(l => l.type === filter);
   const buckets = revenueBuckets(all);
   const jobConnects = all.filter(l => l.jobConnect);
-  const orgScheduled = all.filter(l => l.type === 'org_session' && l.stage !== 'interested' && l.stage !== 'lost');
-  const paidWon = all.filter(l => l.type === 'paid' && (l.paymentReceived || l.stage === 'paid' || l.stage === 'closed'));
+  const orgScheduled = all.filter(l => l.type === 'org' && l.stage !== 'interested' && !DEAD_STAGES.includes(l.stage));
+  const paidWon = all.filter(l => l.billing === 'paid' && (l.paymentReceived || l.stage === 'paid' || l.stage === 'closed'));
 
   return (
     <Wrapper>
@@ -248,7 +254,7 @@ export function LeadsDashboard() {
             <FilterBtn active={filter === 'all'} onClick={() => setFilter('all')}>
               All · {all.length}
             </FilterBtn>
-            {(['paid', 'org_session', 'free_session'] as LeadType[]).map(t => (
+            {(['company', 'org', 'community'] as LeadType[]).map(t => (
               <FilterBtn key={t} active={filter === t} onClick={() => setFilter(t)}>
                 {TYPE_LABELS[t]} · {all.filter(l => l.type === t).length}
               </FilterBtn>
@@ -341,12 +347,12 @@ function LeadRow({
   onConnectCal: () => Promise<CalToken | null>;
 }) {
   const value = leadValue(lead);
-  const stages = lead.type === 'paid' ? STAGE_ORDER : OUTREACH_STAGES;
+  const stages = lead.billing === 'paid' ? STAGE_ORDER : OUTREACH_STAGES;
   return (
     <>
       <tr className="border-b border-ink-100 align-top hover:bg-ink-50/60">
         <td className="py-2 pl-4 pr-3 text-xs text-ink-600">
-          <InlineText value={lead.dateLabel} placeholder="—" onSave={v => onPatch(lead.id, { dateLabel: v })} />
+          <InlineDate value={lead.dateLabel} onSave={v => onPatch(lead.id, { dateLabel: v })} />
         </td>
         <td className="py-2 pr-3">
           <div className="flex items-center gap-1.5">
@@ -370,17 +376,34 @@ function LeadRow({
           />
         </td>
         <td className="py-2 pr-3">
-          <select
-            value={lead.type}
-            onChange={e => onPatch(lead.id, { type: e.target.value as LeadType })}
-            className="rounded border border-ink-200 bg-white px-1.5 py-1 text-xs text-ink-700"
-          >
-            {(['paid', 'org_session', 'free_session'] as LeadType[]).map(t => (
-              <option key={t} value={t}>
-                {TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-1">
+            <select
+              value={lead.type}
+              onChange={e => onPatch(lead.id, { type: e.target.value as LeadType })}
+              className="rounded border border-ink-200 bg-white px-1.5 py-1 text-xs text-ink-700"
+            >
+              {(['company', 'org', 'community'] as LeadType[]).map(t => (
+                <option key={t} value={t}>
+                  {TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            <select
+              value={lead.billing}
+              onChange={e => onPatch(lead.id, { billing: e.target.value as Billing })}
+              className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                lead.billing === 'paid'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-ink-200 bg-ink-50 text-ink-500'
+              }`}
+            >
+              {(['paid', 'free'] as Billing[]).map(bk => (
+                <option key={bk} value={bk}>
+                  {BILLING_LABELS[bk]}
+                </option>
+              ))}
+            </select>
+          </div>
         </td>
         <td className="py-2 pr-3">
           <select
@@ -417,22 +440,32 @@ function LeadRow({
           />
         </td>
         <td className="py-2 pr-3 text-right text-xs">
-          {lead.type === 'paid' ? (
+          {lead.billing === 'paid' ? (
             <span className={lead.paymentReceived ? 'font-semibold text-emerald-700' : 'text-ink-700'}>
               {formatINR(value)}
             </span>
           ) : (
-            <span className="text-ink-300">—</span>
+            <span className="text-ink-300">free</span>
           )}
         </td>
         <td className="py-2 pr-4 text-right">
-          <button
-            type="button"
-            onClick={onToggle}
-            className="rounded px-2 py-1 text-xs text-ink-500 hover:bg-ink-100"
-          >
-            {expanded ? 'Close' : 'Open'}
-          </button>
+          <div className="flex items-center justify-end gap-1">
+            <button
+              type="button"
+              onClick={onToggle}
+              className="rounded px-2 py-1 text-xs text-ink-500 hover:bg-ink-100"
+            >
+              {expanded ? 'Close' : 'Open'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(lead.id)}
+              title="Delete lead"
+              className="rounded px-1.5 py-1 text-xs text-ink-400 hover:bg-rose-50 hover:text-rose-600"
+            >
+              ✕
+            </button>
+          </div>
         </td>
       </tr>
       {expanded && (
@@ -723,7 +756,7 @@ function CalendarSection({
           onConnectCal={onConnectCal}
           onScheduled={(ev, startIso) => onPatch(lead.id, { recceEvent: ev, recce: { ...(lead.recce ?? {}), date: startIso } })}
         />
-        {lead.type === 'paid' && (
+        {lead.billing === 'paid' && (
           <ScheduleRow
             label="Build day"
             summary={`Workshop — ${lead.company || lead.person || 'lead'}`}
@@ -1067,6 +1100,19 @@ function InlineText({
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
       }}
       className={`w-full max-w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-ink-200 focus:border-ink-300 focus:bg-white focus:outline-none ${className}`}
+    />
+  );
+}
+
+/** Date picker for the leads table. Stores an ISO `YYYY-MM-DD` string. */
+function InlineDate({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
+  return (
+    <input
+      type="date"
+      value={valid}
+      onChange={e => e.target.value !== value && onSave(e.target.value)}
+      className="rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-ink-700 hover:border-ink-200 focus:border-ink-300 focus:bg-white focus:outline-none"
     />
   );
 }

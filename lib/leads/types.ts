@@ -1,8 +1,17 @@
 // Workshop-lead CRM model. Operator-only; persisted in the server-managed
 // `workshopLeads` collection and mutated exclusively through /api/leads.
 
-/** What kind of pipeline this row belongs to. */
-export type LeadType = 'paid' | 'org_session' | 'free_session';
+/**
+ * The channel a lead came through. Billing is a separate dimension
+ * (see `Billing`) because an org session can be either paid or free.
+ *  - company   → a company engagement (the core recce + build-day workshop)
+ *  - org        → an association / network session (CREDAI, YPO, EO, FICCI FLO…)
+ *  - community  → free community sessions ("hang with AI")
+ */
+export type LeadType = 'company' | 'org' | 'community';
+
+/** Whether money changes hands. Orthogonal to the channel. */
+export type Billing = 'paid' | 'free';
 
 /**
  * Lead likelihood — drives the colour of the revenue progress bar so the
@@ -27,6 +36,7 @@ export type LeadStage =
   | 'delivered'
   | 'paid'
   | 'closed'
+  | 'gone_cold'
   | 'lost';
 
 export const STAGE_ORDER: LeadStage[] = [
@@ -39,6 +49,7 @@ export const STAGE_ORDER: LeadStage[] = [
   'delivered',
   'paid',
   'closed',
+  'gone_cold',
   'lost'
 ];
 
@@ -52,13 +63,22 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
   delivered: 'Delivered',
   paid: 'Paid',
   closed: 'Closed / wrapped',
+  gone_cold: 'Gone cold',
   lost: 'Lost'
 };
 
+/** Stages that drop a lead out of the active revenue pipeline. */
+export const DEAD_STAGES: LeadStage[] = ['gone_cold', 'lost'];
+
 export const TYPE_LABELS: Record<LeadType, string> = {
+  company: 'Company',
+  org: 'Org',
+  community: 'Community'
+};
+
+export const BILLING_LABELS: Record<Billing, string> = {
   paid: 'Paid',
-  org_session: 'Org session',
-  free_session: 'Free session'
+  free: 'Free'
 };
 
 export const LIKELIHOOD_LABELS: Record<Likelihood, string> = {
@@ -109,6 +129,7 @@ export const EMPTY_CHECKLIST: JourneyChecklist = {
 export interface WorkshopLead {
   id: string;
   type: LeadType;
+  billing: Billing;
   person: string;
   company: string;
   /** Date or tentative range as free text — exact dates aren't known early. */
@@ -168,15 +189,16 @@ export interface RevenueBuckets {
 }
 
 /**
- * Roll paid-type leads into revenue buckets for the progress bar. Only `paid`
- * leads carry a billable value; org/free sessions are top-of-funnel and never
- * counted here. Lost leads are dropped. A lead with payment received always
- * counts as `banked` regardless of its likelihood flag.
+ * Roll paid leads into revenue buckets for the progress bar. Only leads billed
+ * as `paid` carry a value (any channel — a paid org session counts too); free
+ * sessions are top-of-funnel and never counted. Gone-cold and lost leads are
+ * dropped. A lead with payment received always counts as `banked` regardless of
+ * its likelihood flag.
  */
 export function revenueBuckets(leads: WorkshopLead[]): RevenueBuckets {
   const b: RevenueBuckets = { banked: 0, hot: 0, warm: 0, cold: 0, pipeline: 0 };
   for (const l of leads) {
-    if (l.type !== 'paid' || l.stage === 'lost') continue;
+    if (l.billing !== 'paid' || DEAD_STAGES.includes(l.stage)) continue;
     const v = leadValue(l);
     if (l.paymentReceived || l.stage === 'paid' || l.stage === 'closed') {
       b.banked += v;
@@ -186,6 +208,40 @@ export function revenueBuckets(leads: WorkshopLead[]): RevenueBuckets {
   }
   b.pipeline = b.banked + b.hot + b.warm + b.cold;
   return b;
+}
+
+/**
+ * Map a stored lead onto the current shape. Older rows used a combined `type`
+ * (`paid` / `org_session` / `free_session`) and had no `billing` field; split
+ * them into channel + billing so the rest of the app sees one consistent model.
+ */
+export function normalizeLead(
+  raw: Omit<WorkshopLead, 'type' | 'billing'> & { type: string; billing?: Billing }
+): WorkshopLead {
+  let type: LeadType;
+  let billing: Billing | undefined = raw.billing;
+  switch (raw.type) {
+    case 'paid':
+      type = 'company';
+      billing = billing ?? 'paid';
+      break;
+    case 'org_session':
+      type = 'org';
+      billing = billing ?? 'free';
+      break;
+    case 'free_session':
+      type = 'community';
+      billing = billing ?? 'free';
+      break;
+    case 'company':
+    case 'org':
+    case 'community':
+      type = raw.type;
+      break;
+    default:
+      type = 'company';
+  }
+  return { ...raw, type, billing: billing ?? 'paid' };
 }
 
 export function formatINR(n: number): string {
