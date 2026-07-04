@@ -9,6 +9,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { BriefingStrip } from './BriefingStrip';
 import { LeadsDashboard } from './LeadsDashboard';
+import { RhaiChat } from './RhaiChat';
+import { PeoplePanel, PersonDrawer } from './RhaiPeople';
+import type { RhaiPerson } from '@/lib/rhai/types';
 import {
   IDEA_STATUS_LABELS,
   MODEL_OPTIONS,
@@ -20,11 +23,12 @@ import {
   type RhaiSuggestion
 } from '@/lib/rhai/types';
 
-type Tab = 'pipeline' | 'today' | 'ideas' | 'context' | 'skills';
+type Tab = 'pipeline' | 'today' | 'people' | 'ideas' | 'context' | 'skills';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'pipeline', label: 'Pipeline' },
   { id: 'today', label: 'Today' },
+  { id: 'people', label: 'People' },
   { id: 'ideas', label: 'Ideas' },
   { id: 'context', label: 'Context' },
   { id: 'skills', label: 'Skills' }
@@ -50,6 +54,41 @@ function useAuthedFetch() {
 
 export function RhaiWorkspace() {
   const [tab, setTab] = useState<Tab>('pipeline');
+  const [drawerPerson, setDrawerPerson] = useState<RhaiPerson | null>(null);
+  const { getToken } = useAuth();
+
+  // Any component can open a person drawer by name:
+  // window.dispatchEvent(new CustomEvent('rhai:openPerson', { detail: { name } }))
+  useEffect(() => {
+    const onOpen = async (e: Event) => {
+      const name = (e as CustomEvent<{ name?: string }>).detail?.name?.trim();
+      if (!name) return;
+      const token = await getToken();
+      const headers = {
+        'content-type': 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {})
+      };
+      const res = await fetch('/api/rhai/people', { headers });
+      if (!res.ok) return;
+      const { people } = (await res.json()) as { people: RhaiPerson[] };
+      const needle = name.toLowerCase();
+      const found =
+        people.find(p => p.name.toLowerCase() === needle) ??
+        people.find(p => p.name.toLowerCase().includes(needle) || needle.includes(p.name.toLowerCase()));
+      if (found) {
+        setDrawerPerson(found);
+      } else {
+        const createRes = await fetch('/api/rhai/people', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ name })
+        });
+        if (createRes.ok) setDrawerPerson(((await createRes.json()) as { person: RhaiPerson }).person);
+      }
+    };
+    window.addEventListener('rhai:openPerson', onOpen);
+    return () => window.removeEventListener('rhai:openPerson', onOpen);
+  }, [getToken]);
 
   return (
     <div>
@@ -77,9 +116,20 @@ export function RhaiWorkspace() {
 
       {tab === 'pipeline' && <LeadsDashboard />}
       {tab === 'today' && <TodayPanel />}
+      {tab === 'people' && (
+        <Panel
+          title="People"
+          sub="Everyone in your orbit — leads, hosts, amplifiers, collaborators. Click anyone to see Rhai's profile, add context by voice or text, or send Rhai to research them."
+        >
+          <PeoplePanel onOpen={setDrawerPerson} />
+        </Panel>
+      )}
       {tab === 'ideas' && <IdeasPanel />}
       {tab === 'context' && <ContextPanel />}
       {tab === 'skills' && <SkillsPanel />}
+
+      {drawerPerson && <PersonDrawer person={drawerPerson} onClose={() => setDrawerPerson(null)} />}
+      <RhaiChat />
     </div>
   );
 }

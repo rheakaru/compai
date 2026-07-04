@@ -458,6 +458,20 @@ function LeadRow({
               className="font-medium text-ink-900"
               onSave={v => onPatch(lead.id, { person: v })}
             />
+            {lead.person && (
+              <button
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('rhai:openPerson', { detail: { name: lead.person } })
+                  )
+                }
+                className="rounded px-1 text-[11px] text-indigo-500 hover:bg-indigo-50"
+                title="Rhai's context on this person"
+              >
+                ⓘ
+              </button>
+            )}
             {lead.jobConnect && (
               <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-800">
                 SF connect
@@ -528,12 +542,15 @@ function LeadRow({
           </select>
         </td>
         <td className="py-2 pr-3 max-w-[220px]">
-          <InlineText
-            value={lead.nextSteps}
-            placeholder="Next step…"
-            className="text-xs text-ink-700"
-            onSave={v => onPatch(lead.id, { nextSteps: v })}
-          />
+          <div className="flex items-start gap-1">
+            <InlineText
+              value={lead.nextSteps}
+              placeholder="Next step…"
+              className="text-xs text-ink-700"
+              onSave={v => onPatch(lead.id, { nextSteps: v })}
+            />
+            <NextStepsHistory leadId={lead.id} />
+          </div>
         </td>
         <td className="py-2 pr-3 text-right text-xs">
           {lead.billing === 'paid' ? (
@@ -1548,5 +1565,80 @@ function NumberInput({
       }}
       className={`rounded border border-ink-200 bg-white px-2 py-1 text-sm text-ink-800 ${className}`}
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Next-steps history — the conversion-cycle log. Click ⏱ to see how this
+// lead's next steps (and stage) evolved over time.
+// ---------------------------------------------------------------------------
+
+interface HistoryEntry {
+  id: string;
+  field: string;
+  value: string;
+  previous: string | null;
+  at: number;
+}
+
+function NextStepsHistory({ leadId }: { leadId: string }) {
+  const { getToken } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
+
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next && entries === null) {
+      const token = await getToken();
+      const res = await fetch(`/api/leads/${leadId}/history`, {
+        headers: token ? { authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        setEntries(((await res.json()) as { history: HistoryEntry[] }).history);
+      } else {
+        setEntries([]);
+      }
+    }
+  };
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={toggle}
+        className="rounded px-1 text-[11px] text-ink-300 hover:bg-ink-50 hover:text-ink-600"
+        title="History of updates"
+      >
+        ⏱
+      </button>
+      {open && (
+        <div className="absolute right-0 top-6 z-30 max-h-64 w-72 overflow-y-auto rounded-lg border border-ink-200 bg-white p-3 shadow-lg">
+          <p className="eyebrow mb-2">Update history</p>
+          {entries === null ? (
+            <p className="text-xs text-ink-400">Loading…</p>
+          ) : entries.length === 0 ? (
+            <p className="text-xs text-ink-400">No logged changes yet — history starts now.</p>
+          ) : (
+            <ol className="space-y-2">
+              {entries.map(e => (
+                <li key={e.id} className="border-l-2 border-ink-100 pl-2">
+                  <p className="text-[10px] text-ink-400">
+                    {new Date(e.at).toLocaleString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}{' '}
+                    · {e.field}
+                  </p>
+                  <p className="text-xs text-ink-700">{String(e.value)}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

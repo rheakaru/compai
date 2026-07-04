@@ -17,6 +17,8 @@ import { formatINR, leadValue } from '@/lib/leads/types';
 export const COL_CONTEXT = 'rhaiContext';
 export const COL_IDEAS = 'rhaiIdeas';
 export const COL_SUGGESTIONS = 'rhaiSuggestions';
+export const COL_PEOPLE = 'rhaiPeople';
+export const COL_CHAT = 'rhaiChat';
 export const DOC_SKILLS = 'rhaiConfig/skills';
 
 export async function requireOperator(req: NextRequest) {
@@ -136,21 +138,50 @@ async function fetchSectionBody(id: string): Promise<string> {
   return body.length > MAX_SECTION_CHARS ? body.slice(0, MAX_SECTION_CHARS) + '\n…(truncated)' : body;
 }
 
+/** A client-side tool Rhai can call: schema + the function that executes it. */
+export interface RhaiToolDef {
+  schema: Anthropic.Messages.Tool;
+  execute: (input: unknown) => Promise<string>;
+}
+
 /**
- * Run a Rhai call with the read_context tool (plus any extra tools, e.g. the
- * server-side web_search). Handles the tool loop; returns the final text.
+ * Run a Rhai call with the read_context tool, optional executable client
+ * tools (update_person, propose_action…), and optional server tools (e.g.
+ * web_search, which Anthropic executes remotely). Handles the tool loop and
+ * returns the final text. Prior conversation turns can be passed for chat.
  */
 export async function runRhaiWithContext(params: {
   model: string;
   maxTokens: number;
   system: string;
   userContent: string;
-  extraTools?: Anthropic.Messages.Tool[];
+  priorMessages?: Anthropic.Messages.MessageParam[];
+  clientTools?: RhaiToolDef[];
+  extraTools?: Anthropic.Messages.Tool[]; // server-executed tools (web_search)
   maxRounds?: number;
+  onToolNote?: (note: string) => void;
 }): Promise<string> {
-  const { model, maxTokens, system, userContent, extraTools = [], maxRounds = 4 } = params;
-  const tools = [READ_CONTEXT_TOOL, ...extraTools];
-  const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: userContent }];
+  const {
+    model,
+    maxTokens,
+    system,
+    userContent,
+    priorMessages = [],
+    clientTools = [],
+    extraTools = [],
+    maxRounds = 6,
+    onToolNote
+  } = params;
+
+  const executors = new Map<string, RhaiToolDef['execute']>([
+    ['read_context', async input => fetchSectionBody(String((input as { id?: string })?.id ?? ''))],
+    ...clientTools.map(t => [t.schema.name, t.execute] as const)
+  ]);
+  const tools = [READ_CONTEXT_TOOL, ...clientTools.map(t => t.schema), ...extraTools];
+  const messages: Anthropic.Messages.MessageParam[] = [
+    ...priorMessages,
+    { role: 'user', content: userContent }
+  ];
 
   for (let round = 0; round <= maxRounds; round++) {
     const msg = await anthropic().messages.create({
@@ -162,7 +193,7 @@ export async function runRhaiWithContext(params: {
     });
 
     const toolUses = msg.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'read_context'
+      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && executors.has(b.name)
     );
     if (msg.stop_reason !== 'tool_use' || toolUses.length === 0 || round === maxRounds) {
       return msg.content
@@ -174,12 +205,14 @@ export async function runRhaiWithContext(params: {
     messages.push({ role: 'assistant', content: msg.content });
     const results: Anthropic.Messages.ToolResultBlockParam[] = [];
     for (const tu of toolUses) {
-      const id = String((tu.input as { id?: string })?.id ?? '');
-      results.push({
-        type: 'tool_result',
-        tool_use_id: tu.id,
-        content: await fetchSectionBody(id)
-      });
+      let result: string;
+      try {
+        result = await executors.get(tu.name)!(tu.input);
+        if (tu.name !== 'read_context') onToolNote?.(result);
+      } catch (e) {
+        result = `tool error: ${e instanceof Error ? e.message : 'failed'}`;
+      }
+      results.push({ type: 'tool_result', tool_use_id: tu.id, content: result });
     }
     messages.push({ role: 'user', content: results });
   }

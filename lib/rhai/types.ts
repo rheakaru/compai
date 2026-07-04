@@ -90,12 +90,84 @@ export const DEFAULT_CONTEXT_SECTIONS: ContextSectionDef[] = [
     mode: 'library',
     whenToUse:
       'Read when planning a session, building a deck, or prepping workshop materials — module library, session arcs, signature lines, deck design system.'
+  },
+  {
+    id: 'projects',
+    title: 'Project library (hobby builds & reusable patterns)',
+    body: '',
+    mode: 'library',
+    whenToUse:
+      'Read when spec’ing a client build or brainstorming a solution — 11 shipped projects (Vanaja vernacular voice, Cahoots structured AI actions, Chapel second-brain, Vendetta, ComPrice…) with a pattern→project index. We may have built it before.'
   }
 ];
 
 export const SECTION_MODE: Record<string, ContextMode> = Object.fromEntries(
   DEFAULT_CONTEXT_SECTIONS.map(s => [s.id, s.mode])
 );
+
+// ---------------------------------------------------------------------------
+// People intelligence — every person in Rhea's orbit becomes a living profile
+// Rhai can research, cite, and grow. Seeded from the Hang w AI directory;
+// enriched by web research, chat mentions, and Rhea's own notes.
+// ---------------------------------------------------------------------------
+
+export type PersonTier = 'lead' | 'partner' | 'collaborator' | 'community';
+
+export const PERSON_TIER_LABELS: Record<PersonTier, string> = {
+  lead: '🔥 Lead',
+  partner: '🤝 Partner',
+  collaborator: '🛠 Collaborator',
+  community: 'Community'
+};
+
+export type PersonStatus =
+  | 'stub' // name + scraps only
+  | 'needs-info' // Rhai tried researching, needs Rhea (full name / LinkedIn)
+  | 'researched'; // has a web-researched profile
+
+export interface PersonLogEntry {
+  at: number;
+  text: string;
+  source: 'rhea' | 'rhai' | 'chat' | 'seed';
+}
+
+export interface RhaiPerson {
+  id: string;
+  name: string;
+  tier: PersonTier;
+  /** One-line who-they-are (role @ company). */
+  headline?: string;
+  company?: string;
+  city?: string;
+  phone?: string;
+  links?: string[];
+  /** Rhai's web-researched profile (markdown). */
+  summary?: string;
+  /** Rhea's own running context — the editable field. */
+  notes?: string;
+  /** Append-only intel log — who added what, when. */
+  notesLog?: PersonLogEntry[];
+  /** What Rhai needs from Rhea to research further. */
+  questions?: string[];
+  status: PersonStatus;
+  /** Linked pipeline lead, if this person is one. */
+  leadId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Persistent chat with Rhai — the standing conversation. Never disappears.
+// ---------------------------------------------------------------------------
+
+export interface RhaiChatMessage {
+  id: string;
+  role: 'user' | 'rhai';
+  text: string;
+  /** Transparency notes for tool actions taken ("Updated profile: X"). */
+  toolNotes?: string[];
+  at: number;
+}
 
 // ---------------------------------------------------------------------------
 // Idea scratchpad — parked thoughts Rhai enriches, researches, and resurfaces.

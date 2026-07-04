@@ -57,8 +57,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const ref = adminDb().collection(COLLECTION).doc(id);
   const snap = await ref.get();
   if (!snap.exists) return new Response('not found', { status: 404 });
+  const prev = snap.data() as Record<string, unknown>;
 
-  await ref.set(update, { merge: true });
+  // Conversion-cycle record: log meaningful changes to the fields that tell
+  // the story of a lead (next steps, stage, dates) into a history subcollection.
+  const HISTORY_FIELDS = ['nextSteps', 'stage', 'likelihood', 'workshopDate'] as const;
+  const historyWrites = HISTORY_FIELDS.filter(
+    f => f in update && update[f] !== prev[f] && String(update[f] ?? '').trim() !== ''
+  ).map(f =>
+    ref.collection('history').add({ field: f, value: update[f], previous: prev[f] ?? null, at: Date.now() })
+  );
+
+  await Promise.all([ref.set(update, { merge: true }), ...historyWrites]);
   const fresh = await ref.get();
   return Response.json({ lead: { id: fresh.id, ...(fresh.data() as Omit<WorkshopLead, 'id'>) } });
 }

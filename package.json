@@ -10,7 +10,8 @@
     "set-operator": "tsx scripts/set-operator-claim.ts",
     "rhai:intents": "tsx scripts/rhai-intents.ts",
     "rhai:sync-skills": "tsx scripts/rhai-sync-skills.ts",
-    "rhai:context": "tsx scripts/rhai-context-upload.ts"
+    "rhai:context": "tsx scripts/rhai-context-upload.ts",
+    "rhai:seed-people": "tsx scripts/rhai-seed-people.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
