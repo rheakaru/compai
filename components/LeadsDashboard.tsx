@@ -337,46 +337,29 @@ export function LeadsDashboard() {
             No leads yet. Click “Add lead”.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
-            <table className="w-full text-sm">
-              <thead className="border-b border-ink-200 bg-ink-50 text-left text-[11px] uppercase tracking-wider text-ink-500">
-                <tr>
-                  <th className="py-2 pl-3 pr-1" title={filter === 'all' ? 'Drag rows to reorder by importance' : 'Switch to “All” to reorder'} />
-                  <th className="py-2 pr-3">Date</th>
-                  <th className="py-2 pr-3">Person · Company</th>
-                  <th className="py-2 pr-3">Type</th>
-                  <th className="py-2 pr-3">Stage</th>
-                  <th className="py-2 pr-3">Strength</th>
-                  <th className="py-2 pr-3">Next step</th>
-                  <th className="py-2 pr-3 text-right">Est. value</th>
-                  <th className="py-2 pr-4" />
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map(l => (
-                  <LeadRow
-                    key={l.id}
-                    lead={l}
-                    expanded={expanded === l.id}
-                    onToggle={() => setExpanded(expanded === l.id ? null : l.id)}
-                    onPatch={patch}
-                    onDelete={removeLead}
-                    calToken={calToken}
-                    onConnectCal={connectCal}
-                    authedFetch={authedFetch}
-                    dragEnabled={filter === 'all'}
-                    isDragging={dragId === l.id}
-                    dragTarget={dragId !== null && dragId !== l.id}
-                    onDragStart={() => setDragId(l.id)}
-                    onDragEnd={() => setDragId(null)}
-                    onDropOn={() => {
-                      if (dragId) reorderLeads(dragId, l.id);
-                      setDragId(null);
-                    }}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {visible.map(l => (
+              <LeadCard
+                key={l.id}
+                lead={l}
+                expanded={expanded === l.id}
+                onToggle={() => setExpanded(expanded === l.id ? null : l.id)}
+                onPatch={patch}
+                onDelete={removeLead}
+                calToken={calToken}
+                onConnectCal={connectCal}
+                authedFetch={authedFetch}
+                dragEnabled={filter === 'all'}
+                isDragging={dragId === l.id}
+                dragTarget={dragId !== null && dragId !== l.id}
+                onDragStart={() => setDragId(l.id)}
+                onDragEnd={() => setDragId(null)}
+                onDropOn={() => {
+                  if (dragId) reorderLeads(dragId, l.id);
+                  setDragId(null);
+                }}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -388,7 +371,26 @@ export function LeadsDashboard() {
 // Row + expandable editor
 // ===========================================================================
 
-function LeadRow({
+// Stage → chip color, so the funnel position reads at a glance.
+const STAGE_CHIP: Partial<Record<LeadStage, string>> = {
+  interested: 'bg-ink-100 text-ink-600',
+  discovery_call: 'bg-sky-50 text-sky-700',
+  recce_scheduled: 'bg-indigo-50 text-indigo-700',
+  workshop_scheduled: 'bg-violet-50 text-violet-700',
+  delivered: 'bg-amber-50 text-amber-800',
+  paid: 'bg-emerald-50 text-emerald-700',
+  closed: 'bg-emerald-100 text-emerald-800',
+  gone_cold: 'bg-ink-50 text-ink-400',
+  lost: 'bg-rose-50 text-rose-600'
+};
+
+const STRENGTH_BORDER: Record<Likelihood, string> = {
+  hot: 'border-l-accent',
+  warm: 'border-l-amber-400',
+  cold: 'border-l-ink-200'
+};
+
+function LeadCard({
   lead,
   expanded,
   onToggle,
@@ -421,180 +423,139 @@ function LeadRow({
 }) {
   const value = leadValue(lead);
   const stages = lead.billing === 'paid' ? STAGE_ORDER : OUTREACH_STAGES;
+  // Show a date only once something is actually scheduled.
+  const scheduledDate = lead.workshopDate || lead.recce?.date || '';
+
   return (
-    <>
-      <tr
-        className={`border-b border-ink-100 align-top hover:bg-ink-50/60 ${isDragging ? 'opacity-40' : ''} ${
-          dragTarget ? 'hover:border-t-2 hover:border-t-accent' : ''
-        }`}
-        draggable={dragEnabled}
-        onDragStart={e => {
-          if (!dragEnabled) return;
-          e.dataTransfer.effectAllowed = 'move';
-          onDragStart();
-        }}
-        onDragEnd={onDragEnd}
-        onDragOver={e => {
-          if (dragEnabled && dragTarget) e.preventDefault();
-        }}
-        onDrop={e => {
-          if (!dragEnabled) return;
-          e.preventDefault();
-          onDropOn();
-        }}
-      >
-        <td className="py-2 pl-3 pr-1 align-middle">
-          <span
-            className={`select-none text-ink-300 ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-40'}`}
-            title={dragEnabled ? 'Drag to reorder by importance' : 'Switch to “All” to reorder'}
-          >
-            ⋮⋮
-          </span>
-        </td>
-        <td className="py-2 pr-3 text-xs text-ink-600">
-          <InlineDate value={lead.dateLabel} onSave={v => onPatch(lead.id, { dateLabel: v })} />
-        </td>
-        <td className="py-2 pr-3">
-          <div className="flex items-center gap-1.5">
+    <div
+      className={`${expanded ? 'sm:col-span-2 xl:col-span-3' : ''} rounded-lg border border-l-[3px] border-ink-200 ${
+        STRENGTH_BORDER[lead.likelihood]
+      } bg-white p-3 transition-shadow hover:shadow-sm ${isDragging ? 'opacity-40' : ''} ${
+        dragTarget ? 'ring-1 ring-accent' : ''
+      }`}
+      onDragOver={e => {
+        if (dragEnabled && dragTarget) e.preventDefault();
+      }}
+      onDrop={e => {
+        if (!dragEnabled) return;
+        e.preventDefault();
+        onDropOn();
+      }}
+    >
+      {/* header: name/company + actions */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-start gap-1.5">
+          {dragEnabled && (
+            <span
+              draggable
+              onDragStart={e => {
+                e.dataTransfer.effectAllowed = 'move';
+                onDragStart();
+              }}
+              onDragEnd={onDragEnd}
+              className="mt-0.5 cursor-grab select-none text-ink-300 active:cursor-grabbing"
+              title="Drag to reorder by importance"
+            >
+              ⋮⋮
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <InlineText
+                value={lead.person}
+                placeholder="Person"
+                className="font-medium text-ink-900"
+                onSave={v => onPatch(lead.id, { person: v })}
+              />
+              {lead.jobConnect && (
+                <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-800">
+                  SF
+                </span>
+              )}
+            </div>
             <InlineText
-              value={lead.person}
-              placeholder="Person"
-              className="font-medium text-ink-900"
-              onSave={v => onPatch(lead.id, { person: v })}
+              value={lead.company}
+              placeholder="Company"
+              className="text-[11px] text-ink-500"
+              onSave={v => onPatch(lead.id, { company: v })}
             />
-            {lead.person && (
-              <button
-                type="button"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent('rhai:openPerson', { detail: { name: lead.person } })
-                  )
-                }
-                className="rounded px-1 text-[11px] text-indigo-500 hover:bg-indigo-50"
-                title="Rhai's context on this person"
-              >
-                ⓘ
-              </button>
-            )}
-            <Link
-              href={`/leads/${lead.id}`}
-              className="rounded px-1 text-[11px] text-ink-400 hover:bg-ink-50 hover:text-ink-800"
-              title="Open client workspace — notes, understanding, Rhai's scan"
-            >
-              ↗
-            </Link>
-            {lead.jobConnect && (
-              <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-800">
-                SF connect
-              </span>
-            )}
           </div>
-          <InlineText
-            value={lead.company}
-            placeholder="Company"
-            className="text-[11px] text-ink-500"
-            onSave={v => onPatch(lead.id, { company: v })}
-          />
-        </td>
-        <td className="py-2 pr-3">
-          <div className="flex flex-col gap-1">
-            <select
-              value={lead.type}
-              onChange={e => onPatch(lead.id, { type: e.target.value as LeadType })}
-              className="rounded border border-ink-200 bg-white px-1.5 py-1 text-xs text-ink-700"
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5 text-ink-400">
+          {lead.person && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('rhai:openPerson', { detail: { name: lead.person } }))}
+              className="rounded px-1 text-[11px] text-indigo-500 hover:bg-indigo-50"
+              title="Rhai's context on this person"
             >
-              {(['company', 'org', 'community'] as LeadType[]).map(t => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-            <select
-              value={lead.billing}
-              onChange={e => onPatch(lead.id, { billing: e.target.value as Billing })}
-              className={`rounded border px-1.5 py-0.5 text-[11px] ${
-                lead.billing === 'paid'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : 'border-ink-200 bg-ink-50 text-ink-500'
-              }`}
-            >
-              {(['paid', 'free'] as Billing[]).map(bk => (
-                <option key={bk} value={bk}>
-                  {BILLING_LABELS[bk]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </td>
-        <td className="py-2 pr-3">
-          <select
-            value={lead.stage}
-            onChange={e => onPatch(lead.id, { stage: e.target.value as LeadStage })}
-            className="rounded border border-ink-200 bg-white px-1.5 py-1 text-xs text-ink-700"
+              ⓘ
+            </button>
+          )}
+          <Link
+            href={`/leads/${lead.id}`}
+            className="rounded px-1 text-[11px] hover:bg-ink-50 hover:text-ink-800"
+            title="Open client workspace — notes, understanding, Rhai's scan"
           >
-            {stages.map(s => (
-              <option key={s} value={s}>
-                {STAGE_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </td>
-        <td className="py-2 pr-3">
-          <select
-            value={lead.likelihood}
-            onChange={e => onPatch(lead.id, { likelihood: e.target.value as Likelihood })}
-            className="rounded border border-ink-200 bg-white px-1.5 py-1 text-xs text-ink-700"
+            ↗
+          </Link>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="rounded px-1 text-[11px] hover:bg-ink-50 hover:text-ink-800"
+            title={expanded ? 'Collapse' : 'Quick edit'}
           >
-            {(['hot', 'warm', 'cold'] as Likelihood[]).map(k => (
-              <option key={k} value={k}>
-                {LIKELIHOOD_LABELS[k]}
-              </option>
-            ))}
-          </select>
-        </td>
-        <td className="py-2 pr-3 max-w-[220px]">
-          <div className="flex items-start gap-1">
-            <InlineText
-              value={lead.nextSteps}
-              placeholder="Next step…"
-              className="text-xs text-ink-700"
-              onSave={v => onPatch(lead.id, { nextSteps: v })}
-            />
-            <NextStepsHistory leadId={lead.id} />
-          </div>
-        </td>
-        <td className="py-2 pr-3 text-right text-xs">
+            {expanded ? '⌃' : '⌄'}
+          </button>
+        </div>
+      </div>
+
+      {/* stage chip + value */}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <select
+          value={lead.stage}
+          onChange={e => onPatch(lead.id, { stage: e.target.value as LeadStage })}
+          className={`cursor-pointer rounded-full border-0 py-0.5 pl-2 pr-1 text-[11px] font-medium ${
+            STAGE_CHIP[lead.stage] ?? 'bg-ink-100 text-ink-600'
+          }`}
+        >
+          {stages.map(s => (
+            <option key={s} value={s}>
+              {STAGE_LABELS[s]}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-2 text-xs">
+          {scheduledDate && (
+            <span className="text-[11px] text-ink-400">
+              📅 {new Date(scheduledDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+            </span>
+          )}
           {lead.billing === 'paid' ? (
-            <span className={lead.paymentReceived ? 'font-semibold text-emerald-700' : 'text-ink-700'}>
+            <span className={lead.paymentReceived ? 'font-semibold text-emerald-700' : 'font-medium text-ink-700'}>
               {formatINR(value)}
             </span>
           ) : (
             <span className="text-ink-300">free</span>
           )}
-        </td>
-        <td className="py-2 pr-4 text-right">
-          <div className="flex items-center justify-end gap-1">
-            <button
-              type="button"
-              onClick={onToggle}
-              className="rounded px-2 py-1 text-xs text-ink-500 hover:bg-ink-100"
-            >
-              {expanded ? 'Close' : 'Open'}
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(lead.id)}
-              title="Delete lead"
-              className="rounded px-1.5 py-1 text-xs text-ink-400 hover:bg-rose-50 hover:text-rose-600"
-            >
-              ✕
-            </button>
-          </div>
-        </td>
-      </tr>
+        </div>
+      </div>
+
+      {/* next step */}
+      <div className="mt-1.5 flex items-start gap-1">
+        <InlineText
+          value={lead.nextSteps}
+          placeholder="Next step…"
+          className="text-xs text-ink-700"
+          onSave={v => onPatch(lead.id, { nextSteps: v })}
+        />
+        <NextStepsHistory leadId={lead.id} />
+      </div>
+
       {expanded && (
-        <tr className="border-b border-ink-100 bg-ink-50/40">
-          <td colSpan={9} className="px-4 py-4">
+        <div className="mt-3 border-t border-ink-100 pt-3">
+          <QuickAttrs lead={lead} onPatch={onPatch} onDelete={onDelete} />
+          <div className="mt-3">
             <LeadEditor
               lead={lead}
               onPatch={onPatch}
@@ -603,10 +564,82 @@ function LeadRow({
               onConnectCal={onConnectCal}
               authedFetch={authedFetch}
             />
-          </td>
-        </tr>
+          </div>
+        </div>
       )}
-    </>
+    </div>
+  );
+}
+
+// Type / billing / strength — the attributes we pulled off the card face.
+// They live in the expanded quick-edit strip so the glance view stays clean.
+function QuickAttrs({
+  lead,
+  onPatch,
+  onDelete
+}: {
+  lead: WorkshopLead;
+  onPatch: (id: string, p: Partial<WorkshopLead>) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-1 text-[11px] text-ink-500">
+        Type
+        <select
+          value={lead.type}
+          onChange={e => onPatch(lead.id, { type: e.target.value as LeadType })}
+          className="rounded border border-ink-200 bg-white px-1.5 py-1 text-xs text-ink-700"
+        >
+          {(['company', 'org', 'community'] as LeadType[]).map(t => (
+            <option key={t} value={t}>
+              {TYPE_LABELS[t]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <select
+        value={lead.billing}
+        onChange={e => onPatch(lead.id, { billing: e.target.value as Billing })}
+        className={`rounded border px-1.5 py-1 text-xs ${
+          lead.billing === 'paid'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            : 'border-ink-200 bg-ink-50 text-ink-500'
+        }`}
+      >
+        {(['paid', 'free'] as Billing[]).map(bk => (
+          <option key={bk} value={bk}>
+            {BILLING_LABELS[bk]}
+          </option>
+        ))}
+      </select>
+      <label className="flex items-center gap-1 text-[11px] text-ink-500">
+        Strength
+        <select
+          value={lead.likelihood}
+          onChange={e => onPatch(lead.id, { likelihood: e.target.value as Likelihood })}
+          className="rounded border border-ink-200 bg-white px-1.5 py-1 text-xs text-ink-700"
+        >
+          {(['hot', 'warm', 'cold'] as Likelihood[]).map(k => (
+            <option key={k} value={k}>
+              {LIKELIHOOD_LABELS[k]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-1 text-[11px] text-ink-500">
+        Date
+        <InlineDate value={lead.dateLabel} onSave={v => onPatch(lead.id, { dateLabel: v })} />
+      </label>
+      <button
+        type="button"
+        onClick={() => onDelete(lead.id)}
+        title="Delete lead"
+        className="ml-auto rounded px-2 py-1 text-xs text-ink-400 hover:bg-rose-50 hover:text-rose-600"
+      >
+        ✕ Delete
+      </button>
+    </div>
   );
 }
 
