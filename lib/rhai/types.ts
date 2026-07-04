@@ -42,6 +42,11 @@ export const DEFAULT_CONTEXT_SECTIONS: Omit<ContextSection, 'updatedAt'>[] = [
     id: 'templates',
     title: 'Email & comms templates / rules',
     body: ''
+  },
+  {
+    id: 'community',
+    title: 'Hang w AI community directory',
+    body: ''
   }
 ];
 

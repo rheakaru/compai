@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "set-operator": "tsx scripts/set-operator-claim.ts",
-    "rhai:intents": "tsx scripts/rhai-intents.ts"
+    "rhai:intents": "tsx scripts/rhai-intents.ts",
+    "rhai:sync-skills": "tsx scripts/rhai-sync-skills.ts",
+    "rhai:context": "tsx scripts/rhai-context-upload.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

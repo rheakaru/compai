@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
+import { BriefingStrip } from './BriefingStrip';
 import { LeadsDashboard } from './LeadsDashboard';
 import {
   IDEA_STATUS_LABELS,
@@ -22,7 +23,7 @@ type Tab = 'pipeline' | 'today' | 'ideas' | 'context' | 'skills';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'pipeline', label: 'Pipeline' },
-  { id: 'today', label: 'Rhai · Today' },
+  { id: 'today', label: 'Today' },
   { id: 'ideas', label: 'Ideas' },
   { id: 'context', label: 'Context' },
   { id: 'skills', label: 'Skills' }
@@ -51,14 +52,17 @@ export function RhaiWorkspace() {
 
   return (
     <div>
-      <div className="border-b border-ink-200 bg-white">
-        <div className="mx-auto flex max-w-7xl gap-1 px-6">
+      {/* Rhai's briefing — the first thing on the page, front and center. */}
+      {tab === 'pipeline' && <BriefingStrip onOpenToday={() => setTab('today')} />}
+
+      <div className="border-b border-ink-200/70 bg-cream-50/60">
+        <div className="mx-auto flex max-w-7xl items-center gap-1 px-6">
           {TABS.map(t => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium ${
+              className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
                 tab === t.id
                   ? 'border-accent text-ink-900'
                   : 'border-transparent text-ink-500 hover:text-ink-800'
@@ -94,10 +98,11 @@ function Panel({
 }) {
   const { user, signIn } = useAuth();
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink-900">{title}</h1>
-      <p className="mt-1 text-sm text-ink-500">{sub}</p>
-      <div className="mt-6">
+    <div className="mx-auto max-w-5xl px-6 py-10">
+      <p className="eyebrow">Rhai</p>
+      <h1 className="mt-2 font-display text-3xl tracking-tight text-ink-900">{title}</h1>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-600">{sub}</p>
+      <div className="mt-8">
         {user ? (
           children
         ) : (
@@ -487,7 +492,9 @@ const CONTEXT_HINTS: Record<string, string> = {
   networks: 'Orgs & groups you can tap — Hang with AI, CREDAI, YPO, EO, FICCI FLO, school networks, alumni… who runs them, what a session there looks like.',
   thinking: 'Your philosophy on AI, dashboards, trust, ownership — so Rhai proposes things the way YOU would.',
   demos: 'Projects you can show as demos (Hoovu dashboard, AI CMO, Throughline, Vanaja…) — what each proves, when to pull it out.',
-  templates: 'Email tone rules, invoice terms, anything Rhai must respect when drafting comms.'
+  templates: 'Email tone rules, invoice terms, anything Rhai must respect when drafting comms.',
+  community:
+    'Who’s in the Hang w AI orbit — leads, hosts, amplifiers, collaborators. Rhai mines this for follow-ups and network plays. Bulk-update via `npm run rhai:context -- community <file>`.'
 };
 
 function ContextPanel() {
@@ -575,6 +582,8 @@ function SkillsPanel() {
   const { user } = useAuth();
   const [skills, setSkills] = useState<RhaiSkill[] | null>(null);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<{ tone: 'ok' | 'warn' | 'err'; text: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -606,6 +615,40 @@ function SkillsPanel() {
     ]);
   };
 
+  const syncFromDisk = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await authedFetch('/api/rhai/skills/sync', { method: 'POST' });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        message?: string;
+        reason?: string;
+        scanned?: number;
+        added?: number;
+        refreshed?: number;
+        total?: number;
+      };
+      if (res.status === 409 && data.reason === 'no-fs-access') {
+        setSyncMsg({ tone: 'warn', text: data.message ?? 'Sync only works when running locally.' });
+      } else if (!res.ok || !data.ok) {
+        setSyncMsg({ tone: 'err', text: data.message ?? `Sync failed (${res.status})` });
+      } else {
+        setSyncMsg({
+          tone: 'ok',
+          text: `Synced ${data.scanned} · ${data.added} new, ${data.refreshed} refreshed · registry has ${data.total}.`
+        });
+        // Pull the fresh list.
+        const r = await authedFetch('/api/rhai/skills');
+        if (r.ok) setSkills(((await r.json()) as { skills: RhaiSkill[] }).skills);
+      }
+    } catch (e) {
+      setSyncMsg({ tone: 'err', text: e instanceof Error ? e.message : 'Sync failed' });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <Panel
       title="Skills"
@@ -615,16 +658,40 @@ function SkillsPanel() {
         <p className="text-sm text-ink-400">Loading…</p>
       ) : (
         <>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-[10px] text-ink-400">{status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : ''}</span>
-            <button
-              type="button"
-              onClick={addSkill}
-              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-600"
-            >
-              + Add skill
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={syncFromDisk}
+                disabled={syncing}
+                className="rounded-md border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50 disabled:opacity-60"
+                title="Scan ~/.claude/skills on your Mac and merge into the registry. Requires local dev."
+              >
+                {syncing ? 'Syncing…' : '↻ Sync from ~/.claude/skills'}
+              </button>
+              <button
+                type="button"
+                onClick={addSkill}
+                className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-600"
+              >
+                + Add skill
+              </button>
+            </div>
           </div>
+          {syncMsg && (
+            <p
+              className={`mb-3 rounded-md border px-3 py-2 text-xs ${
+                syncMsg.tone === 'ok'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : syncMsg.tone === 'warn'
+                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : 'border-rose-200 bg-rose-50 text-rose-800'
+              }`}
+            >
+              {syncMsg.text}
+            </p>
+          )}
           <div className="space-y-2">
             {skills.map((sk, idx) => (
               <div key={sk.id} className={`rounded-lg border bg-white p-3 ${sk.enabled ? 'border-ink-200' : 'border-ink-100 opacity-60'}`}>

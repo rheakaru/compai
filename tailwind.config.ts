@@ -6,20 +6,29 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        // Editorial display serif — system serifs only, no web-font fetches.
+        display: ['Iowan Old Style', 'Palatino', 'Georgia', 'serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace']
       },
       colors: {
+        // Warm off-white canvas — Rho-adjacent: paper, not screen.
+        cream: {
+          DEFAULT: '#f6f2ea',
+          50: '#fbf9f4',
+          100: '#f6f2ea',
+          200: '#ede6d8'
+        },
         ink: {
-          50: '#f7f7f6',
-          100: '#e8e8e6',
-          200: '#cfcfcb',
-          300: '#a8a8a2',
-          400: '#7a7a73',
-          500: '#54544d',
-          600: '#3b3b35',
-          700: '#2a2a25',
-          800: '#1a1a17',
-          900: '#0f0f0d'
+          50: '#f7f5f0',
+          100: '#e8e5db',
+          200: '#cfccc0',
+          300: '#a8a59a',
+          400: '#7a7770',
+          500: '#54524c',
+          600: '#3b3a34',
+          700: '#2a2924',
+          800: '#1a1a16',
+          900: '#0f0f0c'
         },
         accent: {
           DEFAULT: '#c64a1f',
@@ -28,6 +37,9 @@ const config: Config = {
           500: '#c64a1f',
           600: '#a73d18'
         }
+      },
+      letterSpacing: {
+        eyebrow: '0.14em'
       }
     }
   },
