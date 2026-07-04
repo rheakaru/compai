@@ -494,7 +494,9 @@ const CONTEXT_HINTS: Record<string, string> = {
   demos: 'Projects you can show as demos (Hoovu dashboard, AI CMO, Throughline, Vanaja…) — what each proves, when to pull it out.',
   templates: 'Email tone rules, invoice terms, anything Rhai must respect when drafting comms.',
   community:
-    'Who’s in the Hang w AI orbit — leads, hosts, amplifiers, collaborators. Rhai mines this for follow-ups and network plays. Bulk-update via `npm run rhai:context -- community <file>`.'
+    'Who’s in the Hang w AI orbit — leads, hosts, amplifiers, collaborators. Rhai mines this for follow-ups and network plays. Bulk-update via `npm run rhai:context -- community <file>`.',
+  teaching:
+    'Distilled from your session decks: the module library, narrative arcs, signature lines, and the deck design language. Rhai uses this to prep session materials in your style.'
 };
 
 function ContextPanel() {

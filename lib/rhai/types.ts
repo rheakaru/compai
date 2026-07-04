@@ -47,6 +47,11 @@ export const DEFAULT_CONTEXT_SECTIONS: Omit<ContextSection, 'updatedAt'>[] = [
     id: 'community',
     title: 'Hang w AI community directory',
     body: ''
+  },
+  {
+    id: 'teaching',
+    title: 'How I teach — modules, decks & style',
+    body: ''
   }
 ];
 
