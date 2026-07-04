@@ -14,6 +14,8 @@ const MUTABLE: (keyof RhaiPerson)[] = [
   'city',
   'phone',
   'links',
+  'introducedBy',
+  'connections',
   'notes',
   'questions',
   'status',

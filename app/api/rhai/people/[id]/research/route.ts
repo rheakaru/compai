@@ -16,6 +16,16 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
+/** Union new connection edges with existing, dedup by name (case-insensitive). */
+function mergeConnections(
+  existing: { name: string; relationship: string; note?: string }[],
+  incoming: { name: string; relationship: string; note?: string }[]
+) {
+  const byName = new Map(existing.map(c => [c.name.toLowerCase(), c]));
+  for (const c of incoming) if (!byName.has(c.name.toLowerCase())) byName.set(c.name.toLowerCase(), c);
+  return [...byName.values()].slice(0, 12);
+}
+
 // Rhai researches a person: web search on name + whatever context exists.
 // Confident → writes a profile (summary, headline, links). Not confident →
 // stores sharp questions for Rhea ("full name?", "LinkedIn URL?") so one
@@ -56,13 +66,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       `NAME: ${person.name}`,
       known ? `WHAT WE KNOW:\n${known}` : '(nothing beyond the name)',
       ``,
-      `1. read_context("community") first — they're likely in the directory with context.`,
+      `1. read_context("community") first — they're likely in the directory with context, AND it tells you who else Rhea knows (for the connection map below).`,
       `2. Web-search them (name + company/city/india etc). Focus: who they are professionally, their company, anything relevant to Rhea's AI consulting (could they become a client, partner, or session host?).`,
-      `3. If you CANNOT confidently identify them (common name, no distinguishing info), do NOT guess — instead return questions for Rhea (e.g. "What's their full name?" or "Share their LinkedIn URL"). One good identifier unlocks everything.`,
+      `3. SOCIAL GRAPH: from the community directory + notes, infer likely connections — who might have introduced them to Rhea, who they share a forum/committee/company/city with, mutual contacts. These are hypotheses to confirm, so hedge in the relationship text ("likely via…").`,
+      `4. If you CANNOT confidently identify them (common name, no distinguishing info), do NOT guess — instead return questions for Rhea (e.g. "What's their full name?" or "Share their LinkedIn URL"). One good identifier unlocks everything.`,
       ``,
-      `After any tool use, return ONLY JSON:`,
-      `{"found": true|false, "summary": "<markdown profile: who they are, what they do, relevance to the business — cite what you found>", "headline": "<one line: role @ company>", "company": "", "city": "", "links": ["..."], "questions": ["..."]}`,
-      `found=false → summary can be partial; questions must contain 1-2 sharp asks. Never fabricate links.`
+      `After any tool use, return ONLY JSON (plain text only — NO <cite> tags anywhere):`,
+      `{"found": true|false, "summary": "<markdown profile: who they are, what they do, relevance to the business>", "headline": "<one line: role @ company>", "company": "", "city": "", "introducedBy": "<name or omit>", "connections": [{"name": "…", "relationship": "e.g. mutual / same YPO forum / likely introduced us", "note": "optional"}], "links": ["..."], "questions": ["..."]}`,
+      `found=false → summary can be partial; questions must contain 1-2 sharp asks. Never fabricate links. connections may be [].`
     ].join('\n')
   });
 
@@ -72,6 +83,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     headline?: string;
     company?: string;
     city?: string;
+    introducedBy?: string;
+    connections?: { name?: string; relationship?: string; note?: string }[];
     links?: string[];
     questions?: string[];
   };
@@ -95,6 +108,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     ...(parsed.headline ? { headline: parsed.headline } : {}),
     ...(parsed.company ? { company: parsed.company } : {}),
     ...(parsed.city ? { city: parsed.city } : {}),
+    ...(parsed.introducedBy ? { introducedBy: parsed.introducedBy } : {}),
+    ...(Array.isArray(parsed.connections) && parsed.connections.length
+      ? {
+          connections: mergeConnections(
+            person.connections ?? [],
+            parsed.connections
+              .filter(c => c?.name && c?.relationship)
+              .map(c => ({ name: String(c.name), relationship: String(c.relationship), ...(c.note ? { note: String(c.note) } : {}) }))
+          )
+        }
+      : {}),
     ...(Array.isArray(parsed.links) && parsed.links.length
       ? { links: [...new Set([...(person.links ?? []), ...parsed.links])].slice(0, 8) }
       : {}),

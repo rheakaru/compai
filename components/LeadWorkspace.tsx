@@ -101,10 +101,13 @@ export function LeadWorkspace({ leadId }: { leadId: string }) {
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <NotesColumn
           leadId={leadId}
+          lead={lead}
+          onLead={setLead}
           sessions={sessions}
           onAdded={s => setSessions(prev => [s, ...(prev ?? [])])}
         />
         <div className="space-y-6">
+          <LinkedPerson name={lead.person} />
           <UnderstandingPanel lead={lead} onLead={setLead} />
           <ScanPanel lead={lead} onLead={setLead} onNotesChanged={() => load().catch(() => undefined)} />
         </div>
@@ -119,10 +122,14 @@ export function LeadWorkspace({ leadId }: { leadId: string }) {
 
 function NotesColumn({
   leadId,
+  lead,
+  onLead,
   sessions,
   onAdded
 }: {
   leadId: string;
+  lead: WorkshopLead;
+  onLead: (l: WorkshopLead) => void;
   sessions: LeadNoteSession[] | null;
   onAdded: (s: LeadNoteSession) => void;
 }) {
@@ -154,6 +161,7 @@ function NotesColumn({
 
   return (
     <div>
+      <RunningNotesCard leadId={leadId} lead={lead} onLead={onLead} />
       <div className="rounded-lg border border-ink-200 bg-white p-4">
         <div className="mb-2 flex items-center justify-between">
           <p className="eyebrow">New note session</p>
@@ -483,6 +491,145 @@ function ScanPanel({
           <p className="mt-2 text-[10px] text-ink-400">
             Actions run as Rhai tasks — research lands back in the notes; drafts wait for your review on the Tasks board.
           </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Running notes — the lead's existing smartNotes + next steps, editable here
+// so nothing you already typed on the pipeline row "disappears" on this page.
+// These feed Rhai's understanding alongside the session docs.
+// ---------------------------------------------------------------------------
+
+function RunningNotesCard({
+  leadId,
+  lead,
+  onLead
+}: {
+  leadId: string;
+  lead: WorkshopLead;
+  onLead: (l: WorkshopLead) => void;
+}) {
+  const authedFetch = useAuthedFetch();
+  const [notes, setNotes] = useState(lead.smartNotes ?? '');
+  const [next, setNext] = useState(lead.nextSteps ?? '');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const voice = useVoice(t => setNotes(n => (n ? n + ' ' + t : t)));
+
+  useEffect(() => {
+    setNotes(lead.smartNotes ?? '');
+    setNext(lead.nextSteps ?? '');
+  }, [lead.smartNotes, lead.nextSteps]);
+
+  const save = async (patch: Partial<WorkshopLead>) => {
+    setStatus('saving');
+    onLead({ ...lead, ...patch });
+    await authedFetch(`/api/leads/${leadId}`, { method: 'PATCH', body: JSON.stringify(patch) }).catch(() => undefined);
+    setStatus('saved');
+  };
+
+  const dirty = notes !== (lead.smartNotes ?? '') || next !== (lead.nextSteps ?? '');
+
+  return (
+    <div className="mb-4 rounded-lg border border-ink-200 bg-white p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="eyebrow">Running notes &amp; next step</p>
+        <div className="flex items-center gap-2">
+          {voice.supported && (
+            <button
+              type="button"
+              onClick={voice.toggle}
+              className={`rounded-full border px-2 py-1 text-xs ${
+                voice.listening ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-ink-200 text-ink-500 hover:bg-ink-50'
+              }`}
+            >
+              {voice.listening ? '● rec' : '🎙'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => save({ smartNotes: notes, nextSteps: next })}
+            disabled={!dirty || status === 'saving'}
+            className="rounded-md border border-ink-200 px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+          >
+            {status === 'saving' ? 'Saving…' : status === 'saved' && !dirty ? 'Saved' : 'Save'}
+          </button>
+        </div>
+      </div>
+      <input
+        type="text"
+        value={next}
+        onChange={e => setNext(e.target.value)}
+        placeholder="Next step…"
+        className="mb-2 w-full rounded border border-ink-100 px-2.5 py-1.5 text-xs font-medium text-ink-800 focus:border-ink-300 focus:outline-none"
+      />
+      <textarea
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+        rows={notes.length > 400 ? 10 : 5}
+        placeholder="The running notes for this client — type or dictate. (This is your existing 'smart notes'.)"
+        className="w-full rounded border border-ink-100 px-2.5 py-2 text-sm leading-relaxed text-ink-800 focus:border-ink-300 focus:outline-none"
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Linked person — surfaces Rhai's people-profile for this client's contact,
+// so research you ran on the person shows up on their case too.
+// ---------------------------------------------------------------------------
+
+function LinkedPerson({ name }: { name: string }) {
+  const authedFetch = useAuthedFetch();
+  const [person, setPerson] = useState<{ id: string; summary?: string; headline?: string; status?: string } | null>(
+    null
+  );
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    if (!name?.trim()) return;
+    (async () => {
+      const res = await authedFetch('/api/rhai/people');
+      if (res.ok) {
+        const { people } = (await res.json()) as {
+          people: { id: string; name: string; summary?: string; headline?: string; status?: string }[];
+        };
+        const needle = name.toLowerCase();
+        const found =
+          people.find(p => p.name.toLowerCase() === needle) ??
+          people.find(p => p.name.toLowerCase().includes(needle) || needle.includes(p.name.toLowerCase()));
+        setPerson(found ?? null);
+      }
+      setChecked(true);
+    })().catch(() => setChecked(true));
+  }, [name, authedFetch]);
+
+  if (!name?.trim() || (checked && !person)) return null;
+
+  return (
+    <div className="rounded-lg border border-ink-200 bg-white p-4">
+      <div className="mb-1 flex items-center justify-between">
+        <p className="eyebrow">Contact — Rhai&apos;s profile</p>
+        <button type="button" onClick={() => openPerson(name)} className="text-[11px] text-indigo-600 hover:underline">
+          Open full profile →
+        </button>
+      </div>
+      {!person ? (
+        <p className="text-xs text-ink-400">Loading…</p>
+      ) : (
+        <>
+          {person.headline && <p className="text-xs font-medium text-ink-800">{person.headline}</p>}
+          {person.summary ? (
+            <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-[11px] leading-relaxed text-ink-600">
+              {person.summary.replace(/<\/?cite[^>]*>/gi, '')}
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] text-ink-400">
+              Not researched yet — open the profile and run Rhai on them.
+            </p>
+          )}
         </>
       )}
     </div>

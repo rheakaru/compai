@@ -196,10 +196,12 @@ export async function runRhaiWithContext(params: {
       (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && executors.has(b.name)
     );
     if (msg.stop_reason !== 'tool_use' || toolUses.length === 0 || round === maxRounds) {
-      return msg.content
-        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-        .map(b => b.text)
-        .join('\n');
+      return stripCitations(
+        msg.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map(b => b.text)
+          .join('\n')
+      );
     }
 
     messages.push({ role: 'assistant', content: msg.content });
@@ -288,6 +290,15 @@ export function describeIdeas(ideas: RhaiIdea[]): string {
 }
 
 /** Extract the first JSON array/object from a model reply (tolerates fences). */
+/**
+ * Web search wraps grounded spans in <cite index="…">…</cite> tags. They're
+ * useful to the model mid-reasoning but must never reach the UI. Keep the
+ * inner text, drop the tags.
+ */
+export function stripCitations(text: string): string {
+  return text.replace(/<\/?cite[^>]*>/gi, '');
+}
+
 export function parseJsonLoose<T>(text: string): T {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
   const raw = (fenced ? fenced[1] : text).trim();

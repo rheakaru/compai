@@ -131,6 +131,15 @@ export interface PersonLogEntry {
   source: 'rhea' | 'rhai' | 'chat' | 'seed';
 }
 
+/** A relationship edge — how this person connects to someone else in the orbit. */
+export interface PersonConnection {
+  /** The other person's name (may or may not have their own profile yet). */
+  name: string;
+  /** e.g. "introduced us", "mutual", "same YPO forum", "college friend". */
+  relationship: string;
+  note?: string;
+}
+
 export interface RhaiPerson {
   id: string;
   name: string;
@@ -141,6 +150,10 @@ export interface RhaiPerson {
   city?: string;
   phone?: string;
   links?: string[];
+  /** Who introduced Rhea to this person (the referral edge). */
+  introducedBy?: string;
+  /** Relationship map — mutuals, shared committees, referrers. */
+  connections?: PersonConnection[];
   /** Rhai's web-researched profile (markdown). */
   summary?: string;
   /** Rhea's own running context — the editable field. */

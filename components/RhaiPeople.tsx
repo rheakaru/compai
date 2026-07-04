@@ -8,10 +8,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthedFetch } from './useAuthedFetch';
 import { useVoice } from './useVoice';
-import { PERSON_TIER_LABELS, type PersonTier, type RhaiPerson } from '@/lib/rhai/types';
+import { PERSON_TIER_LABELS, type PersonConnection, type PersonTier, type RhaiPerson } from '@/lib/rhai/types';
 
 export function openPerson(name: string) {
   window.dispatchEvent(new CustomEvent('rhai:openPerson', { detail: { name } }));
+}
+
+/** Defensive: older profiles were saved with web-search <cite> tags in them. */
+function clean(text: string): string {
+  return text.replace(/<\/?cite[^>]*>/gi, '');
 }
 
 const TIER_ORDER: PersonTier[] = ['lead', 'partner', 'collaborator', 'community'];
@@ -277,7 +282,7 @@ export function PersonDrawer({
         {person.summary && (
           <div className="mb-4 rounded-lg border border-ink-200 bg-white p-3">
             <p className="eyebrow">Rhai&apos;s profile</p>
-            <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink-700">{person.summary}</p>
+            <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink-700">{clean(person.summary)}</p>
             {person.links && person.links.length > 0 && (
               <p className="mt-2 flex flex-wrap gap-2">
                 {person.links.map(l => (
@@ -295,6 +300,8 @@ export function PersonDrawer({
             )}
           </div>
         )}
+
+        <ConnectionsSection person={person} onPatch={patch} />
 
         <div className="mb-4 rounded-lg border border-ink-200 bg-white p-3">
           <div className="flex items-center justify-between">
@@ -358,6 +365,92 @@ export function PersonDrawer({
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Connections — the relationship map. Who introduced them, mutuals, shared
+// committees. Click a connection to jump to that person's drawer.
+// ---------------------------------------------------------------------------
+
+function ConnectionsSection({
+  person,
+  onPatch
+}: {
+  person: RhaiPerson;
+  onPatch: (p: Record<string, unknown>) => void;
+}) {
+  const [name, setName] = useState('');
+  const [rel, setRel] = useState('');
+  const connections = person.connections ?? [];
+
+  const add = () => {
+    if (!name.trim() || !rel.trim()) return;
+    const next: PersonConnection[] = [...connections, { name: name.trim(), relationship: rel.trim() }];
+    onPatch({ connections: next });
+    setName('');
+    setRel('');
+  };
+  const remove = (i: number) => onPatch({ connections: connections.filter((_, idx) => idx !== i) });
+
+  return (
+    <div className="mb-4 rounded-lg border border-ink-200 bg-white p-3">
+      <p className="eyebrow">Connections</p>
+      {person.introducedBy && (
+        <p className="mt-1 text-xs text-ink-700">
+          Introduced by{' '}
+          <button type="button" onClick={() => openPerson(person.introducedBy!)} className="font-medium text-indigo-700 hover:underline">
+            {person.introducedBy}
+          </button>
+        </p>
+      )}
+      {connections.length > 0 ? (
+        <ul className="mt-2 space-y-1.5">
+          {connections.map((c, i) => (
+            <li key={i} className="flex items-center gap-2 text-xs">
+              <button type="button" onClick={() => openPerson(c.name)} className="font-medium text-indigo-700 hover:underline">
+                {c.name}
+              </button>
+              <span className="text-ink-400">·</span>
+              <span className="text-ink-600">{c.relationship}</span>
+              {c.note && <span className="text-ink-400">— {c.note}</span>}
+              <button type="button" onClick={() => remove(i)} className="ml-auto text-ink-300 hover:text-rose-600">
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-[11px] text-ink-400">
+          No connections mapped yet. Research fills these in; add your own below.
+        </p>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Who"
+          className="min-w-[100px] flex-1 rounded border border-ink-100 px-2 py-1 text-xs focus:border-ink-300 focus:outline-none"
+        />
+        <input
+          type="text"
+          value={rel}
+          onChange={e => setRel(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && add()}
+          placeholder="How — introduced us / mutual / same YPO forum"
+          className="min-w-[140px] flex-[2] rounded border border-ink-100 px-2 py-1 text-xs focus:border-ink-300 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!name.trim() || !rel.trim()}
+          className="rounded border border-ink-200 px-2 py-1 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-40"
+        >
+          + Link
+        </button>
       </div>
     </div>
   );
