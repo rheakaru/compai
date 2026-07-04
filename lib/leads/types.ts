@@ -160,8 +160,33 @@ export interface WorkshopLead {
   jobConnectNotes?: string;
 
   notes?: string;
+
+  // ---- Rhai layer ----
+  /**
+   * Manual sort order for drag-to-reorder (lower = higher in the list). When
+   * undefined we fall back to `-createdAt` so brand-new leads surface on top
+   * until they're dragged into an explicit position. See `leadOrder`.
+   */
+  order?: number;
+  /**
+   * Google-doc-style running notes for this lead — typed live during calls or
+   * filled by handwritten-note transcription. This is Rhai's primary input for
+   * suggesting next steps and prepping assets.
+   */
+  smartNotes?: string;
+  smartNotesUpdatedAt?: number;
+
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * Effective sort key for the pipeline list. Explicit `order` wins; otherwise
+ * newest-first via `-createdAt`, which keeps freshly-added leads at the top
+ * even after other rows have been dragged into fixed integer positions.
+ */
+export function leadOrder(l: Pick<WorkshopLead, 'order' | 'createdAt'>): number {
+  return typeof l.order === 'number' ? l.order : -l.createdAt;
 }
 
 /** Fields a client may send when creating/patching. Server owns id + timestamps. */

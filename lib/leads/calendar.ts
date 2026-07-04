@@ -5,9 +5,13 @@
 // normal Google sign-in — the public diagnosis tool shares that sign-in and
 // must not ask every visitor for calendar access.
 //
-// The OAuth access token from the popup lives ~1 hour and is kept only in
-// sessionStorage; there is no server-side token storage. When it expires the
-// operator simply reconnects.
+// The OAuth access token from the popup lives ~1 hour. We keep it in
+// localStorage (not sessionStorage) so it survives page reloads and new tabs
+// within its lifetime — previously it vanished on every reload, which is why
+// the calendar "kept breaking". There is still no server-side token storage,
+// so once the hour is up the operator reconnects (a single popup click).
+// (Phase 3 moves free/busy + event creation to the server via the Google
+// Calendar connector for true always-on persistence.)
 
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getClientAuth } from '@/lib/firebase/client';
@@ -24,9 +28,17 @@ export interface CalToken {
   expiresAt: number;
 }
 
+function store(): Storage | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
 export function loadToken(): CalToken | null {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = store()?.getItem(STORAGE_KEY);
     if (!raw) return null;
     const t = JSON.parse(raw) as CalToken;
     // Treat as expired a little early to avoid mid-request failures.
@@ -39,7 +51,7 @@ export function loadToken(): CalToken | null {
 
 function saveToken(t: CalToken) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(t));
+    store()?.setItem(STORAGE_KEY, JSON.stringify(t));
   } catch {
     /* ignore */
   }
@@ -47,7 +59,7 @@ function saveToken(t: CalToken) {
 
 export function clearToken() {
   try {
-    sessionStorage.removeItem(STORAGE_KEY);
+    store()?.removeItem(STORAGE_KEY);
   } catch {
     /* ignore */
   }
@@ -113,6 +125,44 @@ export async function getBusy(token: string, timeMin: Date, timeMax: Date): Prom
     })
   });
   return (d?.calendars?.primary?.busy ?? []) as BusyInterval[];
+}
+
+export interface CalEvent {
+  id: string;
+  summary: string;
+  start: string; // ISO datetime or all-day date
+  allDay: boolean;
+  htmlLink: string;
+}
+
+/** Upcoming events on the primary calendar, soonest first — for the glance strip. */
+export async function listUpcomingEvents(
+  token: string,
+  timeMin: Date,
+  timeMax: Date,
+  maxResults = 10
+): Promise<CalEvent[]> {
+  const qs = new URLSearchParams({
+    timeMin: timeMin.toISOString(),
+    timeMax: timeMax.toISOString(),
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: String(maxResults)
+  });
+  const d = await gcal(token, `calendars/primary/events?${qs.toString()}`);
+  const items = (d?.items ?? []) as Array<{
+    id: string;
+    summary?: string;
+    htmlLink: string;
+    start?: { dateTime?: string; date?: string };
+  }>;
+  return items.map(e => ({
+    id: e.id,
+    summary: e.summary || '(no title)',
+    start: e.start?.dateTime ?? e.start?.date ?? '',
+    allDay: !e.start?.dateTime,
+    htmlLink: e.htmlLink
+  }));
 }
 
 export interface NewEvent {

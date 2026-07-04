@@ -1,14 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import {
   type CalToken,
   type BusyInterval,
+  type CalEvent,
   connectGoogleCalendar,
   getBusy,
   insertEvent,
   isCalAuthError,
+  listUpcomingEvents,
   loadToken
 } from '@/lib/leads/calendar';
 import {
@@ -22,6 +24,7 @@ import {
   TYPE_LABELS,
   formatINR,
   formatLakh,
+  leadOrder,
   leadValue,
   normalizeLead,
   revenueBuckets,
@@ -58,6 +61,7 @@ export function LeadsDashboard() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [calToken, setCalToken] = useState<CalToken | null>(null);
   const [calBusy, setCalBusy] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
 
   useEffect(() => {
     setCalToken(loadToken());
@@ -160,6 +164,41 @@ export function LeadsDashboard() {
     [authedFetch, expanded]
   );
 
+  // Drag `dragId` to sit just before `overId`, renumber every row to a clean
+  // integer order, optimistically re-sort, and persist only the rows whose
+  // order actually changed. Reorder acts on the full list, so it's only
+  // enabled on the "all" view (a filtered subset can't express a global order).
+  const reorderLeads = useCallback(
+    (fromId: string, overId: string) => {
+      if (fromId === overId) return;
+      setLeads(prev => {
+        if (!prev) return prev;
+        const sorted = prev.slice().sort((a, b) => leadOrder(a) - leadOrder(b));
+        const fromIdx = sorted.findIndex(l => l.id === fromId);
+        const overIdx = sorted.findIndex(l => l.id === overId);
+        if (fromIdx === -1 || overIdx === -1) return prev;
+        const [moved] = sorted.splice(fromIdx, 1);
+        const insertAt = sorted.findIndex(l => l.id === overId);
+        sorted.splice(insertAt, 0, moved);
+
+        const changed: { id: string; order: number }[] = [];
+        const renumbered = sorted.map((l, i) => {
+          if (l.order !== i) changed.push({ id: l.id, order: i });
+          return { ...l, order: i };
+        });
+        // Persist changed rows (fire-and-forget; a reload re-syncs from server).
+        for (const c of changed) {
+          authedFetch(`/api/leads/${c.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ order: c.order })
+          }).catch(() => undefined);
+        }
+        return renumbered;
+      });
+    },
+    [authedFetch]
+  );
+
   // -------------------- gates --------------------
   if (!user) {
     return (
@@ -188,7 +227,7 @@ export function LeadsDashboard() {
       </Wrapper>
     );
 
-  const all = leads ?? [];
+  const all = (leads ?? []).slice().sort((a, b) => leadOrder(a) - leadOrder(b));
   const visible = filter === 'all' ? all : all.filter(l => l.type === filter);
   const buckets = revenueBuckets(all);
   const jobConnects = all.filter(l => l.jobConnect);
@@ -217,6 +256,11 @@ export function LeadsDashboard() {
           <Legend dot="bg-ink-300" label="Cold" value={buckets.cold} />
         </div>
       </section>
+
+      {/* ---- glanceable calendar ---- */}
+      <div className="mt-4">
+        <AvailabilityStrip calToken={calToken} calBusy={calBusy} onConnectCal={connectCal} />
+      </div>
 
       {/* ---- goals ---- */}
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -293,7 +337,8 @@ export function LeadsDashboard() {
             <table className="w-full text-sm">
               <thead className="border-b border-ink-200 bg-ink-50 text-left text-[11px] uppercase tracking-wider text-ink-500">
                 <tr>
-                  <th className="py-2 pl-4 pr-3">Date</th>
+                  <th className="py-2 pl-3 pr-1" title={filter === 'all' ? 'Drag rows to reorder by importance' : 'Switch to “All” to reorder'} />
+                  <th className="py-2 pr-3">Date</th>
                   <th className="py-2 pr-3">Person · Company</th>
                   <th className="py-2 pr-3">Type</th>
                   <th className="py-2 pr-3">Stage</th>
@@ -314,6 +359,16 @@ export function LeadsDashboard() {
                     onDelete={removeLead}
                     calToken={calToken}
                     onConnectCal={connectCal}
+                    authedFetch={authedFetch}
+                    dragEnabled={filter === 'all'}
+                    isDragging={dragId === l.id}
+                    dragTarget={dragId !== null && dragId !== l.id}
+                    onDragStart={() => setDragId(l.id)}
+                    onDragEnd={() => setDragId(null)}
+                    onDropOn={() => {
+                      if (dragId) reorderLeads(dragId, l.id);
+                      setDragId(null);
+                    }}
                   />
                 ))}
               </tbody>
@@ -336,7 +391,14 @@ function LeadRow({
   onPatch,
   onDelete,
   calToken,
-  onConnectCal
+  onConnectCal,
+  authedFetch,
+  dragEnabled,
+  isDragging,
+  dragTarget,
+  onDragStart,
+  onDragEnd,
+  onDropOn
 }: {
   lead: WorkshopLead;
   expanded: boolean;
@@ -345,13 +407,47 @@ function LeadRow({
   onDelete: (id: string) => void;
   calToken: CalToken | null;
   onConnectCal: () => Promise<CalToken | null>;
+  authedFetch: (path: string, init?: RequestInit) => Promise<Response>;
+  dragEnabled: boolean;
+  isDragging: boolean;
+  dragTarget: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDropOn: () => void;
 }) {
   const value = leadValue(lead);
   const stages = lead.billing === 'paid' ? STAGE_ORDER : OUTREACH_STAGES;
   return (
     <>
-      <tr className="border-b border-ink-100 align-top hover:bg-ink-50/60">
-        <td className="py-2 pl-4 pr-3 text-xs text-ink-600">
+      <tr
+        className={`border-b border-ink-100 align-top hover:bg-ink-50/60 ${isDragging ? 'opacity-40' : ''} ${
+          dragTarget ? 'hover:border-t-2 hover:border-t-accent' : ''
+        }`}
+        draggable={dragEnabled}
+        onDragStart={e => {
+          if (!dragEnabled) return;
+          e.dataTransfer.effectAllowed = 'move';
+          onDragStart();
+        }}
+        onDragEnd={onDragEnd}
+        onDragOver={e => {
+          if (dragEnabled && dragTarget) e.preventDefault();
+        }}
+        onDrop={e => {
+          if (!dragEnabled) return;
+          e.preventDefault();
+          onDropOn();
+        }}
+      >
+        <td className="py-2 pl-3 pr-1 align-middle">
+          <span
+            className={`select-none text-ink-300 ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-40'}`}
+            title={dragEnabled ? 'Drag to reorder by importance' : 'Switch to “All” to reorder'}
+          >
+            ⋮⋮
+          </span>
+        </td>
+        <td className="py-2 pr-3 text-xs text-ink-600">
           <InlineDate value={lead.dateLabel} onSave={v => onPatch(lead.id, { dateLabel: v })} />
         </td>
         <td className="py-2 pr-3">
@@ -470,13 +566,14 @@ function LeadRow({
       </tr>
       {expanded && (
         <tr className="border-b border-ink-100 bg-ink-50/40">
-          <td colSpan={8} className="px-4 py-4">
+          <td colSpan={9} className="px-4 py-4">
             <LeadEditor
               lead={lead}
               onPatch={onPatch}
               onDelete={onDelete}
               calToken={calToken}
               onConnectCal={onConnectCal}
+              authedFetch={authedFetch}
             />
           </td>
         </tr>
@@ -490,20 +587,36 @@ function LeadEditor({
   onPatch,
   onDelete,
   calToken,
-  onConnectCal
+  onConnectCal,
+  authedFetch
 }: {
   lead: WorkshopLead;
   onPatch: (id: string, p: Partial<WorkshopLead>) => void;
   onDelete: (id: string) => void;
   calToken: CalToken | null;
   onConnectCal: () => Promise<CalToken | null>;
+  authedFetch: (path: string, init?: RequestInit) => Promise<Response>;
 }) {
   const recce = lead.recce ?? {};
   const setRecce = (p: Partial<typeof recce>) => onPatch(lead.id, { recce: { ...recce, ...p } });
   const setCheck = (k: keyof WorkshopLead['checklist'], v: boolean) =>
     onPatch(lead.id, { checklist: { ...lead.checklist, [k]: v } });
+  const [showDetails, setShowDetails] = useState(false);
 
   return (
+    <div className="space-y-4">
+      {/* Smart notes — the thing you actually use during calls, front and centre. */}
+      <SmartNotes lead={lead} onPatch={onPatch} authedFetch={authedFetch} />
+
+      <button
+        type="button"
+        onClick={() => setShowDetails(s => !s)}
+        className="text-[11px] font-medium text-ink-500 hover:text-ink-800"
+      >
+        {showDetails ? '▾ Hide logistics, checklist & email' : '▸ Logistics, checklist & email'}
+      </button>
+
+      {showDetails && (
     <div className="grid gap-6 lg:grid-cols-3">
       {/* budgeting + links */}
       <div className="space-y-4">
@@ -614,6 +727,119 @@ function LeadEditor({
         </button>
       </div>
     </div>
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Smart notes — Google-doc-style running notes + handwritten-photo transcription
+// ===========================================================================
+
+function SmartNotes({
+  lead,
+  onPatch,
+  authedFetch
+}: {
+  lead: WorkshopLead;
+  onPatch: (id: string, p: Partial<WorkshopLead>) => void;
+  authedFetch: (path: string, init?: RequestInit) => Promise<Response>;
+}) {
+  const [text, setText] = useState(lead.smartNotes ?? '');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [transcribing, setTranscribing] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced autosave — commits ~1s after you stop typing.
+  const scheduleSave = useCallback(
+    (value: string) => {
+      setStatus('saving');
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        onPatch(lead.id, { smartNotes: value, smartNotesUpdatedAt: Date.now() });
+        setStatus('saved');
+      }, 900);
+    },
+    [lead.id, onPatch]
+  );
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const onFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      setErr(null);
+      setTranscribing(true);
+      try {
+        const images = await Promise.all(
+          Array.from(files).map(
+            f =>
+              new Promise<string>((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(String(r.result));
+                r.onerror = () => reject(new Error('Could not read file'));
+                r.readAsDataURL(f);
+              })
+          )
+        );
+        const res = await authedFetch(`/api/leads/${lead.id}/transcribe`, {
+          method: 'POST',
+          body: JSON.stringify({ images })
+        });
+        if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+        const { text: transcribed } = (await res.json()) as { text: string };
+        const stamp = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        const merged = `${text ? text.trimEnd() + '\n\n' : ''}— transcribed handwritten notes (${stamp}) —\n${transcribed}`;
+        setText(merged);
+        scheduleSave(merged);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : 'Transcription failed');
+      } finally {
+        setTranscribing(false);
+      }
+    },
+    [authedFetch, lead.id, text, scheduleSave]
+  );
+
+  return (
+    <div className="rounded-lg border border-ink-200 bg-white p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Smart notes</p>
+          <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700">Rhai reads these</span>
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-ink-400">
+          <span>
+            {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : ''}
+          </span>
+          <label className="cursor-pointer rounded border border-ink-200 px-2 py-1 text-ink-600 hover:bg-ink-50">
+            {transcribing ? 'Transcribing…' : '📷 Transcribe handwriting'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              className="hidden"
+              disabled={transcribing}
+              onChange={e => {
+                onFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </div>
+      </div>
+      <textarea
+        value={text}
+        onChange={e => {
+          setText(e.target.value);
+          scheduleSave(e.target.value);
+        }}
+        placeholder="Type notes live during the call — action items, requirements, who said what. Or drop in photos of your handwritten notes to transcribe. Rhai uses this to suggest next steps and prep your deck & demo."
+        className="h-56 w-full resize-y rounded border border-ink-200 bg-white px-3 py-2 text-sm leading-relaxed text-ink-800 focus:border-ink-300 focus:outline-none"
+      />
+      {err && <p className="mt-1 text-[11px] text-rose-600">{err}</p>}
+    </div>
   );
 }
 
@@ -638,6 +864,167 @@ function defaultSlot(): string {
 
 function dayKey(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Always-visible calendar glance at the top of the dashboard: your next-21-days
+ * availability plus the soonest events, so recce/build days are visible without
+ * opening a lead. Uses the persisted token, with a one-click reconnect.
+ */
+function AvailabilityStrip({
+  calToken,
+  calBusy,
+  onConnectCal
+}: {
+  calToken: CalToken | null;
+  calBusy: boolean;
+  onConnectCal: () => Promise<CalToken | null>;
+}) {
+  const [busy, setBusy] = useState<BusyInterval[] | null>(null);
+  const [events, setEvents] = useState<CalEvent[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!calToken) {
+      setBusy(null);
+      setEvents(null);
+      return;
+    }
+    let cancelled = false;
+    const now = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + AVAIL_DAYS);
+    setErr(null);
+    getBusy(calToken.accessToken, now, end)
+      .then(b => !cancelled && setBusy(b))
+      .catch(e =>
+        !cancelled &&
+        setErr(isCalAuthError(e) ? 'Calendar access expired — reconnect.' : e instanceof Error ? e.message : 'Could not load calendar.')
+      );
+    listUpcomingEvents(calToken.accessToken, now, end, 8)
+      .then(ev => !cancelled && setEvents(ev))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [calToken]);
+
+  if (!calToken) {
+    return (
+      <section className="rounded-lg border border-dashed border-ink-200 bg-white px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-ink-500">Connect Google Calendar to see your availability and scheduled recce / build days at a glance.</p>
+          <button
+            type="button"
+            onClick={() => onConnectCal()}
+            disabled={calBusy}
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-600 disabled:opacity-60"
+          >
+            {calBusy ? 'Connecting…' : 'Connect Google Calendar'}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const busyDays = new Set<string>();
+  if (busy) {
+    for (const b of busy) {
+      const s = new Date(b.start);
+      const e = new Date(b.end);
+      const cur = new Date(s);
+      cur.setHours(0, 0, 0, 0);
+      while (cur <= e) {
+        const winStart = new Date(cur);
+        winStart.setHours(9, 0, 0, 0);
+        const winEnd = new Date(cur);
+        winEnd.setHours(18, 0, 0, 0);
+        if (s < winEnd && e > winStart) busyDays.add(dayKey(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+  }
+
+  const days: Date[] = [];
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  for (let i = 0; i < AVAIL_DAYS; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+  const connectedUntil = new Date(calToken.expiresAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+
+  return (
+    <section className="rounded-lg border border-ink-200 bg-white p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Calendar · next {AVAIL_DAYS} days</p>
+        <div className="flex items-center gap-3 text-[10px] text-ink-400">
+          <span className="text-emerald-700">✓ connected until {connectedUntil}</span>
+          <button type="button" onClick={() => onConnectCal()} disabled={calBusy} className="underline hover:text-ink-700">
+            {calBusy ? 'reconnecting…' : 'reconnect'}
+          </button>
+        </div>
+      </div>
+
+      {err && <p className="mb-2 text-[11px] text-rose-600">{err}</p>}
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
+        <div>
+          <div className="flex flex-wrap gap-1">
+            {days.map(d => {
+              const isBusy = busyDays.has(dayKey(d));
+              const weekend = d.getDay() === 0 || d.getDay() === 6;
+              return (
+                <div
+                  key={dayKey(d)}
+                  title={`${d.toDateString()} — ${isBusy ? 'busy' : weekend ? 'weekend' : 'free'}`}
+                  className={`flex h-10 w-9 flex-col items-center justify-center rounded text-[9px] ${
+                    isBusy ? 'bg-rose-100 text-rose-700' : weekend ? 'bg-ink-100 text-ink-400' : 'bg-emerald-50 text-emerald-700'
+                  }`}
+                >
+                  <span>{['S', 'M', 'T', 'W', 'T', 'F', 'S'][d.getDay()]}</span>
+                  <span className="font-medium">{d.getDate()}</span>
+                </div>
+              );
+            })}
+          </div>
+          {busy === null && !err && <p className="mt-1 text-[11px] text-ink-400">Loading availability…</p>}
+          <div className="mt-2 flex gap-3 text-[10px] text-ink-400">
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-50 ring-1 ring-emerald-200" /> free</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-rose-100" /> busy</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-ink-100" /> weekend</span>
+          </div>
+        </div>
+
+        <div className="lg:border-l lg:border-ink-100 lg:pl-4">
+          <p className="mb-1.5 text-[10px] uppercase tracking-wide text-ink-400">Upcoming</p>
+          {events === null ? (
+            <p className="text-[11px] text-ink-400">Loading…</p>
+          ) : events.length === 0 ? (
+            <p className="text-[11px] text-ink-400">Nothing scheduled in the window.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {events.slice(0, 6).map(ev => {
+                const dt = new Date(ev.start);
+                const when = ev.allDay
+                  ? dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                  : dt.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+                return (
+                  <li key={ev.id} className="text-[11px] leading-tight">
+                    <a href={ev.htmlLink} target="_blank" rel="noreferrer" className="font-medium text-ink-800 hover:underline">
+                      {ev.summary}
+                    </a>
+                    <span className="block text-ink-400">{when}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function CalendarSection({
@@ -956,21 +1343,42 @@ function ProgressBar({
   buckets: ReturnType<typeof revenueBuckets>;
   target: number;
 }) {
-  const pct = (n: number) => `${Math.min(100, (n / target) * 100)}%`;
+  // Scale the bar to whichever is larger — the target or the full pipeline —
+  // so segments stay proportional even when we overshoot. The goal marker then
+  // sits part-way along the bar instead of always at the right edge.
+  const denom = Math.max(target, buckets.pipeline, 1);
+  const w = (n: number) => `${(n / denom) * 100}%`;
+  const targetPct = Math.min(100, (target / denom) * 100);
   const over = buckets.pipeline > target;
+  const reached = Math.round((buckets.pipeline / target) * 100);
   return (
-    <>
-      <div className="mt-4 flex h-5 w-full overflow-hidden rounded-full bg-ink-100">
-        <span style={{ width: pct(buckets.banked) }} className="h-full bg-emerald-600" title={`Banked ${formatINR(buckets.banked)}`} />
-        <span style={{ width: pct(buckets.hot) }} className="h-full bg-accent" title={`Hot ${formatINR(buckets.hot)}`} />
-        <span style={{ width: pct(buckets.warm) }} className="h-full bg-amber-400" title={`Warm ${formatINR(buckets.warm)}`} />
-        <span style={{ width: pct(buckets.cold) }} className="h-full bg-ink-300" title={`Cold ${formatINR(buckets.cold)}`} />
+    <div className="relative mt-7">
+      {/* goal marker label */}
+      <div
+        className="absolute -top-5 flex -translate-x-1/2 flex-col items-center"
+        style={{ left: `${targetPct}%` }}
+      >
+        <span className="whitespace-nowrap text-[10px] font-medium text-ink-600">▼ {formatLakh(target)} goal</span>
       </div>
-      <p className="mt-1 text-[11px] text-ink-400">
-        {formatINR(buckets.pipeline)} of {formatINR(target)} in pipeline
-        {over ? ' — over target 🎉' : ` · ${Math.round((buckets.pipeline / target) * 100)}%`}
+
+      <div className="flex h-5 w-full overflow-hidden rounded-full bg-ink-100">
+        <span style={{ width: w(buckets.banked) }} className="h-full bg-emerald-600" title={`Banked ${formatINR(buckets.banked)}`} />
+        <span style={{ width: w(buckets.hot) }} className="h-full bg-accent" title={`Hot ${formatINR(buckets.hot)}`} />
+        <span style={{ width: w(buckets.warm) }} className="h-full bg-amber-400" title={`Warm ${formatINR(buckets.warm)}`} />
+        <span style={{ width: w(buckets.cold) }} className="h-full bg-ink-300" title={`Cold ${formatINR(buckets.cold)}`} />
+      </div>
+
+      {/* goal marker line — overlaid, not clipped by the bar's rounded mask */}
+      <div
+        className="pointer-events-none absolute top-0 h-5 w-px bg-ink-900"
+        style={{ left: `${targetPct}%` }}
+      />
+
+      <p className="mt-1.5 text-[11px] text-ink-400">
+        {formatINR(buckets.pipeline)} of {formatINR(target)} in pipeline · {reached}%
+        {over && <span className="font-medium text-emerald-700"> — {formatINR(buckets.pipeline - target)} over target 🎉</span>}
       </p>
-    </>
+    </div>
   );
 }
 

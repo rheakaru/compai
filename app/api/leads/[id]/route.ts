@@ -37,7 +37,10 @@ const MUTABLE_KEYS: (keyof LeadInput)[] = [
   'paymentReceived',
   'jobConnect',
   'jobConnectNotes',
-  'notes'
+  'notes',
+  'order',
+  'smartNotes',
+  'smartNotesUpdatedAt'
 ];
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

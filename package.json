@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "set-operator": "tsx scripts/set-operator-claim.ts"
+    "set-operator": "tsx scripts/set-operator-claim.ts",
+    "rhai:intents": "tsx scripts/rhai-intents.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
