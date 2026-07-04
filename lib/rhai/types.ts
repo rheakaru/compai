@@ -8,52 +8,94 @@
 // Freeform markdown sections; Rhai bakes all of them into its system prompt.
 // ---------------------------------------------------------------------------
 
+/**
+ * Two memory tiers (the AIMemory pattern applied to Rhai itself):
+ * - `core`: small, identity-critical prose Rhea writes by hand. Loaded into
+ *   EVERY prompt in full.
+ * - `library`: big reference documents. Only their auto-generated digest card
+ *   is always loaded; the full body is fetched on demand via the
+ *   `read_context` tool when a task actually needs it.
+ */
+export type ContextMode = 'core' | 'library';
+
 export interface ContextSection {
   id: string;
   title: string;
-  /** Freeform markdown Rhea pastes/edits. */
+  /** Freeform markdown Rhea pastes/edits (or uploads via rhai:context). */
   body: string;
+  /** ~100-word always-loaded summary card. Library sections only. */
+  digest?: string;
   updatedAt: number;
 }
 
+export interface ContextSectionDef {
+  id: string;
+  title: string;
+  body: string;
+  mode: ContextMode;
+  /** One-line hint baked into the index card: when should Rhai reach for this? */
+  whenToUse: string;
+}
+
 /** Seeded on first load so the vault opens with the right prompts to fill. */
-export const DEFAULT_CONTEXT_SECTIONS: Omit<ContextSection, 'updatedAt'>[] = [
+export const DEFAULT_CONTEXT_SECTIONS: ContextSectionDef[] = [
   {
     id: 'about',
     title: 'About me',
-    body: ''
+    body: '',
+    mode: 'core',
+    whenToUse: 'Always relevant — who Rhea is.'
   },
   {
     id: 'networks',
     title: 'Networks & orgs I can tap',
-    body: ''
+    body: '',
+    mode: 'core',
+    whenToUse: 'Always relevant — the org channels for paid sessions.'
   },
   {
     id: 'thinking',
     title: 'My thinking on AI & dashboards',
-    body: ''
-  },
-  {
-    id: 'demos',
-    title: 'Things I have built (demo library)',
-    body: ''
+    body: '',
+    mode: 'core',
+    whenToUse: 'Always relevant — the philosophy behind every proposal.'
   },
   {
     id: 'templates',
     title: 'Email & comms templates / rules',
-    body: ''
+    body: '',
+    mode: 'core',
+    whenToUse: 'Always relevant — rules every draft must respect.'
+  },
+  {
+    id: 'demos',
+    title: 'Hoovu demo library (AI features + build specs)',
+    body: '',
+    mode: 'library',
+    whenToUse:
+      'Read when preparing a demo, pitch, proposal, or client build spec — maps client type → which Hoovu features to show, with pitch lines and Claude Code build specs.'
   },
   {
     id: 'community',
     title: 'Hang w AI community directory',
-    body: ''
+    body: '',
+    mode: 'library',
+    whenToUse:
+      'Read when suggesting follow-ups, network plays, session invites, or researching whether someone is already in the community (~80 people: leads, hosts, amplifiers).'
   },
   {
     id: 'teaching',
     title: 'How I teach — modules, decks & style',
-    body: ''
+    body: '',
+    mode: 'library',
+    whenToUse:
+      'Read when planning a session, building a deck, or prepping workshop materials — module library, session arcs, signature lines, deck design system.'
   }
 ];
+
+export const SECTION_MODE: Record<string, ContextMode> = Object.fromEntries(
+  DEFAULT_CONTEXT_SECTIONS.map(s => [s.id, s.mode])
+);
 
 // ---------------------------------------------------------------------------
 // Idea scratchpad — parked thoughts Rhai enriches, researches, and resurfaces.

@@ -11,9 +11,11 @@
  */
 import { readFileSync } from 'fs';
 import { config } from 'dotenv';
+import Anthropic from '@anthropic-ai/sdk';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { DEFAULT_CONTEXT_SECTIONS } from '../lib/rhai/types';
+import { DEFAULT_CONTEXT_SECTIONS, SECTION_MODE } from '../lib/rhai/types';
+import { RHAI_MODELS } from '../lib/rhai/models';
 
 config({ path: '.env.local' });
 
@@ -48,15 +50,39 @@ if (!getApps().length) {
   });
 }
 
-getFirestore()
-  .collection('rhaiContext')
-  .doc(sectionId)
-  .set({ body, updatedAt: Date.now() }, { merge: true })
-  .then(() => {
-    console.log(`✓ Uploaded ${filePath} (${(body.length / 1024).toFixed(1)}kb) → rhaiContext/${sectionId}`);
-    console.log('  Rhai now sees this in every pass. Review it on the Context tab.');
-  })
-  .catch(e => {
-    console.error(e);
-    process.exit(1);
-  });
+async function main() {
+  const update: Record<string, unknown> = { body, updatedAt: Date.now() };
+
+  // Library sections get an always-loaded digest card (the AIMemory pattern):
+  // Rhai's every prompt carries this summary; the full doc loads on demand.
+  if (SECTION_MODE[sectionId] === 'library') {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.warn('⚠ ANTHROPIC_API_KEY not set — uploading without a digest card.');
+    } else {
+      const title = DEFAULT_CONTEXT_SECTIONS.find(s => s.id === sectionId)?.title ?? sectionId;
+      const msg = await new Anthropic({ apiKey }).messages.create({
+        model: RHAI_MODELS.digest,
+        max_tokens: 400,
+        system:
+          'You compress reference documents into index cards for an AI agent. Write a single dense paragraph (max ~100 words): what the document contains, its key categories/counts, and 2-3 standout specifics an agent should remember exist. No preamble, no markdown.',
+        messages: [{ role: 'user', content: `Document title: ${title}\n\n${body.slice(0, 30_000)}` }]
+      });
+      update.digest = msg.content
+        .filter(b => b.type === 'text')
+        .map(b => (b as { text: string }).text)
+        .join(' ')
+        .trim();
+      console.log(`  Digest card: ${String(update.digest).slice(0, 140)}…`);
+    }
+  }
+
+  await getFirestore().collection('rhaiContext').doc(sectionId).set(update, { merge: true });
+  const mode = SECTION_MODE[sectionId] === 'library' ? 'library (digest always-loaded, body on demand)' : 'core (always loaded)';
+  console.log(`✓ Uploaded ${filePath} (${(body.length / 1024).toFixed(1)}kb) → rhaiContext/${sectionId} [${mode}]`);
+}
+
+main().catch(e => {
+  console.error(e);
+  process.exit(1);
+});

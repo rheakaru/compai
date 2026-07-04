@@ -12,6 +12,7 @@ import { LeadsDashboard } from './LeadsDashboard';
 import {
   IDEA_STATUS_LABELS,
   MODEL_OPTIONS,
+  SECTION_MODE,
   SUGGESTION_KIND_LABELS,
   type ContextSection,
   type RhaiIdea,
@@ -555,13 +556,34 @@ function ContextEditor({
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
+  const isLibrary = SECTION_MODE[section.id] === 'library';
+
   return (
     <div className="rounded-lg border border-ink-200 bg-white p-4">
-      <div className="mb-1 flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink-900">{section.title}</p>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-ink-900">{section.title}</p>
+          <span
+            className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+              isLibrary ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-700'
+            }`}
+            title={
+              isLibrary
+                ? 'Rhai always carries a short digest of this; it reads the full text only when a task needs it.'
+                : 'Loaded in full into every Rhai pass.'
+            }
+          >
+            {isLibrary ? 'On demand' : 'Always loaded'}
+          </span>
+        </div>
         <span className="text-[10px] text-ink-400">{status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : ''}</span>
       </div>
       <p className="mb-2 text-[11px] text-ink-400">{CONTEXT_HINTS[section.id] ?? ''}</p>
+      {isLibrary && section.digest && (
+        <p className="mb-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-3 py-2 text-[11px] leading-relaxed text-indigo-900">
+          <span className="font-semibold">Rhai's index card:</span> {section.digest}
+        </p>
+      )}
       <textarea
         value={body}
         onChange={e => {

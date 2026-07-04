@@ -1,16 +1,15 @@
 import { NextRequest } from 'next/server';
-import type Anthropic from '@anthropic-ai/sdk';
 import { adminDb } from '@/lib/firebase/admin';
 import {
   COL_IDEAS,
   COL_SUGGESTIONS,
-  anthropic,
   buildRhaiSystemPrompt,
   describeIdeas,
   describeLeads,
   loadContextSections,
   parseJsonLoose,
-  requireOperator
+  requireOperator,
+  runRhaiWithContext
 } from '@/lib/rhai/server';
 import { modelFor } from '@/lib/rhai/models';
 import { normalizeLead, type WorkshopLead } from '@/lib/leads/types';
@@ -57,33 +56,23 @@ export async function POST(req: NextRequest) {
   const kinds = Object.keys(SUGGESTION_KIND_LABELS).join(' | ');
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-  const msg = await anthropic().messages.create({
+  const text = await runRhaiWithContext({
     model: modelFor('suggest'),
-    max_tokens: 3000,
+    maxTokens: 3000,
     system: buildRhaiSystemPrompt(sections),
-    messages: [
-      {
-        role: 'user',
-        content: [
-          `Today is ${today}. Do your morning cofounder pass.`,
-          `\nPIPELINE:\n${describeLeads(leads)}`,
-          `\nPARKED IDEAS:\n${describeIdeas(ideas)}`,
-          `\nPropose the 4-8 highest-leverage actions for today. Rules:`,
-          `- Concrete and immediately actionable; name the lead/person and the exact artifact ("draft X for Y because Z").`,
-          `- Read the smart notes: client wants mentioned there (e.g. a WhatsApp morning briefing) should become research/prep suggestions.`,
-          `- Chase money first (unpaid invoices, stalled hot leads), then session prep, then top-of-funnel (ideas, networks, Hang with AI).`,
-          `- If the pipeline is quiet, surface parked ideas and network plays.`,
-          `- Never suggest sending anything to a client directly — you draft, Rhea approves.`,
-          `\nReturn ONLY a JSON array: [{"kind": "${kinds}", "title": "…", "detail": "why + exactly what you'll prepare if approved", "leadId": "<id or omit>", "leadLabel": "<person/company or omit>"}]`
-        ].join('\n')
-      }
-    ]
+    userContent: [
+      `Today is ${today}. Do your morning cofounder pass.`,
+      `\nPIPELINE:\n${describeLeads(leads)}`,
+      `\nPARKED IDEAS:\n${describeIdeas(ideas)}`,
+      `\nPropose the 4-8 highest-leverage actions for today. Rules:`,
+      `- Concrete and immediately actionable; name the lead/person and the exact artifact ("draft X for Y because Z").`,
+      `- Read the smart notes: client wants mentioned there (e.g. a WhatsApp morning briefing) should become research/prep suggestions.`,
+      `- Chase money first (unpaid invoices, stalled hot leads), then session prep, then top-of-funnel (ideas, networks, Hang with AI).`,
+      `- If the pipeline is quiet, surface parked ideas and network plays — read_context("community") for who to tap.`,
+      `- Never suggest sending anything to a client directly — you draft, Rhea approves.`,
+      `\nAfter any tool use, return ONLY a JSON array: [{"kind": "${kinds}", "title": "…", "detail": "why + exactly what you'll prepare if approved", "leadId": "<id or omit>", "leadLabel": "<person/company or omit>"}]`
+    ].join('\n')
   });
-
-  const text = msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map(b => b.text)
-    .join('\n');
 
   let proposed: Array<{ kind: SuggestionKind; title: string; detail: string; leadId?: string; leadLabel?: string }>;
   try {

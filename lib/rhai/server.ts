@@ -3,7 +3,13 @@ import type { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { adminDb } from '@/lib/firebase/admin';
 import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
-import { DEFAULT_CONTEXT_SECTIONS, type ContextSection, type RhaiIdea } from './types';
+import {
+  DEFAULT_CONTEXT_SECTIONS,
+  SECTION_MODE,
+  type ContextSection,
+  type RhaiIdea
+} from './types';
+import { modelFor } from './models';
 import type { WorkshopLead } from '@/lib/leads/types';
 import { formatINR, leadValue } from '@/lib/leads/types';
 
@@ -69,16 +75,140 @@ HOW YOU OPERATE:
 - Match her voice: warm, direct, no corporate filler, trust as the throughline.
 `.trim();
 
+// ---------------------------------------------------------------------------
+// Tiered memory — the AIMemory pattern applied to Rhai itself.
+// Core sections load in full; library sections load as digest index cards,
+// with the full body one `read_context` tool call away. Rhai always knows
+// what it has; it pays for the big documents only when a task needs them.
+// ---------------------------------------------------------------------------
+
 export function buildRhaiSystemPrompt(sections: ContextSection[]): string {
-  const vault = sections
-    .filter(s => s.body.trim())
+  const defs = new Map(DEFAULT_CONTEXT_SECTIONS.map(d => [d.id, d]));
+
+  const core = sections
+    .filter(s => SECTION_MODE[s.id] !== 'library' && s.body.trim())
     .map(s => `### ${s.title}\n${s.body.trim()}`)
     .join('\n\n');
+
+  const index = sections
+    .filter(s => SECTION_MODE[s.id] === 'library' && s.body.trim())
+    .map(s => {
+      const def = defs.get(s.id);
+      const kb = (s.body.length / 1024).toFixed(0);
+      return [
+        `• id: "${s.id}" — ${s.title} (${kb}kb)`,
+        `  When to read: ${def?.whenToUse ?? 'when relevant'}`,
+        `  At a glance: ${s.digest?.trim() || '(digest pending — read the full doc if potentially relevant)'}`
+      ].join('\n');
+    })
+    .join('\n');
+
   return [
     BUSINESS_BRIEF,
-    vault ? `\nCONTEXT VAULT (written by Rhea — weight this heavily):\n${vault}` : '',
+    core ? `\nCONTEXT VAULT (written by Rhea — weight this heavily):\n${core}` : '',
+    index
+      ? `\nCONTEXT LIBRARY (full documents available via the read_context tool — the cards below are only summaries):\n${index}\n\nUse read_context BEFORE answering when a task touches a library topic — e.g. naming specific community members, picking demo features for a client, or planning session content. Never invent specifics that would live in a library doc; read it instead. Skip the tool when the task clearly doesn't need it.`
+      : '',
     ''
   ].join('\n');
+}
+
+/** Tool schema for on-demand context reads. */
+export const READ_CONTEXT_TOOL: Anthropic.Messages.Tool = {
+  name: 'read_context',
+  description:
+    'Fetch the full text of a context-library document by its id (see CONTEXT LIBRARY in the system prompt). Use before making claims that depend on its contents.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Library section id, e.g. "community", "demos", "teaching".' }
+    },
+    required: ['id']
+  }
+};
+
+const MAX_SECTION_CHARS = 40_000; // ~10k tokens ceiling per fetch
+
+async function fetchSectionBody(id: string): Promise<string> {
+  const snap = await adminDb().collection(COL_CONTEXT).doc(id).get();
+  const body = (snap.data()?.body as string | undefined)?.trim();
+  if (!body) return `(no document stored under id "${id}")`;
+  return body.length > MAX_SECTION_CHARS ? body.slice(0, MAX_SECTION_CHARS) + '\n…(truncated)' : body;
+}
+
+/**
+ * Run a Rhai call with the read_context tool (plus any extra tools, e.g. the
+ * server-side web_search). Handles the tool loop; returns the final text.
+ */
+export async function runRhaiWithContext(params: {
+  model: string;
+  maxTokens: number;
+  system: string;
+  userContent: string;
+  extraTools?: Anthropic.Messages.Tool[];
+  maxRounds?: number;
+}): Promise<string> {
+  const { model, maxTokens, system, userContent, extraTools = [], maxRounds = 4 } = params;
+  const tools = [READ_CONTEXT_TOOL, ...extraTools];
+  const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: userContent }];
+
+  for (let round = 0; round <= maxRounds; round++) {
+    const msg = await anthropic().messages.create({
+      model,
+      max_tokens: maxTokens,
+      system,
+      tools,
+      messages
+    });
+
+    const toolUses = msg.content.filter(
+      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'read_context'
+    );
+    if (msg.stop_reason !== 'tool_use' || toolUses.length === 0 || round === maxRounds) {
+      return msg.content
+        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+        .map(b => b.text)
+        .join('\n');
+    }
+
+    messages.push({ role: 'assistant', content: msg.content });
+    const results: Anthropic.Messages.ToolResultBlockParam[] = [];
+    for (const tu of toolUses) {
+      const id = String((tu.input as { id?: string })?.id ?? '');
+      results.push({
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: await fetchSectionBody(id)
+      });
+    }
+    messages.push({ role: 'user', content: results });
+  }
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Digest generation — the always-loaded summary card for a library doc.
+// Haiku-class, runs once per document change (fractions of a cent).
+// ---------------------------------------------------------------------------
+
+export async function generateDigest(title: string, body: string): Promise<string> {
+  const msg = await anthropic().messages.create({
+    model: modelFor('digest'),
+    max_tokens: 400,
+    system:
+      'You compress reference documents into index cards for an AI agent. Write a single dense paragraph (max ~100 words): what the document contains, its key categories/counts, and 2-3 standout specifics an agent should remember exist. No preamble, no markdown.',
+    messages: [
+      {
+        role: 'user',
+        content: `Document title: ${title}\n\n${body.slice(0, 30_000)}`
+      }
+    ]
+  });
+  return msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map(b => b.text)
+    .join(' ')
+    .trim();
 }
 
 /** Compact, token-efficient snapshot of the pipeline for prompts. */

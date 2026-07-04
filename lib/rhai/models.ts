@@ -16,7 +16,9 @@ export const RHAI_MODELS = {
   /** Reading notes + pipeline and proposing next-step actions. */
   suggest: 'claude-sonnet-5',
   /** Drafting emails, proposals, invoice lines from templates. */
-  draft: 'claude-haiku-4-5-20251001'
+  draft: 'claude-haiku-4-5-20251001',
+  /** Compressing a context-library doc into its always-loaded digest card. */
+  digest: 'claude-haiku-4-5-20251001'
 } as const;
 
 export type RhaiTask = keyof typeof RHAI_MODELS;
