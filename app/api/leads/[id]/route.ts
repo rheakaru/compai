@@ -40,8 +40,19 @@ const MUTABLE_KEYS: (keyof LeadInput)[] = [
   'notes',
   'order',
   'smartNotes',
-  'smartNotesUpdatedAt'
+  'smartNotesUpdatedAt',
+  'understanding',
+  'scan'
 ];
+
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { error } = await requireOperator(req);
+  if (error) return error;
+  const { id } = await ctx.params;
+  const snap = await adminDb().collection(COLLECTION).doc(id).get();
+  if (!snap.exists) return new Response('not found', { status: 404 });
+  return Response.json({ lead: { id: snap.id, ...(snap.data() as Omit<WorkshopLead, 'id'>) } });
+}
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { error } = await requireOperator(req);

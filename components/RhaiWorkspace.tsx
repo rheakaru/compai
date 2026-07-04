@@ -11,6 +11,8 @@ import { BriefingStrip } from './BriefingStrip';
 import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
 import { PeoplePanel, PersonDrawer } from './RhaiPeople';
+import { TasksPanel } from './RhaiTasks';
+import { TodosSection } from './RhaiTodos';
 import type { RhaiPerson } from '@/lib/rhai/types';
 import {
   IDEA_STATUS_LABELS,
@@ -23,11 +25,12 @@ import {
   type RhaiSuggestion
 } from '@/lib/rhai/types';
 
-type Tab = 'pipeline' | 'today' | 'people' | 'ideas' | 'context' | 'skills';
+type Tab = 'pipeline' | 'today' | 'tasks' | 'people' | 'ideas' | 'context' | 'skills';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'pipeline', label: 'Pipeline' },
   { id: 'today', label: 'Today' },
+  { id: 'tasks', label: 'Tasks' },
   { id: 'people', label: 'People' },
   { id: 'ideas', label: 'Ideas' },
   { id: 'context', label: 'Context' },
@@ -116,6 +119,14 @@ export function RhaiWorkspace() {
 
       {tab === 'pipeline' && <LeadsDashboard />}
       {tab === 'today' && <TodayPanel />}
+      {tab === 'tasks' && (
+        <Panel
+          title="Tasks"
+          sub="Work assigned to Rhai — research runs, drafts, prep. Tasks carry the client's full context and run in parallel; results land back here."
+        >
+          <TasksPanel />
+        </Panel>
+      )}
       {tab === 'people' && (
         <Panel
           title="People"
@@ -222,6 +233,7 @@ function TodayPanel() {
       title="Rhai · Today"
       sub="Rhai reads your pipeline, smart notes, and parked ideas, then proposes the highest-leverage moves. Approve to queue for execution — nothing reaches a client without you."
     >
+      <TodosSection />
       <div className="mb-4 flex items-center gap-3">
         <button
           type="button"

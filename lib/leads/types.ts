@@ -175,9 +175,48 @@ export interface WorkshopLead {
    */
   smartNotes?: string;
   smartNotesUpdatedAt?: number;
+  /**
+   * Rhai's living read on this client, rebuilt from all note sessions:
+   * a short summary + the top-5 things that matter. Rhea can edit both.
+   */
+  understanding?: LeadUnderstanding;
+  /**
+   * Rhai's proactive scan: the next actions worth taking for this client,
+   * each executable as a task. Cached — regenerated on demand.
+   */
+  scan?: LeadScan;
 
   createdAt: number;
   updatedAt: number;
+}
+
+export interface LeadUnderstanding {
+  summary: string;
+  bullets: string[];
+  updatedAt: number;
+}
+
+export interface LeadScanAction {
+  id: string;
+  /** research actions run inline; draft/prep actions queue as Rhai tasks */
+  kind: 'research_industry' | 'research_solution' | 'draft_email' | 'draft_proposal' | 'prep_deck' | 'other';
+  title: string;
+  detail: string;
+}
+
+export interface LeadScan {
+  actions: LeadScanAction[];
+  generatedAt: number;
+}
+
+/** One notes session for a lead — a distinct meeting/call/dump, never merged. */
+export interface LeadNoteSession {
+  id: string;
+  text: string;
+  source: 'typed' | 'voice' | 'transcribed' | 'rhai-research';
+  /** Optional label, e.g. "Recce day 1" or "Call with CFO". */
+  label?: string;
+  at: number;
 }
 
 /**

@@ -170,6 +170,52 @@ export interface RhaiChatMessage {
 }
 
 // ---------------------------------------------------------------------------
+// Quick to-dos — fast capture, one place. Resolution links them to a lead.
+// ---------------------------------------------------------------------------
+
+export interface RhaiTodo {
+  id: string;
+  text: string;
+  /** Resolved link (by name match against leads/people). */
+  leadId?: string;
+  leadLabel?: string;
+  /** Multiple possible matches — Rhea picks one in the UI. */
+  candidates?: { leadId: string; label: string }[];
+  done: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Task board — work assigned to Rhai. Tasks run with the client's full
+// context (understanding + note sessions) plus the relevant library docs,
+// in parallel, and report results back to the board.
+// ---------------------------------------------------------------------------
+
+export type RhaiTaskStatus = 'queued' | 'running' | 'done' | 'failed';
+
+export interface RhaiTask {
+  id: string;
+  title: string;
+  /** What to do, in Rhea's words (or generated from a scan action). */
+  detail: string;
+  /** Client this task is for — its context rides along. */
+  leadId?: string;
+  leadLabel?: string;
+  /** Skill from the registry that should shape the output, if any. */
+  skillId?: string;
+  /** Research tasks append their result as a lead note session. */
+  appendToNotes?: boolean;
+  status: RhaiTaskStatus;
+  /** The output: research findings, draft text, prep notes… */
+  result?: string;
+  error?: string;
+  createdAt: number;
+  startedAt?: number;
+  finishedAt?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Idea scratchpad — parked thoughts Rhai enriches, researches, and resurfaces.
 // ---------------------------------------------------------------------------
 

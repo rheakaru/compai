@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import {
@@ -260,6 +261,9 @@ export function LeadsDashboard() {
       {/* ---- glanceable calendar ---- */}
       <div className="mt-4">
         <AvailabilityStrip calToken={calToken} calBusy={calBusy} onConnectCal={connectCal} />
+        {calToken && leads && (
+          <CalendarLeadSync calToken={calToken} leads={leads} onPatch={patch} />
+        )}
       </div>
 
       {/* ---- goals ---- */}
@@ -472,6 +476,13 @@ function LeadRow({
                 ⓘ
               </button>
             )}
+            <Link
+              href={`/leads/${lead.id}`}
+              className="rounded px-1 text-[11px] text-ink-400 hover:bg-ink-50 hover:text-ink-800"
+              title="Open client workspace — notes, understanding, Rhai's scan"
+            >
+              ↗
+            </Link>
             {lead.jobConnect && (
               <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-800">
                 SF connect
@@ -1639,6 +1650,109 @@ function NextStepsHistory({ leadId }: { leadId: string }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Calendar ↔ lead sync — Rhea often books recces/workshops straight in Google
+// Calendar. Scan the next 30 days, match event titles against lead names, and
+// suggest writing the date back to the lead so everything stays synced.
+// ---------------------------------------------------------------------------
+
+function CalendarLeadSync({
+  calToken,
+  leads,
+  onPatch
+}: {
+  calToken: CalToken;
+  leads: WorkshopLead[];
+  onPatch: (id: string, partial: Partial<WorkshopLead>) => void;
+}) {
+  const [suggestions, setSuggestions] = useState<
+    { key: string; leadId: string; label: string; event: CalEvent; date: string; kind: 'recce' | 'workshop' }[]
+  >([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const now = new Date();
+        const events = await listUpcomingEvents(calToken.accessToken, now, new Date(now.getTime() + 30 * 86400_000), 50);
+        const found: typeof suggestions = [];
+        for (const ev of events) {
+          const title = ev.summary?.toLowerCase() ?? '';
+          if (!title) continue;
+          for (const l of leads) {
+            const names = [l.person?.split(' ')[0], l.person, l.company].filter(
+              (n): n is string => !!n && n.trim().length >= 3
+            );
+            if (!names.some(n => title.includes(n.toLowerCase()))) continue;
+            const date = ev.start.slice(0, 10);
+            const isRecce = /recce|visit|office/.test(title);
+            const kind: 'recce' | 'workshop' = isRecce ? 'recce' : 'workshop';
+            const current = isRecce ? l.recce?.date : l.workshopDate;
+            if (current === date) continue; // already synced
+            found.push({
+              key: `${l.id}-${ev.id}`,
+              leadId: l.id,
+              label: [l.person, l.company].filter(Boolean).join(' · '),
+              event: ev,
+              date,
+              kind
+            });
+          }
+        }
+        // One suggestion per lead+event; cap the strip.
+        setSuggestions(found.slice(0, 4));
+      } catch {
+        // calendar hiccups are non-fatal
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calToken.accessToken]);
+
+  const visible = suggestions.filter(s => !dismissed.has(s.key));
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      {visible.map(s => (
+        <div
+          key={s.key}
+          className="flex flex-wrap items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-900"
+        >
+          <span>
+            📅 “{s.event.summary}” on{' '}
+            {new Date(s.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} looks like{' '}
+            <strong>{s.label}</strong> — set as {s.kind === 'recce' ? 'recce' : 'workshop'} date?
+          </span>
+          <span className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (s.kind === 'recce') {
+                  const lead = leads.find(l => l.id === s.leadId);
+                  onPatch(s.leadId, { recce: { ...(lead?.recce ?? {}), date: s.date } });
+                } else {
+                  onPatch(s.leadId, { workshopDate: s.date });
+                }
+                setDismissed(prev => new Set([...prev, s.key]));
+              }}
+              className="rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-700"
+            >
+              Sync it
+            </button>
+            <button
+              type="button"
+              onClick={() => setDismissed(prev => new Set([...prev, s.key]))}
+              className="text-[11px] text-indigo-400 hover:text-indigo-700"
+            >
+              dismiss
+            </button>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
