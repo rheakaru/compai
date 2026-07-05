@@ -442,8 +442,43 @@ function IdeaCard({
   onDelete: (id: string) => void;
   onEnrich: (id: string) => void;
 }) {
+  const authedFetch = useAuthedFetch();
   const [answer, setAnswer] = useState('');
+  const [promoting, setPromoting] = useState(false);
+  const [candidates, setCandidates] = useState<{ leadId: string; label: string }[] | null>(null);
+  const [promoted, setPromoted] = useState<{ leadId: string; leadLabel: string; tasks: number } | null>(
+    idea.leadId ? { leadId: idea.leadId, leadLabel: idea.leadLabel ?? 'lead', tasks: 0 } : null
+  );
   const busy = idea.status === 'researching';
+
+  const promote = async (leadId?: string) => {
+    setPromoting(true);
+    setCandidates(null);
+    try {
+      const res = await authedFetch(`/api/rhai/ideas/${idea.id}/promote`, {
+        method: 'POST',
+        body: JSON.stringify(leadId ? { leadId } : {})
+      });
+      if (!res.ok) return;
+      const d = (await res.json()) as {
+        needsPick?: boolean;
+        candidates?: { leadId: string; label: string }[];
+        leadId?: string;
+        leadLabel?: string;
+        tasksCreated?: { id: string; title: string }[];
+      };
+      if (d.needsPick && d.candidates) {
+        setCandidates(d.candidates);
+        return;
+      }
+      if (d.leadId) {
+        setPromoted({ leadId: d.leadId, leadLabel: d.leadLabel ?? 'lead', tasks: d.tasksCreated?.length ?? 0 });
+        onPatch(idea.id, { status: 'promoted', leadId: d.leadId, leadLabel: d.leadLabel });
+      }
+    } finally {
+      setPromoting(false);
+    }
+  };
 
   return (
     <div className="rounded-lg border border-ink-200 bg-white p-4">
@@ -532,10 +567,51 @@ function IdeaCard({
         </p>
       )}
 
-      {(idea.status === 'brainstormed' || idea.status === 'parked') && (
+      {candidates && (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2">
+          <p className="text-[11px] text-amber-800">Which lead is this about?</p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {candidates.map(c => (
+              <button
+                key={c.leadId}
+                type="button"
+                onClick={() => promote(c.leadId)}
+                className="rounded-full border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] text-amber-900 hover:bg-amber-100"
+              >
+                {c.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setCandidates(null)}
+              className="px-2 text-[11px] text-amber-600 hover:underline"
+            >
+              cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {promoted && (
+        <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
+          ✓ On the pipeline as{' '}
+          <a href={`/leads/${promoted.leadId}`} className="font-semibold underline">
+            {promoted.leadLabel}
+          </a>
+          {promoted.tasks > 0 && <> · {promoted.tasks} task{promoted.tasks === 1 ? '' : 's'} queued for Rhai (see Tasks tab)</>}
+          {' '}— brainstorm &amp; questions are in the lead&apos;s notes.
+        </p>
+      )}
+
+      {(idea.status === 'brainstormed' || idea.status === 'parked') && !promoted && (
         <div className="mt-3 flex gap-2 text-[11px]">
-          <button type="button" onClick={() => onPatch(idea.id, { status: 'promoted' })} className="text-indigo-700 hover:underline">
-            Promote to lead →
+          <button
+            type="button"
+            onClick={() => promote()}
+            disabled={promoting}
+            className="text-indigo-700 hover:underline disabled:opacity-50"
+          >
+            {promoting ? 'Promoting…' : 'Promote to lead →'}
           </button>
           <button type="button" onClick={() => onPatch(idea.id, { status: 'dropped' })} className="text-ink-400 hover:underline">
             Drop

@@ -252,6 +252,9 @@ export interface RhaiIdea {
   /** The raw thought, e.g. "should ask aishwarya if we can do this with her school". */
   text: string;
   status: IdeaStatus;
+  /** Set on promotion — the lead this idea became (or attached to). */
+  leadId?: string;
+  leadLabel?: string;
   /** Rhai's research + brainstorm output (markdown). */
   enrichment?: string;
   /** Questions Rhai needs answered before it can go further. */

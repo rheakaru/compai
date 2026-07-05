@@ -43,15 +43,21 @@ export async function POST(req: NextRequest) {
   if (error) return error;
 
   const db = adminDb();
-  const [leadsSnap, ideasSnap, sections] = await Promise.all([
+  const [leadsSnap, ideasSnap, tasksSnap, sections] = await Promise.all([
     db.collection('workshopLeads').orderBy('createdAt', 'desc').get(),
     db.collection(COL_IDEAS).orderBy('createdAt', 'desc').get(),
+    db.collection('rhaiTasks').where('status', '==', 'queued').get(),
     loadContextSections()
   ]);
   const leads = leadsSnap.docs.map(d =>
     normalizeLead({ id: d.id, ...(d.data() as Omit<WorkshopLead, 'id'>) } as WorkshopLead & { type: string })
   );
   const ideas = ideasSnap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<RhaiIdea, 'id'>) }));
+  const queuedTasks = tasksSnap.docs.map(d => {
+    const t = d.data() as { title?: string; leadLabel?: string; createdAt?: number };
+    const ageDays = Math.floor((Date.now() - (t.createdAt ?? Date.now())) / 86400_000);
+    return `• "${t.title}"${t.leadLabel ? ` (${t.leadLabel})` : ''}${ageDays >= 1 ? ` — queued ${ageDays}d, not yet run` : ''}`;
+  });
 
   const kinds = Object.keys(SUGGESTION_KIND_LABELS).join(' | ');
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -64,10 +70,12 @@ export async function POST(req: NextRequest) {
       `Today is ${today}. Do your morning cofounder pass.`,
       `\nPIPELINE:\n${describeLeads(leads)}`,
       `\nPARKED IDEAS:\n${describeIdeas(ideas)}`,
+      queuedTasks.length ? `\nTASKS QUEUED ON YOUR BOARD (not yet run):\n${queuedTasks.join('\n')}` : '',
       `\nPropose the 4-8 highest-leverage actions for today. Rules:`,
       `- Concrete and immediately actionable; name the lead/person and the exact artifact ("draft X for Y because Z").`,
       `- Read the smart notes: client wants mentioned there (e.g. a WhatsApp morning briefing) should become research/prep suggestions.`,
       `- Chase money first (unpaid invoices, stalled hot leads), then session prep, then top-of-funnel (ideas, networks, Hang with AI).`,
+      `- RIPENESS: flag things that crossed the line from thinking to acting — a brainstormed idea whose questions got answered should be promoted to the pipeline; a queued task sitting >1 day should be run; a lead with rich notes but no scan/understanding should get one. Say so explicitly.`,
       `- If the pipeline is quiet, surface parked ideas and network plays — read_context("community") for who to tap.`,
       `- Never suggest sending anything to a client directly — you draft, Rhea approves.`,
       `\nAfter any tool use, return ONLY a JSON array: [{"kind": "${kinds}", "title": "…", "detail": "why + exactly what you'll prepare if approved", "leadId": "<id or omit>", "leadLabel": "<person/company or omit>"}]`

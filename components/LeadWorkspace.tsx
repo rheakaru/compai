@@ -110,6 +110,7 @@ export function LeadWorkspace({ leadId }: { leadId: string }) {
           <LinkedPerson name={lead.person} />
           <UnderstandingPanel lead={lead} onLead={setLead} />
           <ScanPanel lead={lead} onLead={setLead} onNotesChanged={() => load().catch(() => undefined)} />
+          <LeadTasksCard leadId={leadId} onNotesChanged={() => load().catch(() => undefined)} />
         </div>
       </div>
     </div>
@@ -632,6 +633,88 @@ function LinkedPerson({ name }: { name: string }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tasks for this lead — everything queued/run for this client, right on the
+// case. Promoted ideas and scan actions land here; run them without leaving.
+// ---------------------------------------------------------------------------
+
+function LeadTasksCard({ leadId, onNotesChanged }: { leadId: string; onNotesChanged: () => void }) {
+  const authedFetch = useAuthedFetch();
+  const [tasks, setTasks] = useState<RhaiTask[] | null>(null);
+  const [openResult, setOpenResult] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await authedFetch('/api/rhai/tasks');
+    if (res.ok) {
+      const all = ((await res.json()) as { tasks: RhaiTask[] }).tasks;
+      setTasks(all.filter(t => t.leadId === leadId));
+    }
+  }, [authedFetch, leadId]);
+
+  useEffect(() => {
+    load().catch(() => undefined);
+  }, [load]);
+
+  const run = async (id: string) => {
+    setTasks(prev => (prev ? prev.map(t => (t.id === id ? { ...t, status: 'running' } : t)) : prev));
+    try {
+      await authedFetch(`/api/rhai/tasks/${id}/run`, { method: 'POST' });
+    } finally {
+      await load().catch(() => undefined);
+      onNotesChanged(); // research results append to notes
+    }
+  };
+
+  if (!tasks || tasks.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-ink-200 bg-white p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="eyebrow">Rhai&apos;s tasks for this client</p>
+        <Link href="/leads" className="text-[10px] text-ink-400 hover:underline">
+          full board on Tasks tab
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {tasks.map(t => (
+          <div key={t.id} className="rounded-md border border-ink-100 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="min-w-0 flex-1 truncate text-xs font-medium text-ink-900">{t.title}</p>
+              {t.status === 'queued' || t.status === 'failed' ? (
+                <button
+                  type="button"
+                  onClick={() => run(t.id)}
+                  className="shrink-0 rounded-md bg-ink-900 px-2.5 py-1 text-[11px] font-medium text-cream hover:bg-ink-800"
+                >
+                  ▶ Run
+                </button>
+              ) : t.status === 'running' ? (
+                <span className="shrink-0 text-[11px] text-amber-600">working…</span>
+              ) : (
+                <span className="shrink-0 text-[11px] text-emerald-700">✓ done</span>
+              )}
+            </div>
+            {t.status === 'done' && t.result && (
+              <button
+                type="button"
+                onClick={() => setOpenResult(openResult === t.id ? null : t.id)}
+                className="mt-1 text-[11px] text-indigo-600 hover:underline"
+              >
+                {openResult === t.id ? 'Hide result' : 'View result'}
+              </button>
+            )}
+            {openResult === t.id && t.result && (
+              <p className="mt-1 max-h-56 overflow-y-auto whitespace-pre-wrap rounded bg-cream-50 p-2 text-[11px] leading-relaxed text-ink-700">
+                {t.result}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
