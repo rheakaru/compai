@@ -2,6 +2,8 @@ import 'server-only';
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getAuth, type Auth } from 'firebase-admin/auth';
+import { getDatabase, type Database } from 'firebase-admin/database';
+import { getStorage } from 'firebase-admin/storage';
 
 let app: App | undefined;
 
@@ -21,7 +23,13 @@ function init(): App {
       projectId: serviceAccount.project_id,
       clientEmail: serviceAccount.client_email,
       privateKey: serviceAccount.private_key
-    })
+    }),
+    // RTDB holds the Marketing Engine workspaces (see database.rules.json).
+    databaseURL:
+      process.env.FIREBASE_DATABASE_URL ||
+      'https://compai-57d55-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket:
+      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'compai-57d55.firebasestorage.app'
   });
   return app;
 }
@@ -49,4 +57,13 @@ export function adminDb(): Firestore {
 
 export function adminAuth(): Auth {
   return getAuth(init());
+}
+
+export function adminRtdb(): Database {
+  return getDatabase(init());
+}
+
+/** Default Cloud Storage bucket — holds original uploaded client documents. */
+export function adminBucket() {
+  return getStorage(init()).bucket();
 }

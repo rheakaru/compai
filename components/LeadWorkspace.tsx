@@ -11,6 +11,7 @@ import { useAuth } from './AuthProvider';
 import { useAuthedFetch } from './useAuthedFetch';
 import { useVoice } from './useVoice';
 import { openPerson } from './RhaiPeople';
+import { DocumentsSection } from './LeadDocuments';
 import {
   STAGE_LABELS,
   type LeadNoteSession,
@@ -109,6 +110,7 @@ export function LeadWorkspace({ leadId }: { leadId: string }) {
         <div className="space-y-6">
           <LinkedPerson name={lead.person} />
           <UnderstandingPanel lead={lead} onLead={setLead} />
+          <DocumentsSection leadId={leadId} />
           <ScanPanel lead={lead} onLead={setLead} onNotesChanged={() => load().catch(() => undefined)} />
           <LeadTasksCard leadId={leadId} onNotesChanged={() => load().catch(() => undefined)} />
         </div>
@@ -162,10 +164,10 @@ function NotesColumn({
 
   return (
     <div>
-      <RunningNotesCard leadId={leadId} lead={lead} onLead={onLead} />
+      <NextStepBar leadId={leadId} lead={lead} onLead={onLead} />
       <div className="rounded-lg border border-ink-200 bg-white p-4">
         <div className="mb-2 flex items-center justify-between">
-          <p className="eyebrow">New note session</p>
+          <p className="eyebrow">Add a note</p>
           {voice.supported && (
             <button
               type="button"
@@ -504,7 +506,9 @@ function ScanPanel({
 // These feed Rhai's understanding alongside the session docs.
 // ---------------------------------------------------------------------------
 
-function RunningNotesCard({
+// Just the next step — a single editable line. The old "running notes" blob
+// is gone; each note is now its own timestamped session in the log below.
+function NextStepBar({
   leadId,
   lead,
   onLead
@@ -514,65 +518,39 @@ function RunningNotesCard({
   onLead: (l: WorkshopLead) => void;
 }) {
   const authedFetch = useAuthedFetch();
-  const [notes, setNotes] = useState(lead.smartNotes ?? '');
   const [next, setNext] = useState(lead.nextSteps ?? '');
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const voice = useVoice(t => setNotes(n => (n ? n + ' ' + t : t)));
+  const [saved, setSaved] = useState(true);
 
   useEffect(() => {
-    setNotes(lead.smartNotes ?? '');
     setNext(lead.nextSteps ?? '');
-  }, [lead.smartNotes, lead.nextSteps]);
+  }, [lead.nextSteps]);
 
-  const save = async (patch: Partial<WorkshopLead>) => {
-    setStatus('saving');
-    onLead({ ...lead, ...patch });
-    await authedFetch(`/api/leads/${leadId}`, { method: 'PATCH', body: JSON.stringify(patch) }).catch(() => undefined);
-    setStatus('saved');
+  const save = async () => {
+    if (next === (lead.nextSteps ?? '')) return;
+    onLead({ ...lead, nextSteps: next });
+    setSaved(true);
+    await authedFetch(`/api/leads/${leadId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ nextSteps: next })
+    }).catch(() => undefined);
   };
 
-  const dirty = notes !== (lead.smartNotes ?? '') || next !== (lead.nextSteps ?? '');
-
   return (
-    <div className="mb-4 rounded-lg border border-ink-200 bg-white p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="eyebrow">Running notes &amp; next step</p>
-        <div className="flex items-center gap-2">
-          {voice.supported && (
-            <button
-              type="button"
-              onClick={voice.toggle}
-              className={`rounded-full border px-2 py-1 text-xs ${
-                voice.listening ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-ink-200 text-ink-500 hover:bg-ink-50'
-              }`}
-            >
-              {voice.listening ? '● rec' : '🎙'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => save({ smartNotes: notes, nextSteps: next })}
-            disabled={!dirty || status === 'saving'}
-            className="rounded-md border border-ink-200 px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-50 disabled:opacity-50"
-          >
-            {status === 'saving' ? 'Saving…' : status === 'saved' && !dirty ? 'Saved' : 'Save'}
-          </button>
-        </div>
-      </div>
+    <div className="mb-4 rounded-lg border border-ink-200 bg-white p-3">
+      <p className="eyebrow mb-1">Next step</p>
       <input
         type="text"
         value={next}
-        onChange={e => setNext(e.target.value)}
-        placeholder="Next step…"
-        className="mb-2 w-full rounded border border-ink-100 px-2.5 py-1.5 text-xs font-medium text-ink-800 focus:border-ink-300 focus:outline-none"
+        onChange={e => {
+          setNext(e.target.value);
+          setSaved(false);
+        }}
+        onBlur={save}
+        onKeyDown={e => e.key === 'Enter' && save()}
+        placeholder="What's the next move for this client?"
+        className="w-full rounded border border-ink-100 px-2.5 py-1.5 text-sm font-medium text-ink-800 focus:border-ink-300 focus:outline-none"
       />
-      <textarea
-        value={notes}
-        onChange={e => setNotes(e.target.value)}
-        rows={notes.length > 400 ? 10 : 5}
-        placeholder="The running notes for this client — type or dictate. (This is your existing 'smart notes'.)"
-        className="w-full rounded border border-ink-100 px-2.5 py-2 text-sm leading-relaxed text-ink-800 focus:border-ink-300 focus:outline-none"
-      />
+      {!saved && <p className="mt-1 text-[10px] text-ink-400">Press Enter or click away to save</p>}
     </div>
   );
 }
@@ -698,19 +676,32 @@ function LeadTasksCard({ leadId, onNotesChanged }: { leadId: string; onNotesChan
                 <span className="shrink-0 text-[11px] text-emerald-700">✓ done</span>
               )}
             </div>
-            {t.status === 'done' && t.result && (
+            {t.status === 'done' && t.documentId && (
               <button
                 type="button"
-                onClick={() => setOpenResult(openResult === t.id ? null : t.id)}
-                className="mt-1 text-[11px] text-indigo-600 hover:underline"
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent('rhai:openDoc', { detail: { docId: t.documentId } }))
+                }
+                className="mt-1 text-[11px] font-medium text-indigo-600 hover:underline"
               >
-                {openResult === t.id ? 'Hide result' : 'View result'}
+                📄 Open document →
               </button>
             )}
-            {openResult === t.id && t.result && (
-              <p className="mt-1 max-h-56 overflow-y-auto whitespace-pre-wrap rounded bg-cream-50 p-2 text-[11px] leading-relaxed text-ink-700">
-                {t.result}
-              </p>
+            {t.status === 'done' && !t.documentId && t.result && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setOpenResult(openResult === t.id ? null : t.id)}
+                  className="mt-1 text-[11px] text-indigo-600 hover:underline"
+                >
+                  {openResult === t.id ? 'Hide result' : 'View result'}
+                </button>
+                {openResult === t.id && (
+                  <p className="mt-1 max-h-56 overflow-y-auto whitespace-pre-wrap rounded bg-cream-50 p-2 text-[11px] leading-relaxed text-ink-700">
+                    {t.result}
+                  </p>
+                )}
+              </>
             )}
           </div>
         ))}

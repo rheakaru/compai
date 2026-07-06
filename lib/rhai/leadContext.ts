@@ -17,13 +17,12 @@ export async function buildLeadContext(
   if (!snap.exists) return null;
   const lead = { id: snap.id, ...(snap.data() as Omit<WorkshopLead, 'id'>) } as WorkshopLead;
 
-  const notesSnap = await db
-    .collection('workshopLeads')
-    .doc(leadId)
-    .collection('noteSessions')
-    .orderBy('at', 'asc')
-    .get();
+  const [notesSnap, docsSnap] = await Promise.all([
+    db.collection('workshopLeads').doc(leadId).collection('noteSessions').orderBy('at', 'asc').get(),
+    db.collection('workshopLeads').doc(leadId).collection('documents').orderBy('createdAt', 'asc').get()
+  ]);
   const sessions = notesSnap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<LeadNoteSession, 'id'>) }));
+  const documents = docsSnap.docs.map(d => d.data() as { name: string; origin: string; text?: string });
 
   const fmtDate = (t: number) =>
     new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -47,7 +46,13 @@ export async function buildLeadContext(
               `--- [${fmtDate(s.at)} · ${s.source}${s.label ? ` · ${s.label}` : ''}] ---\n${s.text.slice(0, 4000)}`
           )
           .join('\n')
-      : '\n(no note sessions yet)'
+      : '\n(no note sessions yet)',
+    documents.length
+      ? `\nCLIENT DOCUMENTS (${documents.length} — uploaded briefs/files + generated drafts):\n` +
+        documents
+          .map(d => `--- [${d.origin}] ${d.name} ---\n${(d.text ?? '').slice(0, 3000)}`)
+          .join('\n')
+      : ''
   ].filter(Boolean);
 
   return { lead, context: parts.join('\n') };

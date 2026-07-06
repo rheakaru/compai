@@ -20,6 +20,7 @@ export const COL_SUGGESTIONS = 'rhaiSuggestions';
 export const COL_PEOPLE = 'rhaiPeople';
 export const COL_CHAT = 'rhaiChat';
 export const DOC_SKILLS = 'rhaiConfig/skills';
+export const DOC_PREFERENCES_DOC = 'rhaiConfig/docPreferences';
 
 export async function requireOperator(req: NextRequest) {
   const user = await getUserFromAuthHeader(req.headers.get('authorization'));
@@ -225,6 +226,41 @@ export async function runRhaiWithContext(params: {
 // Digest generation — the always-loaded summary card for a library doc.
 // Haiku-class, runs once per document change (fractions of a cent).
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Document-style memory — Rhea's feedback on generated documents distils into
+// durable preferences every future proposal/email/deck applies. This is how
+// "the feedback makes Rhai smarter" works.
+// ---------------------------------------------------------------------------
+
+export async function loadDocPreferences(): Promise<string> {
+  const snap = await adminDb().doc(DOC_PREFERENCES_DOC).get();
+  return (snap.data()?.text as string | undefined)?.trim() ?? '';
+}
+
+export async function recordDocPreference(feedback: string, docName: string): Promise<void> {
+  const existing = await loadDocPreferences();
+  // Distil the feedback into a reusable rule (not a one-off), merge with the
+  // running list, dedup, keep it tight.
+  const msg = await anthropic().messages.create({
+    model: modelFor('digest'),
+    max_tokens: 600,
+    system:
+      'You maintain a short bullet list of an operator\'s DURABLE document-writing preferences, learned from feedback on drafts. Given the existing list and a new piece of feedback, return the updated list: fold in any reusable preference the feedback reveals (tone, structure, length, pricing presentation, what to include/avoid), drop duplicates, keep only genuinely reusable rules (not client-specific one-offs). Max 15 short bullets, "- " prefixed. Return ONLY the list.',
+    messages: [
+      {
+        role: 'user',
+        content: `EXISTING PREFERENCES:\n${existing || '(none yet)'}\n\nNEW FEEDBACK (on "${docName}"):\n${feedback}`
+      }
+    ]
+  });
+  const updated = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map(b => b.text)
+    .join('\n')
+    .trim();
+  if (updated) await adminDb().doc(DOC_PREFERENCES_DOC).set({ text: updated, updatedAt: Date.now() });
+}
 
 export async function generateDigest(title: string, body: string): Promise<string> {
   const msg = await anthropic().messages.create({

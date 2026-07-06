@@ -323,6 +323,8 @@ export interface RhaiTask {
   status: RhaiTaskStatus;
   /** The output: research findings, draft text, prep notes… */
   result?: string;
+  /** Set when the output was saved as a generated client document. */
+  documentId?: string;
   error?: string;
   createdAt: number;
   startedAt?: number;

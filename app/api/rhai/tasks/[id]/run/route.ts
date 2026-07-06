@@ -5,6 +5,7 @@ import {
   DOC_SKILLS,
   buildRhaiSystemPrompt,
   loadContextSections,
+  loadDocPreferences,
   requireOperator,
   runRhaiWithContext
 } from '@/lib/rhai/server';
@@ -57,11 +58,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       }
     }
 
-    const sections = await loadContextSections();
+    // Non-research, lead-linked tasks produce a shareable document — apply
+    // Rhea's learned document preferences.
+    const producesDoc = !!task.leadId && !task.appendToNotes;
+    const [sections, docPrefs] = await Promise.all([
+      loadContextSections(),
+      producesDoc ? loadDocPreferences() : Promise.resolve('')
+    ]);
     const result = await runRhaiWithContext({
       model,
       maxTokens: 4000,
-      system: buildRhaiSystemPrompt(sections),
+      system:
+        buildRhaiSystemPrompt(sections) +
+        (docPrefs ? `\n\nRHEA'S DOCUMENT PREFERENCES (learned from past feedback — always apply):\n${docPrefs}` : ''),
       extraTools: [
         { type: 'web_search_20250305', name: 'web_search', max_uses: 8 } as unknown as Anthropic.Messages.Tool
       ],
@@ -86,19 +95,37 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     };
     await ref.set(update, { merge: true });
 
-    // Research results flow back into the client's notes so understanding
-    // integrates them on the next rebuild.
-    if (task.appendToNotes && task.leadId && result.trim()) {
-      await db
-        .collection('workshopLeads')
-        .doc(task.leadId)
-        .collection('noteSessions')
-        .add({
-          text: `[Rhai task: ${task.title}]\n\n${result.slice(0, 12_000)}`,
-          source: 'rhai-research',
-          label: task.title.slice(0, 80),
-          at: Date.now()
-        });
+    const now = Date.now();
+    if (task.leadId && result.trim()) {
+      if (task.appendToNotes) {
+        // Research → a note session, so understanding folds it in on rebuild.
+        await db
+          .collection('workshopLeads')
+          .doc(task.leadId)
+          .collection('noteSessions')
+          .add({
+            text: `[Rhai task: ${task.title}]\n\n${result.slice(0, 12_000)}`,
+            source: 'rhai-research',
+            label: task.title.slice(0, 80),
+            at: now
+          });
+      } else {
+        // Drafts/preps → a generated document in the client profile:
+        // readable, refinable, downloadable.
+        const docRef = await db
+          .collection('workshopLeads')
+          .doc(task.leadId)
+          .collection('documents')
+          .add({
+            name: task.title.slice(0, 120),
+            origin: 'generated',
+            kind: task.skillId ?? 'draft',
+            text: result.trim(),
+            createdAt: now,
+            updatedAt: now
+          });
+        update.documentId = docRef.id;
+      }
     }
 
     return Response.json({ task: { ...task, ...update } });
