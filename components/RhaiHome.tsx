@@ -143,7 +143,7 @@ export function RhaiHome() {
               </p>
             </div>
             <div>
-              <p className="font-display text-3xl text-ink-900">40+</p>
+              <p className="font-display text-3xl text-ink-900">12+</p>
               <p className="mt-1 text-xs leading-relaxed text-ink-500">
                 Companies through our workshops so far — real estate, aerospace, manufacturing, F&amp;B, healthcare,
                 fintech.
