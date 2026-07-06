@@ -10,6 +10,7 @@ import { useAuth } from './AuthProvider';
 import { BriefingStrip } from './BriefingStrip';
 import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
+import { InterviewsPanel } from './RhaiInterviews';
 import { PeoplePanel, PersonDrawer } from './RhaiPeople';
 import { TasksPanel } from './RhaiTasks';
 import { TodosSection } from './RhaiTodos';
@@ -27,7 +28,7 @@ import {
   type RhaiSuggestion
 } from '@/lib/rhai/types';
 
-type Tab = 'pipeline' | 'today' | 'tasks' | 'people' | 'ideas' | 'context' | 'skills';
+type Tab = 'pipeline' | 'today' | 'tasks' | 'people' | 'ideas' | 'interviews' | 'context' | 'skills';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'pipeline', label: 'Pipeline' },
@@ -35,6 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'tasks', label: 'Tasks' },
   { id: 'people', label: 'People' },
   { id: 'ideas', label: 'Ideas' },
+  { id: 'interviews', label: 'Interviews' },
   { id: 'context', label: 'Context' },
   { id: 'skills', label: 'Skills' }
 ];
@@ -160,6 +162,14 @@ export function RhaiWorkspace() {
         </Panel>
       )}
       {tab === 'ideas' && <IdeasPanel />}
+      {tab === 'interviews' && (
+        <Panel
+          title="Interviews"
+          sub="Rhai interviews candidates for you on a sandboxed public page — it knows only the role brief, nothing about the business. Transcripts, fit summaries, and their questions for you land here."
+        >
+          <InterviewsPanel />
+        </Panel>
+      )}
       {tab === 'context' && <ContextPanel />}
       {tab === 'skills' && <SkillsPanel />}
 

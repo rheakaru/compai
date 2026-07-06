@@ -205,6 +205,107 @@ export interface RhaiTodo {
 // in parallel, and report results back to the board.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Rhai as interviewer — a reusable hiring framework. Each InterviewConfig is
+// one open role; candidates talk to Rhai on a public, sandboxed page
+// (/interview/<id>) that knows ONLY the role brief — no vault, no pipeline,
+// no tools. Sessions + fit summaries land in the operator's Interviews tab.
+// ---------------------------------------------------------------------------
+
+export interface InterviewConfig {
+  /** Slug — the public URL is /interview/<id>. */
+  id: string;
+  title: string;
+  active: boolean;
+  /** Shown to the candidate on the landing card (markdown-ish plain text). */
+  publicIntro: string;
+  /** Everything Rhai MAY share/ask about the role. The sandbox boundary. */
+  roleBrief: string;
+  /** Internal rubric — what Rhea actually wants. Never revealed verbatim. */
+  criteria: string;
+  /** Hard requirements Rhai must explicitly verify (geography, availability…). */
+  hardChecks: string[];
+  /** Rhai's first message (static — no API call to start a session). */
+  openingMessage: string;
+  /** Candidate turns before Rhai must wrap up. */
+  maxTurns: number;
+  createdAt: number;
+}
+
+export interface InterviewMessage {
+  role: 'rhai' | 'candidate';
+  text: string;
+  at: number;
+}
+
+export interface InterviewCandidate {
+  name: string;
+  email: string;
+  phone: string;
+  /** Optional — "not too interested in resumes but give the option". */
+  resumeUrl?: string;
+}
+
+export interface InterviewSummary {
+  verdict: 'strong_fit' | 'possible' | 'not_a_fit';
+  summary: string;
+  strengths: string[];
+  concerns: string[];
+  /** Explicit hard-check results — geography/availability/start date. */
+  hardCheckNotes: string;
+}
+
+export interface InterviewSession {
+  id: string;
+  interviewId: string;
+  candidate: InterviewCandidate;
+  messages: InterviewMessage[];
+  status: 'in_progress' | 'completed';
+  /** Candidate's closing questions — relayed to Rhea, not answered by Rhai. */
+  questionsForRhea?: string;
+  summary?: InterviewSummary;
+  createdAt: number;
+  completedAt?: number;
+}
+
+/** Seeded roles. This instance: the workshop intern. */
+export const DEFAULT_INTERVIEWS: InterviewConfig[] = [
+  {
+    id: 'workshop-intern',
+    title: 'Workshop Intern — AI consulting practice',
+    active: true,
+    publicIntro:
+      'Hi! This is a short conversational interview (10–15 minutes) with Rhai — the AI cofounder that helps run Rhea Karuturi’s AI workshop practice. Rhai will ask about you, your availability, and what you’re hoping to learn.\n\nYou can type your answers or speak them — we ENCOURAGE voice: it helps us get a feel for how you communicate, which matters in this role. Take your time; there are no trick questions.',
+    roleBrief: [
+      'ROLE: Workshop Intern for Rhea Karuturi’s AI consulting practice (Bangalore).',
+      'STIPEND: ₹15,000/month.',
+      'FORMAT: Remote day-to-day, but IN PERSON at every Bangalore event — that part is non-negotiable. Outstation events do NOT require travel; Bangalore only.',
+      'WORKLOAD SHAPE: the practice talks to ~10 clients a week; workshop sessions are full days (~6 hours) and there can be up to 5 in a week. The intern attends the Bangalore ones.',
+      'THE WORK: (1) tech support at sessions — helping attendees install the Claude desktop app, set up GitHub, set up Firebase (all teachable, Rhea will train them; they need to be digitally native and good at patiently helping people); (2) capturing the sessions — photos/video on a phone and editing a short reel afterwards (doesn’t need to be a social-media person; basic capture + editing comfort is enough).',
+      'TIMING: start right away. Ideal commitment is 3 months; 1 month is acceptable.',
+      'LEARNING PITCH: this is NOT calendar-scheduling/note-taking admin work — the practice runs on an AI agent (Rhai) that does that. The intern sits inside real workshops at interesting companies, learns how they run, works alongside a production AI agent, and gets what amounts to a mini-MBA in AI consulting.',
+      'HIRING MANAGER: Rhea Karuturi (7 years CTO of Hoovu Fresh, Stanford; runs the Hang w AI community and paid AI workshops).'
+    ].join('\n'),
+    criteria: [
+      'Rhea wants: young, smart, CLEAR and to-the-point communication (but warm, never rude); genuine earnestness and enthusiasm to learn; disciplined, hard-working, follows through without being chased — she does not want to manage or follow up on anyone.',
+      'Strong negative signal: hustle-culture hot air — over-excited, buzzwordy, all talk. Prefer understated and earnest over performative energy.',
+      'Digitally native; comfortable learning Claude/GitHub/Firebase setup quickly; comfortable being on their feet helping people at events; comfortable filming on a phone and doing basic editing.',
+      'Communication quality in THIS interview is itself a signal (that is why voice is encouraged). Note whether answers are concise and considered vs rambling or canned.',
+      'US-studying background is a nice-to-have, NOT required.'
+    ].join('\n'),
+    hardChecks: [
+      'Geography: are they in Bangalore (or reliably in Bangalore) for in-person events? People apply without checking this — verify explicitly.',
+      'Availability: can they actually be present for full-day (6h) sessions, up to 5 days in a busy week? What are their other commitments (college schedule etc.)?',
+      'Start date: can they start right away?',
+      'Duration: 3 months ideal — can they commit? (1 month minimum is acceptable; note what they say.)'
+    ],
+    openingMessage:
+      "Hi, I'm Rhai — I work with Rhea on her AI workshop practice, and I'll be doing this first conversation with you. It's relaxed, about 10–15 minutes.\n\nFeel free to answer by voice (we actually encourage it — it helps us get a sense of how you communicate) or by text, whatever's comfortable.\n\nTo start: tell me a bit about yourself — where you're based, what you're studying or working on, and what made you want to apply for this?",
+    maxTurns: 18,
+    createdAt: 0
+  }
+];
+
 export type RhaiTaskStatus = 'queued' | 'running' | 'done' | 'failed';
 
 export interface RhaiTask {
