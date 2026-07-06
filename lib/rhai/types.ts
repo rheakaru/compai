@@ -225,6 +225,12 @@ export interface InterviewConfig {
   criteria: string;
   /** Hard requirements Rhai must explicitly verify (geography, availability…). */
   hardChecks: string[];
+  /**
+   * Neutral areas to explore in the personality/fit phase — safe to guide
+   * questions without revealing the scoring rubric. Rhai asks behavioural
+   * questions across these AFTER the logistics phase.
+   */
+  fitAreas: string[];
   /** Rhai's first message (static — no API call to start a session). */
   openingMessage: string;
   /** Candidate turns before Rhai must wrap up. */
@@ -299,8 +305,15 @@ export const DEFAULT_INTERVIEWS: InterviewConfig[] = [
       'Start date: can they start right away?',
       'Duration: 3 months ideal — can they commit? (1 month minimum is acceptable; note what they say.)'
     ],
+    fitAreas: [
+      'Follow-through & discipline — a time they committed to something hard and saw it through without anyone chasing them; how they organise themselves.',
+      'How they handle people & pressure — a moment they helped someone frustrated or stuck, or kept calm when things went sideways at an event/job.',
+      'Genuine curiosity & self-direction — something they taught themselves recently, purely because they wanted to; what pulls them about AI specifically.',
+      'Earnestness vs hype — probe whether their enthusiasm is grounded (real examples, honest about what they don’t know) or performative (buzzwords, big claims).',
+      'Judgement & communication — can they be clear and concise under a slightly open-ended question, and do they ask good questions back.'
+    ],
     openingMessage:
-      "Hi, I'm Rhai — I work with Rhea on her AI workshop practice, and I'll be doing this first conversation with you. It's relaxed, about 10–15 minutes.\n\nFeel free to answer by voice (we actually encourage it — it helps us get a sense of how you communicate) or by text, whatever's comfortable.\n\nTo start: tell me a bit about yourself — where you're based, what you're studying or working on, and what made you want to apply for this?",
+      "Hi, I'm Rhai — I work with Rhea on her AI workshop practice, and I'll be doing this first conversation with you. It's relaxed, about 10–15 minutes.\n\nHere's how I'll run it: first I'll get a few quick logistics out of the way (where you're based, your availability), then we'll spend most of the time on the more interesting part — who you are and how you work.\n\nAnswer by voice or text, whatever's comfortable (voice is great — it helps us get a feel for how you communicate, and don't worry about small transcription typos, I follow the meaning fine).\n\nTo start: tell me a bit about yourself — where you're based, and what you're studying or working on right now?",
     maxTurns: 18,
     createdAt: 0
   }

@@ -229,7 +229,8 @@ export function InterviewChat({ slug }: { slug: string }) {
         <div className="border-t border-ink-100 p-3">
           {voice.supported && (
             <p className="mb-1.5 text-[10px] text-ink-400">
-              🎙 Voice encouraged — tap the mic and just talk; it helps us get a feel for how you communicate.
+              🎙 Voice encouraged — tap the mic and just talk. The transcript won&apos;t be perfect, and that&apos;s
+              totally fine: fix anything important in the box, then send. We read for meaning, not spelling.
             </p>
           )}
           <div className="flex items-end gap-2">
