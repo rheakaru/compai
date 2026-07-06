@@ -66,6 +66,7 @@ export function RhaiChat() {
     <>
       <button
         type="button"
+        data-tour="chat-fab"
         onClick={() => setOpen(v => !v)}
         className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-ink-900 text-cream shadow-lg transition-transform hover:scale-105"
         title="Chat with Rhai"

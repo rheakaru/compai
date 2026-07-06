@@ -13,6 +13,8 @@ import { RhaiChat } from './RhaiChat';
 import { PeoplePanel, PersonDrawer } from './RhaiPeople';
 import { TasksPanel } from './RhaiTasks';
 import { TodosSection } from './RhaiTodos';
+import { Tour } from './Tour/Tour';
+import { RHAI_TOUR_STEPS } from './Tour/rhaiTourSteps';
 import type { RhaiPerson } from '@/lib/rhai/types';
 import {
   IDEA_STATUS_LABELS,
@@ -55,10 +57,27 @@ function useAuthedFetch() {
   );
 }
 
+const TOUR_SEEN_KEY = 'rhai.tour.seen';
+
 export function RhaiWorkspace() {
   const [tab, setTab] = useState<Tab>('pipeline');
   const [drawerPerson, setDrawerPerson] = useState<RhaiPerson | null>(null);
-  const { getToken } = useAuth();
+  const [tourOpen, setTourOpen] = useState(false);
+  const { user, getToken } = useAuth();
+
+  // Auto-launch the onboarding tour once per user. Waits until they're
+  // signed in and the UI has rendered so tour selectors resolve.
+  useEffect(() => {
+    if (!user) return;
+    if (localStorage.getItem(TOUR_SEEN_KEY)) return;
+    const t = window.setTimeout(() => setTourOpen(true), 800);
+    return () => window.clearTimeout(t);
+  }, [user]);
+
+  const closeTour = () => {
+    setTourOpen(false);
+    localStorage.setItem(TOUR_SEEN_KEY, '1');
+  };
 
   // Any component can open a person drawer by name:
   // window.dispatchEvent(new CustomEvent('rhai:openPerson', { detail: { name } }))
@@ -96,7 +115,11 @@ export function RhaiWorkspace() {
   return (
     <div>
       {/* Rhai's briefing — the first thing on the page, front and center. */}
-      {tab === 'pipeline' && <BriefingStrip onOpenToday={() => setTab('today')} />}
+      {tab === 'pipeline' && (
+        <div data-tour="briefing">
+          <BriefingStrip onOpenToday={() => setTab('today')} />
+        </div>
+      )}
 
       <div className="border-b border-ink-200/70 bg-cream-50/60">
         <div className="mx-auto flex max-w-7xl items-center gap-1 px-6">
@@ -104,6 +127,7 @@ export function RhaiWorkspace() {
             <button
               key={t.id}
               type="button"
+              data-tour={`tab-${t.id}`}
               onClick={() => setTab(t.id)}
               className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
                 tab === t.id
@@ -141,6 +165,20 @@ export function RhaiWorkspace() {
 
       {drawerPerson && <PersonDrawer person={drawerPerson} onClose={() => setDrawerPerson(null)} />}
       <RhaiChat />
+
+      {/* Replay-the-tour pill — small so it's not in the way, always available. */}
+      {user && (
+        <button
+          type="button"
+          onClick={() => setTourOpen(true)}
+          className="fixed left-4 bottom-4 z-30 rounded-full border border-ink-200 bg-white/90 px-3 py-1.5 text-[11px] text-ink-600 shadow-sm backdrop-blur hover:bg-white hover:text-ink-900"
+          title="Walk through how Rhai works"
+        >
+          ✨ Take the tour
+        </button>
+      )}
+
+      <Tour steps={RHAI_TOUR_STEPS} open={tourOpen} onClose={closeTour} />
     </div>
   );
 }
