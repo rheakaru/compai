@@ -4,9 +4,9 @@ import { AuthProvider } from '@/components/AuthProvider';
 import { AppShell } from '@/components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'CompAI — Rhai & Diagnosis',
-  description:
-    'CompAI: Rhai (AI-cofounder workspace) and the public 9-axis structural diagnosis for businesses.'
+  metadataBase: new URL('https://heyrhai.com'),
+  title: 'Rhai',
+  description: 'Rhai — Rhea Karuturi’s AI cofounder for the AI workshop practice.'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
