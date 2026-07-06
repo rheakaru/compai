@@ -138,28 +138,75 @@ export function TasksPanel() {
         <p className="text-sm text-ink-400">Loading…</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {COLUMNS.map(col => {
-            const colTasks = tasks.filter(t => t.status === col.status);
-            return (
-              <div key={col.status}>
-                <p className="eyebrow mb-2">
-                  {col.label} · {colTasks.length}
-                </p>
-                <div className="space-y-2">
-                  {colTasks.map(t => (
-                    <TaskCard key={t.id} t={t} onRun={() => runTask(t.id)} onDelete={() => remove(t.id)} />
-                  ))}
-                  {colTasks.length === 0 && (
-                    <p className="rounded-md border border-dashed border-ink-200 px-3 py-4 text-center text-[11px] text-ink-300">
-                      —
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {COLUMNS.map(col => (
+            <TaskColumn
+              key={col.status}
+              label={col.label}
+              tasks={tasks
+                .filter(t => t.status === col.status)
+                .sort((a, b) => (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt))}
+              onRun={runTask}
+              onDelete={remove}
+              collapseAfter={col.status === 'done' ? 5 : undefined}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// One board column. Done accumulates fast — cap it at 5 with an expand.
+function TaskColumn({
+  label,
+  tasks,
+  onRun,
+  onDelete,
+  collapseAfter
+}: {
+  label: string;
+  tasks: RhaiTask[];
+  onRun: (id: string) => void;
+  onDelete: (id: string) => void;
+  collapseAfter?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const showAll = !collapseAfter || expanded || tasks.length <= collapseAfter;
+  const shown = showAll ? tasks : tasks.slice(0, collapseAfter);
+  const hidden = tasks.length - shown.length;
+  return (
+    <div>
+      <p className="eyebrow mb-2">
+        {label} · {tasks.length}
+      </p>
+      <div className="space-y-2">
+        {shown.map(t => (
+          <TaskCard key={t.id} t={t} onRun={() => onRun(t.id)} onDelete={() => onDelete(t.id)} />
+        ))}
+        {tasks.length === 0 && (
+          <p className="rounded-md border border-dashed border-ink-200 px-3 py-4 text-center text-[11px] text-ink-300">
+            —
+          </p>
+        )}
+        {hidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="w-full rounded-md border border-dashed border-ink-200 px-3 py-2 text-[11px] text-ink-500 hover:bg-ink-50"
+          >
+            Show {hidden} older…
+          </button>
+        )}
+        {expanded && collapseAfter && tasks.length > collapseAfter && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="w-full text-[10px] text-ink-400 hover:underline"
+          >
+            Collapse
+          </button>
+        )}
+      </div>
     </div>
   );
 }

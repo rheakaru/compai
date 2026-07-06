@@ -102,7 +102,20 @@ export function BriefingStrip({ onOpenToday }: Props) {
     () => (suggestions ?? []).filter(s => s.status === 'approved').length,
     [suggestions]
   );
+  // Week-view momentum — a satisfying counter under the greeting.
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const doneThisWeek = useMemo(
+    () => (suggestions ?? []).filter(s => s.status === 'done' && s.updatedAt >= weekAgo).length,
+    [suggestions, weekAgo]
+  );
   const generatedOn = suggestions?.[0]?.createdAt ?? lastRunAt;
+
+  const setSuggestionStatus = async (id: string, status: RhaiSuggestion['status']) => {
+    setSuggestions(prev => (prev ? prev.map(s => (s.id === id ? { ...s, status, updatedAt: Date.now() } : s)) : prev));
+    await authedFetch('/api/rhai/today', { method: 'PATCH', body: JSON.stringify({ id, status }) }).catch(
+      () => undefined
+    );
+  };
 
   if (!user) return null;
 
@@ -123,10 +136,12 @@ export function BriefingStrip({ onOpenToday }: Props) {
                   : state === 'error'
                     ? 'Couldn’t reach Rhai. Try refresh.'
                     : proposed.length > 0
-                      ? `${proposed.length} concrete move${proposed.length === 1 ? '' : 's'} for today${approvedCount ? ` · ${approvedCount} queued for your Claude Code hands` : ''}.`
+                      ? `${proposed.length} concrete move${proposed.length === 1 ? '' : 's'} for today${approvedCount ? ` · ${approvedCount} underway` : ''}${doneThisWeek ? ` · ${doneThisWeek} done this week ✓` : ''}.`
                       : suggestions === null
                         ? '—'
-                        : 'Nothing urgent — open Ideas to surface parked plays.'}
+                        : doneThisWeek > 0
+                          ? `Nothing urgent — you closed ${doneThisWeek} move${doneThisWeek === 1 ? '' : 's'} this week ✓`
+                          : 'Nothing urgent — open Ideas to surface parked plays.'}
             </p>
           </div>
 
@@ -166,9 +181,33 @@ export function BriefingStrip({ onOpenToday }: Props) {
                   <span className="font-display text-lg text-ink-400">
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <span className="eyebrow text-ink-500">
-                    {SUGGESTION_KIND_LABELS[s.kind]}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="eyebrow text-ink-500">{SUGGESTION_KIND_LABELS[s.kind]}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSuggestionStatus(s.id, 'approved')}
+                      className="rounded px-1.5 text-[11px] text-amber-700 hover:bg-amber-50"
+                      title="Mark underway"
+                    >
+                      ⟳
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSuggestionStatus(s.id, 'done')}
+                      className="rounded px-1.5 text-[11px] text-emerald-700 hover:bg-emerald-50"
+                      title="Mark done"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSuggestionStatus(s.id, 'dismissed')}
+                      className="rounded px-1 text-[11px] text-ink-300 hover:text-rose-500"
+                      title="Dismiss"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-2 line-clamp-2 text-sm font-semibold text-ink-900">{s.title}</p>
                 {s.leadLabel && (

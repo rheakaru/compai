@@ -265,6 +265,12 @@ function TodayPanel() {
 
   const proposed = (suggestions ?? []).filter(s => s.status === 'proposed');
   const approved = (suggestions ?? []).filter(s => s.status === 'approved');
+  const done = (suggestions ?? [])
+    .filter(s => s.status === 'done')
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const dismissed = (suggestions ?? [])
+    .filter(s => s.status === 'dismissed')
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
     <Panel
@@ -286,27 +292,33 @@ function TodayPanel() {
 
       {suggestions === null ? (
         <p className="text-sm text-ink-400">Loading…</p>
-      ) : proposed.length === 0 && approved.length === 0 ? (
+      ) : proposed.length === 0 && approved.length === 0 && done.length === 0 && dismissed.length === 0 ? (
         <p className="rounded-md border border-dashed border-ink-200 bg-white px-4 py-8 text-center text-sm text-ink-400">
           No suggestions yet — run the morning pass and Rhai will do a full read of the business.
         </p>
       ) : (
         <div className="space-y-6">
           {proposed.length > 0 && (
-            <section className="space-y-2">
-              {proposed.map(s => (
-                <SuggestionCard key={s.id} s={s} onStatus={setStatus} />
-              ))}
+            <section>
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+                Proposed · {proposed.length}
+              </h2>
+              <div className="space-y-2">
+                {proposed.map(s => (
+                  <SuggestionCard key={s.id} s={s} onStatus={setStatus} />
+                ))}
+              </div>
             </section>
           )}
           {approved.length > 0 && (
             <section>
               <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-                Approved — queued for Claude Code hands
+                Underway · {approved.length}
               </h2>
               <p className="mb-2 text-xs text-ink-400">
-                Run <code className="rounded bg-ink-100 px-1">npm run rhai:intents</code> in a Claude Code session — it
-                picks these up and executes them with your skills & connectors, drafting everything for your sign-off.
+                Queued for your Claude Code hands — run{' '}
+                <code className="rounded bg-ink-100 px-1">npm run rhai:intents</code> to drain the queue, or mark done
+                here when they land.
               </p>
               <div className="space-y-2">
                 {approved.map(s => (
@@ -315,9 +327,83 @@ function TodayPanel() {
               </div>
             </section>
           )}
+          {done.length > 0 && (
+            <ArchiveSection title={`Done · ${done.length}`} tone="emerald" items={done} onStatus={setStatus} />
+          )}
+          {dismissed.length > 0 && (
+            <ArchiveSection
+              title={`Dismissed · ${dismissed.length}`}
+              tone="muted"
+              items={dismissed}
+              onStatus={setStatus}
+            />
+          )}
         </div>
       )}
     </Panel>
+  );
+}
+
+// Collapsed history of suggestions (done / dismissed). Momentum stays visible;
+// nothing evaporates. "Undo" restores to proposed so it doesn't feel one-way.
+function ArchiveSection({
+  title,
+  tone,
+  items,
+  onStatus
+}: {
+  title: string;
+  tone: 'emerald' | 'muted';
+  items: RhaiSuggestion[];
+  onStatus: (id: string, status: RhaiSuggestion['status']) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? items : items.slice(0, 3);
+  const chipColor = tone === 'emerald' ? 'text-emerald-700' : 'text-ink-400';
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`mb-2 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wider ${chipColor} hover:text-ink-900`}
+      >
+        <span>{title}</span>
+        <span className="text-ink-400">{open ? '▾' : '▸'}</span>
+      </button>
+      <ol className="space-y-1.5">
+        {shown.map(s => (
+          <li key={s.id} className="flex items-start gap-2 rounded-md border border-ink-100 bg-white/60 px-3 py-2">
+            <span className={`mt-0.5 text-[11px] ${chipColor}`}>{tone === 'emerald' ? '✓' : '—'}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-medium text-ink-700">{s.title}</span>
+              {s.leadLabel && <span className="block text-[10px] text-ink-400">{s.leadLabel}</span>}
+              <span className="block text-[10px] text-ink-400">
+                {new Date(s.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => onStatus(s.id, 'proposed')}
+              className="text-[10px] text-ink-400 hover:text-ink-700"
+              title="Bring back to proposed"
+            >
+              undo
+            </button>
+          </li>
+        ))}
+        {!open && items.length > 3 && (
+          <li>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="text-[11px] text-ink-500 hover:underline"
+            >
+              Show {items.length - 3} more…
+            </button>
+          </li>
+        )}
+      </ol>
+    </section>
   );
 }
 
@@ -347,9 +433,17 @@ function SuggestionCard({
               <button
                 type="button"
                 onClick={() => onStatus(s.id, 'approved')}
+                className="rounded-md bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 hover:bg-amber-200"
+                title="Rhai (or you) is working on this"
+              >
+                ⟳ Underway
+              </button>
+              <button
+                type="button"
+                onClick={() => onStatus(s.id, 'done')}
                 className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
               >
-                Approve
+                ✓ Done
               </button>
               <button
                 type="button"
@@ -361,13 +455,23 @@ function SuggestionCard({
             </>
           )}
           {s.status === 'approved' && (
-            <button
-              type="button"
-              onClick={() => onStatus(s.id, 'done')}
-              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs text-emerald-800 hover:bg-emerald-100"
-            >
-              Mark done
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onStatus(s.id, 'done')}
+                className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+              >
+                ✓ Mark done
+              </button>
+              <button
+                type="button"
+                onClick={() => onStatus(s.id, 'proposed')}
+                className="rounded-md border border-ink-200 px-3 py-1 text-xs text-ink-500 hover:bg-ink-50"
+                title="Move back to proposed"
+              >
+                Reopen
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -459,13 +563,88 @@ function IdeasPanel() {
           Nothing parked yet.
         </p>
       ) : (
-        <div className="space-y-3">
-          {ideas.map(i => (
-            <IdeaCard key={i.id} idea={i} onPatch={patch} onDelete={remove} onEnrich={enrich} />
-          ))}
-        </div>
+        <IdeasList ideas={ideas} onPatch={patch} onDelete={remove} onEnrich={enrich} />
       )}
     </Panel>
+  );
+}
+
+// Active ideas up top; promoted/dropped collapse into an archive so nothing
+// disappears — you can see the trail from parked → promoted-to-lead.
+function IdeasList({
+  ideas,
+  onPatch,
+  onDelete,
+  onEnrich
+}: {
+  ideas: RhaiIdea[];
+  onPatch: (id: string, p: Partial<RhaiIdea>) => void;
+  onDelete: (id: string) => void;
+  onEnrich: (id: string) => void;
+}) {
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const active = ideas.filter(i => i.status !== 'promoted' && i.status !== 'dropped');
+  const archived = ideas
+    .filter(i => i.status === 'promoted' || i.status === 'dropped')
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  return (
+    <div className="space-y-3">
+      {active.map(i => (
+        <IdeaCard key={i.id} idea={i} onPatch={onPatch} onDelete={onDelete} onEnrich={onEnrich} />
+      ))}
+
+      {archived.length > 0 && (
+        <section className="pt-3">
+          <button
+            type="button"
+            onClick={() => setArchiveOpen(o => !o)}
+            className="mb-2 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-ink-500 hover:text-ink-900"
+          >
+            <span>Archive · {archived.length}</span>
+            <span className="text-ink-400">{archiveOpen ? '▾' : '▸'}</span>
+          </button>
+          {archiveOpen && (
+            <ol className="space-y-1.5">
+              {archived.map(i => (
+                <li key={i.id} className="flex items-start gap-2 rounded-md border border-ink-100 bg-white/60 px-3 py-2">
+                  <span className="mt-0.5 text-[10px]">
+                    {i.status === 'promoted' ? (
+                      <span className="text-indigo-600">↗</span>
+                    ) : (
+                      <span className="text-ink-400">—</span>
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs text-ink-700">{i.text}</span>
+                    <span className="block text-[10px] text-ink-400">
+                      {i.status === 'promoted' && i.leadId ? (
+                        <>
+                          Promoted to{' '}
+                          <a href={`/leads/${i.leadId}`} className="text-indigo-600 underline">
+                            {i.leadLabel ?? 'lead'}
+                          </a>{' '}
+                          ·{' '}
+                        </>
+                      ) : null}
+                      {new Date(i.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onPatch(i.id, { status: 'parked' })}
+                    className="text-[10px] text-ink-400 hover:text-ink-700"
+                    title="Bring back to active"
+                  >
+                    undo
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      )}
+    </div>
   );
 }
 
