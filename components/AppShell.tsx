@@ -19,15 +19,15 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/leads', label: 'Rhai', match: p => p.startsWith('/leads') },
-  { href: '/', label: 'Diagnosis', match: p => p === '/' || p.startsWith('/c/') },
+  { href: '/diagnosis', label: 'Diagnosis', match: p => p.startsWith('/diagnosis') || p.startsWith('/c/') },
   { href: '/admin/funnel', label: 'Funnel', match: p => p.startsWith('/admin') }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '/';
 
-  // Public candidate-facing pages get neutral chrome — no nav into the
-  // dashboard, no sign-in chip. Just the wordmark.
+  // Public candidate-facing interview pages get neutral chrome — no nav into
+  // the dashboard, no sign-in chip. Just the wordmark.
   if (pathname.startsWith('/interview')) {
     return (
       <div className="min-h-screen">
@@ -35,13 +35,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto flex h-14 max-w-3xl items-center px-4">
             <span className="flex items-baseline gap-2 text-ink-900">
               <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
-              <span className="font-display text-[17px] font-medium tracking-tight">CompAI</span>
+              <span className="font-display text-[17px] font-medium tracking-tight">Rhai</span>
             </span>
           </div>
         </header>
         <div>{children}</div>
       </div>
     );
+  }
+
+  // Rhai company homepage — brings its own top bar (RhaiHome.tsx). Don't
+  // stack a second one.
+  if (pathname === '/') {
+    return <div className="min-h-screen">{children}</div>;
   }
 
   return (
