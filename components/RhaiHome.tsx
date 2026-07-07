@@ -82,9 +82,9 @@ export function RhaiHome() {
               <p className="eyebrow text-accent">01 · Workshops</p>
               <h3 className="mt-2 font-display text-2xl text-ink-900">Teach your team to build.</h3>
               <p className="mt-3 text-sm leading-relaxed text-ink-700">
-                A recce day inside your operation, then a build day with your team on their machines. By the end you
-                have three things: a working prototype for a real problem you named that morning, one person on your
-                team who can extend it, and a prioritised list of what to build next.
+                A discovery call to understand your operation, then a day building with your team on their machines. By
+                the end you have three things: a working prototype for a real problem we scoped together, one person on
+                your team who can extend it, and a prioritised list of what to build next.
               </p>
               <p className="mt-4 text-xs leading-relaxed text-ink-500">
                 One senior person present throughout — non-negotiable. Runs on your Google or Microsoft tenant, your
@@ -211,17 +211,17 @@ export function RhaiHome() {
           </h2>
           <div className="mt-10 grid gap-8 md:grid-cols-3">
             <div>
-              <p className="eyebrow text-accent">Recce day</p>
+              <p className="eyebrow text-accent">Discovery call</p>
               <p className="mt-2 text-sm leading-relaxed text-ink-700">
-                Six hours inside your operation. We watch, ask, and figure out what to build together. You get a
-                short brief the same evening.
+                Beforehand, a call to understand your operation and pick the real problem we&apos;ll build against — so
+                the day is customised to you and your team.
               </p>
             </div>
             <div>
-              <p className="eyebrow text-accent">Build day</p>
+              <p className="eyebrow text-accent">The session</p>
               <p className="mt-2 text-sm leading-relaxed text-ink-700">
-                A morning of teaching with our own examples, then a guided build with your team. On your machines,
-                your accounts. The prototype leaves the building with you.
+                Six hours with your team, on your machines and accounts. A morning grounding in what&apos;s possible,
+                then a guided build. The prototype leaves the building with you.
               </p>
             </div>
             <div>
@@ -232,10 +232,81 @@ export function RhaiHome() {
               </p>
             </div>
           </div>
-          <p className="mt-10 max-w-3xl text-xs leading-relaxed text-ink-500">
-            <span className="font-medium text-ink-700">Terms.</span> ₹1,00,000 / day. Typical engagement 2–3 days (one
-            recce + one build). Same-day payment, no retainers. Bangalore and San Francisco only for now — travel
-            billed at cost.
+
+          {/* Pricing — two clear tiers. */}
+          <div className="mt-12 grid gap-6 sm:grid-cols-2">
+            <div className="rounded-xl border border-ink-200 bg-white p-6">
+              <p className="eyebrow text-accent">Intro session</p>
+              <p className="mt-2 font-display text-3xl tracking-tight text-ink-900">₹1,00,000</p>
+              <p className="mt-1 text-xs text-ink-500">3 hours · general</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-700">
+                A hands-on introduction to building with AI for your team — the fastest way to see what&apos;s
+                possible. General, not yet customised to your company.
+              </p>
+            </div>
+            <div className="rounded-xl border border-accent/40 bg-white p-6 shadow-[0_1px_0_rgba(198,74,31,0.08)]">
+              <p className="eyebrow text-accent">Company session</p>
+              <p className="mt-2 font-display text-3xl tracking-tight text-ink-900">₹3,00,000</p>
+              <p className="mt-1 text-xs text-ink-500">One day (6 hours) · customised</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-700">
+                A discovery call beforehand, then a full day building against a real problem — fully customised to your
+                company and its needs. You leave with a working prototype and someone on your team who can extend it.
+              </p>
+            </div>
+          </div>
+          <p className="mt-6 max-w-3xl text-xs leading-relaxed text-ink-500">
+            <span className="font-medium text-ink-700">Terms.</span> Same-day payment, no retainers. Bangalore and San
+            Francisco only for now — travel billed at cost.
+          </p>
+        </div>
+      </section>
+
+      {/* The thesis — Rhea's manifesto, in her own voice. */}
+      <section className="border-b border-ink-200/60 bg-cream-100">
+        <div className="mx-auto max-w-3xl px-6 py-24">
+          <p className="eyebrow">The thesis</p>
+          <blockquote className="mt-4">
+            <p className="font-display text-3xl leading-tight tracking-tight text-ink-900 sm:text-4xl">
+              &ldquo;The future is here — it&apos;s just unevenly distributed.&rdquo;
+            </p>
+            <cite className="mt-3 block text-sm not-italic text-ink-500">— William Gibson</cite>
+          </blockquote>
+
+          <div className="mt-8 space-y-5 text-[15px] leading-relaxed text-ink-700 sm:text-base">
+            <p>
+              I feel a little sheepish saying this — like a 21-year-old snake oil salesman fanning the flames of the AI
+              hype bubble — but I can&apos;t quite stop, because I believe it&apos;s true. When I watch Fable spin out an
+              app for me in a few hours that would have taken months to build a year ago, or take a Waymo across San
+              Francisco while the people around me talk about putting data centres in space, I have to admit it: the
+              future is here.
+            </p>
+            <p>
+              And when I look at the best Indian businesses — the ones that employ hundreds of people, touch millions of
+              lives, are household names in their field — I also have to admit it isn&apos;t evenly distributed. They use
+              Claude in a chat window as a slightly better search box, and still balk at building their own tools,
+              preferring to wait months for a consultant&apos;s proposal.
+            </p>
+            <p>
+              My sense of what AI can actually deliver comes from Atul Gawande, who writes about medicine. He says the
+              frontier is what captures our imagination — but most of what saves lives, what makes the largest impact, is
+              the ordinary medicine we&apos;ve already solved. We know how to get most people the best outcomes; the gap
+              is deployment. That&apos;s where you can have the largest effect on humanity.
+            </p>
+            <p>
+              Dario Amodei says deployment happens at the speed of trust — and as someone who studied trust for my
+              honours thesis (in a technological space: the Aadhaar system), I couldn&apos;t agree more. Trust has always
+              been my central value. At Hoovu we knew from day one that our customers&apos; trust was the one thing we
+              could never gamble on — the most important asset we built.
+            </p>
+            <p>
+              That&apos;s at the heart of Rhai too. Trust is the reason you work with us; everything else is downstream of
+              it. Trust is what lets us collaborate, play with this new technology, and discover the ways it can
+              transform (sorry — I had to use one buzzword) your business.
+            </p>
+          </div>
+
+          <p className="mt-8 font-display text-2xl leading-tight tracking-tight text-ink-900 sm:text-3xl">
+            The future is here. Let&apos;s get our hands dirty with it.
           </p>
         </div>
       </section>

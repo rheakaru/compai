@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { BriefingStrip } from './BriefingStrip';
+import { InvoicesPanel } from './InvoicesPanel';
 import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
 import { InterviewsPanel } from './RhaiInterviews';
@@ -28,7 +29,7 @@ import {
   type RhaiSuggestion
 } from '@/lib/rhai/types';
 
-type Tab = 'pipeline' | 'today' | 'tasks' | 'people' | 'ideas' | 'interviews' | 'context' | 'skills';
+type Tab = 'pipeline' | 'today' | 'tasks' | 'people' | 'ideas' | 'interviews' | 'invoices' | 'context' | 'skills';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'pipeline', label: 'Pipeline' },
@@ -37,6 +38,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'people', label: 'People' },
   { id: 'ideas', label: 'Ideas' },
   { id: 'interviews', label: 'Interviews' },
+  { id: 'invoices', label: 'Invoices' },
   { id: 'context', label: 'Context' },
   { id: 'skills', label: 'Skills' }
 ];
@@ -168,6 +170,14 @@ export function RhaiWorkspace() {
           sub="Rhai interviews candidates for you on a sandboxed public page — it knows only the role brief, nothing about the business. Transcripts, fit summaries, and their questions for you land here."
         >
           <InterviewsPanel />
+        </Panel>
+      )}
+      {tab === 'invoices' && (
+        <Panel
+          title="Invoices"
+          sub="Money owed and money in. Create an invoice from a lead or from scratch, or upload one you made elsewhere — Rhai reads the details off the PDF. Linked leads stay in sync."
+        >
+          <InvoicesPanel />
         </Panel>
       )}
       {tab === 'context' && <ContextPanel />}
