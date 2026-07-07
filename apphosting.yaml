@@ -37,9 +37,16 @@ env:
   # SECRETS — set via:
   #   firebase apphosting:secrets:set ANTHROPIC_API_KEY
   #   firebase apphosting:secrets:set FIREBASE_ADMIN_CREDENTIALS
+  #   firebase apphosting:secrets:set ELEVENLABS_API_KEY   (used by
+  #     /api/transcribe for accurate Indian-English speech-to-text via
+  #     ElevenLabs Scribe. If not set, the mic falls back to the browser's
+  #     built-in engine.)
   - variable: ANTHROPIC_API_KEY
     secret: ANTHROPIC_API_KEY
     availability: [RUNTIME]
   - variable: FIREBASE_ADMIN_CREDENTIALS
     secret: FIREBASE_ADMIN_CREDENTIALS
+    availability: [RUNTIME]
+  - variable: ELEVENLABS_API_KEY
+    secret: ELEVENLABS_API_KEY
     availability: [RUNTIME]

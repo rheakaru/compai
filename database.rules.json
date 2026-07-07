@@ -1,0 +1,20 @@
+{
+  "rules": {
+    "Config": {
+      ".read": false,
+      ".write": false
+    },
+    "Workspaces": {
+      "$wsid": {
+        ".read": "auth != null && (data.child('members').child(auth.token.email.toLowerCase().replace('@', '_AT_').replace('.', '_DOT_')).val() === true || data.child('meta/created_by').val() === auth.uid)",
+        ".write": "auth != null && ((!data.exists() && newData.child('meta/created_by').val() === auth.uid) || data.child('members').child(auth.token.email.toLowerCase().replace('@', '_AT_').replace('.', '_DOT_')).val() === true || data.child('meta/created_by').val() === auth.uid)"
+      }
+    },
+    "WorkspaceMembers": {
+      "$encEmail": {
+        ".read": "auth != null && auth.token.email.toLowerCase().replace('@', '_AT_').replace('.', '_DOT_') === $encEmail",
+        ".write": "auth != null && auth.token.email.toLowerCase().replace('@', '_AT_').replace('.', '_DOT_') === $encEmail"
+      }
+    }
+  }
+}

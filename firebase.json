@@ -6,6 +6,77 @@
   "apphosting": {
     "backendId": "compai-web",
     "rootDir": "/",
-    "ignore": ["node_modules", ".git", "firebase.json", "**/.*"]
-  }
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase.json",
+      "**/.*",
+      "marketing-engine",
+      "functions"
+    ],
+    "alwaysDeployFromSource": true
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "hosting": [
+    {
+      "target": "marketing",
+      "public": "marketing-engine",
+      "ignore": [
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "cleanUrls": true,
+      "rewrites": [
+        {
+          "source": "/",
+          "destination": "/adminPages/index.html"
+        },
+        {
+          "source": "/onboarding",
+          "destination": "/adminPages/onboarding.html"
+        },
+        {
+          "source": "/ontology",
+          "destination": "/adminPages/ontology.html"
+        },
+        {
+          "source": "/calendar",
+          "destination": "/adminPages/calendar.html"
+        },
+        {
+          "source": "/design",
+          "destination": "/adminPages/design.html"
+        },
+        {
+          "source": "/apply",
+          "destination": "/adminPages/apply.html"
+        },
+        {
+          "source": "/export",
+          "destination": "/adminPages/export.html"
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "marketing",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "node -c functions/index.js"
+      ]
+    }
+  ]
 }

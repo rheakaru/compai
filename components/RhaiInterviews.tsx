@@ -195,7 +195,10 @@ function SessionCard({ s }: { s: InterviewSession }) {
       {showTranscript && (
         <div className="mt-2 max-h-96 space-y-2 overflow-y-auto rounded-md border border-ink-100 p-3">
           {s.messages.map((m, i) => (
-            <div key={i} className={m.role === 'candidate' ? 'flex justify-end' : 'flex justify-start'}>
+            <div
+              key={i}
+              className={m.role === 'candidate' ? 'flex flex-col items-end gap-1' : 'flex flex-col items-start gap-1'}
+            >
               <div
                 className={`max-w-[85%] whitespace-pre-wrap rounded-md px-2.5 py-1.5 text-[11px] leading-relaxed ${
                   m.role === 'candidate' ? 'bg-ink-900 text-cream' : 'bg-cream-50 text-ink-700'
@@ -203,6 +206,9 @@ function SessionCard({ s }: { s: InterviewSession }) {
               >
                 {m.text}
               </div>
+              {m.audioUrl && (
+                <audio controls preload="none" src={m.audioUrl} className="h-7 max-w-[85%]" />
+              )}
             </div>
           ))}
         </div>

@@ -10,6 +10,8 @@ import {
   type InterviewSession,
   type InterviewSummary
 } from '@/lib/rhai/types';
+import { validateContactFormat, firstError, normalizePhone } from '@/lib/validation/contact';
+import { checkMailDomain } from '@/lib/validation/email-dns';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -113,21 +115,29 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
     candidate?: Partial<InterviewCandidate>;
     sessionId?: string;
     text?: string;
+    audioUrl?: string;
   };
 
   // ---- start: contact info → session, static opening (no model call) ----
   if (body.action === 'start') {
     const c = body.candidate ?? {};
-    const name = c.name?.trim().slice(0, 80);
-    const email = c.email?.trim().slice(0, 120);
-    const phone = c.phone?.trim().slice(0, 30);
-    if (!name || !email || !phone) return new Response('name, email and phone are required', { status: 400 });
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return new Response('invalid email', { status: 400 });
+    const name = c.name?.trim().slice(0, 80) ?? '';
+    const email = c.email?.trim().slice(0, 120) ?? '';
+    const phone = c.phone?.trim().slice(0, 30) ?? '';
+
+    // Layer 1 — format (mirrors the client). Layer 2 — the email domain can
+    // actually receive mail (catches x@fgdfg.com; fails open on DNS trouble).
+    const fmt = firstError(validateContactFormat({ name, email, phone }));
+    if (fmt) return new Response(fmt, { status: 400 });
+    if ((await checkMailDomain(email)) === 'no_domain')
+      return new Response("That email address doesn't look like it can receive mail — please check it.", {
+        status: 400
+      });
 
     const opening: InterviewMessage = { role: 'rhai', text: config.openingMessage, at: Date.now() };
     const session: Omit<InterviewSession, 'id'> = {
       interviewId: slug,
-      candidate: { name, email, phone, ...(c.resumeUrl?.trim() ? { resumeUrl: c.resumeUrl.trim().slice(0, 300) } : {}) },
+      candidate: { name, email, phone: normalizePhone(phone), ...(c.resumeUrl?.trim() ? { resumeUrl: c.resumeUrl.trim().slice(0, 300) } : {}) },
       messages: [opening],
       status: 'in_progress',
       createdAt: Date.now()
@@ -183,9 +193,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
     reply = reply.replace(/\[INTERVIEW_COMPLETE\]/g, '').trim();
 
     const now = Date.now();
+    // Only accept audioUrl if it's from our own bucket — belt-and-braces so a
+    // client can't slip an arbitrary link into the message record.
+    const audioUrl =
+      body.audioUrl && /^https:\/\/storage\.googleapis\.com\/[^"'\s]+$/.test(body.audioUrl)
+        ? body.audioUrl.slice(0, 500)
+        : undefined;
     const newMessages: InterviewMessage[] = [
       ...session.messages,
-      { role: 'candidate', text, at: now },
+      { role: 'candidate', text, at: now, ...(audioUrl ? { audioUrl } : {}) },
       { role: 'rhai', text: reply, at: now }
     ];
     const update: Record<string, unknown> = { messages: newMessages };

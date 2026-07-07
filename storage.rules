@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Client SDK access to the default bucket. Server routes use the Admin SDK,
+// which bypasses these rules entirely — so anything not carved out here is
+// server-only by construction:
+//   leadDocuments/**  — Rhea's private client documents (operator API only)
+//   voice/**          — discovery/interview recordings (served via public ACL
+//                       URLs the server mints; the Firebase SDK path is shut)
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Marketing-engine asset uploads — the one legitimate client write path.
+    // Scoped to the workspace prefix, capped at 25MB per file.
+    match /marketing/{workspaceId}/{rest=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    // Everything else: no client access.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

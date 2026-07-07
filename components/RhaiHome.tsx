@@ -13,9 +13,6 @@ import { useAuth } from './AuthProvider';
 const MARKETING_TOOL = 'https://compai-marketing.web.app';
 const PERSONAL_SITE = 'https://rheakaru.github.io';
 const CONTACT_EMAIL = 'rhea@rosebazaar.in';
-// WhatsApp link — the country code from her personal site would go here; falling
-// back to a wa.me search for now, easy to swap once she confirms the number.
-const CONTACT_WHATSAPP = 'https://wa.me/?text=Hi%20Rhea%20%E2%80%94%20saw%20heyrhai.com%20and%20wanted%20to%20chat';
 
 export function RhaiHome() {
   const { user } = useAuth();
@@ -282,26 +279,19 @@ export function RhaiHome() {
         <div className="mx-auto max-w-5xl px-6 py-24">
           <p className="eyebrow">Contact</p>
           <h2 className="mt-3 max-w-3xl font-display text-3xl tracking-tight text-ink-900 sm:text-4xl">
-            A short conversation is the fastest way to know if this is a fit.
+            Have a short conversation with Rhai — Rhea replies with something specific.
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-700">
-            Tell us a bit about your business and what you&apos;re thinking about — a paragraph is enough. Rhea reads
-            everything herself and usually replies within a day.
+            Rhai is Rhea&apos;s AI cofounder. It takes about ten minutes to tell Rhai about you, your business, and
+            what you&apos;re thinking about — by voice or text, whichever&apos;s easier. Rhea reads every conversation
+            herself and gets back within a working day or two.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
-              href={`mailto:${CONTACT_EMAIL}?subject=Hi%20from%20heyrhai.com`}
-              className="rounded-md bg-ink-900 px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink-800"
+              href="/talk"
+              className="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
             >
-              Email us
-            </a>
-            <a
-              href={CONTACT_WHATSAPP}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-md border border-ink-300 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
-            >
-              WhatsApp
+              Start a conversation with Rhai →
             </a>
             <span className="text-[11px] text-ink-500">
               or <a href={MARKETING_TOOL} className="text-accent hover:underline">try the free tool first</a>.

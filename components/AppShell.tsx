@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Public candidate-facing interview pages get neutral chrome — no nav into
   // the dashboard, no sign-in chip. Just the wordmark.
-  if (pathname.startsWith('/interview')) {
+  if (pathname.startsWith('/interview') || pathname.startsWith('/talk')) {
     return (
       <div className="min-h-screen">
         <header className="border-b border-ink-200/70 bg-cream/85">

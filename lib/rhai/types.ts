@@ -242,6 +242,10 @@ export interface InterviewMessage {
   role: 'rhai' | 'candidate';
   text: string;
   at: number;
+  /** Public Storage URL of the raw voice recording, if this candidate reply
+   * came from the mic. Preserved so Rhea can hear the actual voice from the
+   * transcript, not just the transcribed text. */
+  audioUrl?: string;
 }
 
 export interface InterviewCandidate {
