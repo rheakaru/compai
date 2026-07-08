@@ -44,8 +44,8 @@ export function HangWithAI() {
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-700 sm:text-xl">
             Every week or two, a dozen people get in a room in Bangalore or Hyderabad and actually build something with
-            AI. Nothing to sit through. No slides shown at you. Bring your laptop, bring a paid Claude subscription, bring
-            a problem from your real work. You leave with a working prototype and a group of people building alongside you.
+            AI. Bring your laptop, bring a paid Claude subscription, bring a problem from your real work. You leave with
+            a working prototype and a group of people building alongside you.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
@@ -85,13 +85,13 @@ export function HangWithAI() {
             <div>
               <p className="font-display text-4xl text-ink-900">2 cities</p>
               <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                Bangalore (weekly-ish, Rhea) and Hyderabad (chapter run by Venkat &amp; Anusha). More coming.
+                Bangalore (weekly-ish) and Hyderabad. Both run by Rhea and Soorya. More cities coming.
               </p>
             </div>
             <div>
               <p className="font-display text-4xl text-ink-900">₹0</p>
               <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                Free. Always has been. You pay for your own Claude subscription and your own coffee.
+                Free. Always has been. You pay for your own Claude subscription.
               </p>
             </div>
           </div>
