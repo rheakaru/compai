@@ -163,8 +163,8 @@ export function RhaiHome() {
             </h2>
             <p className="text-sm leading-relaxed text-ink-700">
               <strong>Hang w AI</strong> is the free community version of the workshop. Every week or two, a dozen
-              people get in a room in Bangalore or Hyderabad and actually build something with AI — no slides shown
-              at you, no talking heads. It&apos;s where most of our work starts a conversation.
+              people get in a room in Bangalore or Hyderabad and actually build something with AI. It&apos;s where most
+              of our work starts a conversation.
             </p>
           </div>
 
@@ -439,6 +439,9 @@ export function RhaiHome() {
             </a>
             <a href="/diagnosis" className="hover:text-ink-700">
               Diagnosis tool
+            </a>
+            <a href="/privacy" className="hover:text-ink-700">
+              Privacy
             </a>
           </p>
         </div>
