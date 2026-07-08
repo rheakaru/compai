@@ -50,3 +50,24 @@ env:
   - variable: ELEVENLABS_API_KEY
     secret: ELEVENLABS_API_KEY
     availability: [RUNTIME]
+
+  # WhatsApp (Meta Cloud API) — Rhai over WhatsApp (/api/whatsapp).
+  #   firebase apphosting:secrets:set WHATSAPP_TOKEN        (permanent access token)
+  #   firebase apphosting:secrets:set WHATSAPP_APP_SECRET   (app secret, signs webhooks)
+  - variable: WHATSAPP_TOKEN
+    secret: WHATSAPP_TOKEN
+    availability: [RUNTIME]
+  - variable: WHATSAPP_APP_SECRET
+    secret: WHATSAPP_APP_SECRET
+    availability: [RUNTIME]
+  # Non-secret config. VERIFY_TOKEN is the handshake string set in Meta's
+  # webhook config; ALLOWED_NUMBERS is the default-closed sender allowlist.
+  - variable: WHATSAPP_PHONE_NUMBER_ID
+    value: '118004977902377'
+    availability: [RUNTIME]
+  - variable: WHATSAPP_VERIFY_TOKEN
+    value: 8e562e9266f938e02a8cd39fd9fcc03f
+    availability: [RUNTIME]
+  - variable: WHATSAPP_ALLOWED_NUMBERS
+    value: '919886750009'
+    availability: [RUNTIME]
