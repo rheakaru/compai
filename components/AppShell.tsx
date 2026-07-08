@@ -62,7 +62,7 @@ function TopNav({ pathname }: { pathname: string }) {
   const { user, signIn, signOut, loading } = useAuth();
   return (
     <header className="sticky top-0 z-40 border-b border-ink-200/70 bg-cream/85 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-8 px-6">
+      <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:gap-8 sm:px-6">
         <Link href="/" className="flex items-baseline gap-2 text-ink-900">
           <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
           <span className="font-display text-[17px] font-medium tracking-tight">CompAI</span>
@@ -75,7 +75,7 @@ function TopNav({ pathname }: { pathname: string }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-md px-3 py-1.5 transition-colors ${
+                className={`rounded-md px-2 py-1.5 transition-colors sm:px-3 ${
                   active
                     ? 'bg-white text-ink-900 shadow-[0_1px_0_rgba(0,0,0,0.04)]'
                     : 'text-ink-600 hover:bg-white/60 hover:text-ink-900'

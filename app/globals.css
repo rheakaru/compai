@@ -12,6 +12,18 @@
   }
 }
 
+@layer utilities {
+  /* Hide the scrollbar on horizontally-scrollable strips (e.g. the mobile tab
+     bar) while keeping them scrollable by touch/trackpad. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer components {
   /* Editorial small-caps eyebrow — the label above a section/metric. */
   .eyebrow {

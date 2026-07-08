@@ -140,15 +140,15 @@ export function RhaiWorkspace() {
         </div>
       )}
 
-      <div className="border-b border-ink-200/70 bg-cream-50/60">
-        <div className="mx-auto flex max-w-7xl items-center gap-1 px-6">
+      <div className="sticky top-14 z-30 border-b border-ink-200/70 bg-cream-50/95 backdrop-blur">
+        <div className="no-scrollbar mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4 sm:px-6">
           {TABS.map(t => (
             <button
               key={t.id}
               type="button"
               data-tour={`tab-${t.id}`}
               onClick={() => setTab(t.id)}
-              className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
                 tab === t.id
                   ? 'border-accent text-ink-900'
                   : 'border-transparent text-ink-500 hover:text-ink-800'

@@ -27,12 +27,12 @@ export function RhaiHome() {
             <span className="font-display text-[17px] font-medium tracking-tight">Rhai</span>
           </span>
           <div className="flex items-center gap-4 text-xs">
-            <a href="#work" className="text-ink-500 hover:text-ink-900">Work</a>
-            <a href="#tool" className="text-ink-500 hover:text-ink-900">Free tool</a>
-            <a href="#contact" className="text-ink-500 hover:text-ink-900">Contact</a>
+            <a href="#work" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Work</a>
+            <a href="#tool" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Free tool</a>
+            <a href="#contact" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Contact</a>
             <a
               href={user ? '/leads' : '#contact'}
-              className="rounded-md border border-ink-300 bg-white/70 px-3 py-1.5 font-medium text-ink-800 hover:bg-white"
+              className="whitespace-nowrap rounded-md border border-ink-300 bg-white/70 px-3 py-1.5 font-medium text-ink-800 hover:bg-white"
             >
               {user ? 'Dashboard →' : 'Start a conversation'}
             </a>
