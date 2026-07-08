@@ -44,9 +44,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Rhai company homepage — brings its own top bar (RhaiHome.tsx). Don't
-  // stack a second one.
-  if (pathname === '/') {
+  // Rhai company homepage and its adjacent marketing pages — they bring
+  // their own top bar. Don't stack a second one.
+  if (pathname === '/' || pathname === '/hang-w-ai') {
     return <div className="min-h-screen">{children}</div>;
   }
 

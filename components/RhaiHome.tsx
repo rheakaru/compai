@@ -28,6 +28,7 @@ export function RhaiHome() {
           </span>
           <div className="flex items-center gap-4 text-xs">
             <a href="#work" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Work</a>
+            <a href="/hang-w-ai" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Hang w AI</a>
             <a href="#tool" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Free tool</a>
             <a href="#contact" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Contact</a>
             <a
@@ -135,8 +136,8 @@ export function RhaiHome() {
             <div>
               <p className="font-display text-3xl text-ink-900">350+</p>
               <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                Members in Hang w AI — the weekly hands-on community we run for operators and founders in Bangalore
-                and Hyderabad.
+                Members in <a href="/hang-w-ai" className="text-accent hover:underline">Hang w AI</a> — the weekly
+                hands-on community we run for operators and founders in Bangalore and Hyderabad.
               </p>
             </div>
             <div>
@@ -146,6 +147,61 @@ export function RhaiHome() {
                 fintech.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Hang w AI — the community. Top of funnel, and the most visible proof
+          that we do this in public every week. */}
+      <section id="hang" className="border-b border-ink-200/60">
+        <div className="mx-auto max-w-5xl px-6 py-20">
+          <p className="eyebrow">Community · Free · In person</p>
+          <div className="mt-3 grid gap-10 md:grid-cols-[1.4fr_1fr] md:items-end">
+            <h2 className="font-display text-3xl tracking-tight text-ink-900 sm:text-4xl">
+              We do this in public every week.{' '}
+              <span className="text-ink-400">A room, twelve laptops, three hours.</span>
+            </h2>
+            <p className="text-sm leading-relaxed text-ink-700">
+              <strong>Hang w AI</strong> is the free community version of the workshop. Every week or two, a dozen
+              people get in a room in Bangalore or Hyderabad and actually build something with AI — no slides shown
+              at you, no talking heads. It&apos;s where most of our work starts a conversation.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-4">
+            <div className="rounded-lg border border-ink-200 bg-white p-5">
+              <p className="font-display text-3xl text-ink-900">350+</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-ink-500">Members in the intros group</p>
+            </div>
+            <div className="rounded-lg border border-ink-200 bg-white p-5">
+              <p className="font-display text-3xl text-ink-900">12+</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-ink-500">Sessions run · capped at ~12 each</p>
+            </div>
+            <div className="rounded-lg border border-ink-200 bg-white p-5">
+              <p className="font-display text-3xl text-ink-900">2 cities</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-ink-500">Bangalore + Hyderabad · more coming</p>
+            </div>
+            <div className="rounded-lg border border-ink-200 bg-white p-5">
+              <p className="font-display text-3xl text-ink-900">₹0</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-ink-500">Always free · you pay for your own Claude</p>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <a
+              href="/hang-w-ai"
+              className="rounded-md bg-ink-900 px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink-800"
+            >
+              What Hang w AI is →
+            </a>
+            <a
+              href="https://chat.whatsapp.com/BSZLG7tXuZm85IaaaVj7fN"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-ink-300 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
+            >
+              Join the WhatsApp group ↗
+            </a>
           </div>
         </div>
       </section>
@@ -322,8 +378,8 @@ export function RhaiHome() {
             <p className="text-sm leading-relaxed text-ink-700">
               Rhai is <strong>Rhea Karuturi&apos;s</strong> AI practice. Rhea has been CTO of Hoovu Fresh — a B2B puja-flower
               supply chain across 9 Indian cities — for seven years; the AI that runs it started as her weekend
-              project. She studied at Stanford, teaches AI weekly in Bangalore through the Hang w AI community
-              (~350 members), and has been on Shark Tank India. Every engagement she takes on runs through her
+              project. She studied at Stanford, teaches AI weekly in Bangalore through the{' '}
+              <a href="/hang-w-ai" className="text-accent hover:underline">Hang w AI</a> community (~350 members), and has been on Shark Tank India. Every engagement she takes on runs through her
               directly — teaching, building, closing.
             </p>
             <div className="text-sm text-ink-600">
