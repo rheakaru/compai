@@ -7,11 +7,11 @@ import {
   type InterviewCandidate,
   type InterviewConfig,
   type InterviewMessage,
-  type InterviewSession,
-  type InterviewSummary
+  type InterviewSession
 } from '@/lib/rhai/types';
 import { validateContactFormat, firstError, normalizePhone } from '@/lib/validation/contact';
 import { checkMailDomain } from '@/lib/validation/email-dns';
+import { EVAL_MIN_TURNS, buildInterviewSuggestion, evaluateInterview } from '@/lib/rhai/interview-eval';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -209,20 +209,29 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
     if (done) {
       update.status = 'completed';
       update.completedAt = now;
+    }
+
+    // Evaluate on completion OR once the candidate is deep enough in that Rhea
+    // deserves a read even if they never formally finish. Re-evaluate on
+    // completion (fuller transcript), but only file the Today suggestion the
+    // first time a summary is created, so a threshold-then-completion sequence
+    // doesn't double-notify.
+    const newCandidateTurns = candidateTurns + 1;
+    const firstSummary = !session.summary;
+    if (done || (newCandidateTurns >= EVAL_MIN_TURNS && firstSummary)) {
       try {
-        const evaluated = await evaluate(config, { ...session, messages: newMessages });
+        const sessionForEval: InterviewSession = {
+          ...session,
+          messages: newMessages,
+          status: done ? 'completed' : session.status
+        };
+        const evaluated = await evaluateInterview(config, sessionForEval);
         update.summary = evaluated.summary;
         if (evaluated.questionsForRhea) update.questionsForRhea = evaluated.questionsForRhea;
-        // "Rhai sends it to me" — file it on Rhea's Today panel.
-        await db.collection('rhaiSuggestions').add({
-          kind: 'follow_up',
-          title: `Interview done: ${session.candidate.name} — ${verdictLabel(evaluated.summary.verdict)}`,
-          detail: `${evaluated.summary.summary}\n\nHard checks: ${evaluated.summary.hardCheckNotes}${evaluated.questionsForRhea ? `\n\nTheir questions for you: ${evaluated.questionsForRhea}` : ''}\n\nContact: ${session.candidate.email} · ${session.candidate.phone}. Full transcript on the Interviews tab.`,
-          leadLabel: config.title,
-          status: 'proposed',
-          createdAt: now,
-          updatedAt: now
-        });
+        if (firstSummary) {
+          // "Rhai sends it to me" — file it on Rhea's Today panel.
+          await db.collection('rhaiSuggestions').add(buildInterviewSuggestion(config, sessionForEval, evaluated, now));
+        }
       } catch {
         // summary is best-effort; transcript is safely stored regardless
       }
@@ -233,65 +242,4 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
   }
 
   return new Response('unknown action', { status: 400 });
-}
-
-function verdictLabel(v: InterviewSummary['verdict']): string {
-  return v === 'strong_fit' ? 'strong fit ✓' : v === 'possible' ? 'possible' : 'not a fit';
-}
-
-/** Post-interview evaluation — the only place the internal rubric is used. */
-async function evaluate(
-  config: InterviewConfig,
-  session: InterviewSession & { messages: InterviewMessage[] }
-): Promise<{ summary: InterviewSummary; questionsForRhea?: string }> {
-  const transcript = session.messages
-    .map(m => `${m.role === 'rhai' ? 'RHAI' : 'CANDIDATE'}: ${m.text}`)
-    .join('\n\n');
-
-  const msg = await anthropic().messages.create({
-    model: modelFor('suggest'),
-    max_tokens: 1200,
-    system:
-      'You evaluate a screening-interview transcript against a hiring rubric for Rhea Karuturi. Be honest and decisive — a wrong "strong_fit" wastes her time. Judge communication quality from the transcript itself. Return ONLY JSON.',
-    messages: [
-      {
-        role: 'user',
-        content: [
-          `ROLE: ${config.title}`,
-          `RUBRIC:\n${config.criteria}`,
-          `HARD CHECKS:\n${config.hardChecks.join('\n')}`,
-          ``,
-          `TRANSCRIPT:\n${transcript.slice(0, 24_000)}`,
-          ``,
-          `Return ONLY JSON: {"verdict": "strong_fit"|"possible"|"not_a_fit", "summary": "<4-6 sentences: who they are, fit read, communication read>", "strengths": ["…"], "concerns": ["…"], "hardCheckNotes": "<one line per hard check: geography / availability / start date / duration — pass, fail, or unclear>", "questionsForRhea": "<their closing questions verbatim-ish, or empty string>"}`
-        ].join('\n')
-      }
-    ]
-  });
-  const text = msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map(b => b.text)
-    .join('');
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-  const raw = (fenced ? fenced[1] : text).trim();
-  const parsed = JSON.parse(raw.slice(raw.search(/[{[]/))) as {
-    verdict?: string;
-    summary?: string;
-    strengths?: string[];
-    concerns?: string[];
-    hardCheckNotes?: string;
-    questionsForRhea?: string;
-  };
-  return {
-    summary: {
-      verdict: (['strong_fit', 'possible', 'not_a_fit'].includes(parsed.verdict ?? '')
-        ? parsed.verdict
-        : 'possible') as InterviewSummary['verdict'],
-      summary: String(parsed.summary ?? '').slice(0, 1500),
-      strengths: (parsed.strengths ?? []).map(s => String(s).slice(0, 200)).slice(0, 5),
-      concerns: (parsed.concerns ?? []).map(s => String(s).slice(0, 200)).slice(0, 5),
-      hardCheckNotes: String(parsed.hardCheckNotes ?? '').slice(0, 600)
-    },
-    questionsForRhea: parsed.questionsForRhea?.trim() ? String(parsed.questionsForRhea).slice(0, 1000) : undefined
-  };
 }

@@ -25,6 +25,7 @@ export function InterviewsPanel() {
   const [configs, setConfigs] = useState<InterviewConfig[]>([]);
   const [sessions, setSessions] = useState<InterviewSession[] | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [catchingUp, setCatchingUp] = useState(false);
 
   const load = useCallback(async () => {
     const res = await authedFetch('/api/rhai/interviews');
@@ -36,8 +37,24 @@ export function InterviewsPanel() {
   }, [authedFetch]);
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, [load]);
+    (async () => {
+      await load();
+      // Self-heal: summarise any interview that finished or got 8+ questions in
+      // but was never evaluated. No model calls when nothing qualifies.
+      try {
+        setCatchingUp(true);
+        const res = await authedFetch('/api/rhai/interviews', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'backfill' })
+        });
+        if (res.ok && ((await res.json()) as { generated: number }).generated > 0) await load();
+      } catch {
+        // ignore — summaries just won't backfill this pass
+      } finally {
+        setCatchingUp(false);
+      }
+    })().catch(() => undefined);
+  }, [load, authedFetch]);
 
   const toggleActive = async (id: string, active: boolean) => {
     setConfigs(prev => prev.map(c => (c.id === id ? { ...c, active } : c)));
@@ -90,6 +107,7 @@ export function InterviewsPanel() {
       <section>
         <p className="eyebrow mb-2">
           Candidates {sessions ? `· ${sessions.length}` : ''}
+          {catchingUp && <span className="ml-2 normal-case tracking-normal text-ink-400">· catching up on summaries…</span>}
         </p>
         {sessions === null ? (
           <p className="text-sm text-ink-400">Loading…</p>
