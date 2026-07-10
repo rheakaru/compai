@@ -26,6 +26,7 @@ export function InterviewsPanel() {
   const [sessions, setSessions] = useState<InterviewSession[] | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [catchingUp, setCatchingUp] = useState(false);
+  const [presenter, setPresenter] = useState(false);
 
   const load = useCallback(async () => {
     const res = await authedFetch('/api/rhai/interviews');
@@ -105,10 +106,24 @@ export function InterviewsPanel() {
 
       {/* candidates */}
       <section>
-        <p className="eyebrow mb-2">
-          Candidates {sessions ? `· ${sessions.length}` : ''}
-          {catchingUp && <span className="ml-2 normal-case tracking-normal text-ink-400">· catching up on summaries…</span>}
-        </p>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="eyebrow">
+            Candidates {sessions ? `· ${sessions.length}` : ''}
+            {catchingUp && <span className="ml-2 normal-case tracking-normal text-ink-400">· catching up on summaries…</span>}
+          </p>
+          <button
+            type="button"
+            onClick={() => setPresenter(p => !p)}
+            className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+              presenter
+                ? 'border-accent bg-accent text-white'
+                : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'
+            }`}
+            title="Blur names + contacts so you can show this as a demo"
+          >
+            {presenter ? '● Presenter mode — names hidden' : '○ Presenter mode'}
+          </button>
+        </div>
         {sessions === null ? (
           <p className="text-sm text-ink-400">Loading…</p>
         ) : sessions.length === 0 ? (
@@ -118,7 +133,7 @@ export function InterviewsPanel() {
         ) : (
           <div className="space-y-3">
             {sessions.map(s => (
-              <SessionCard key={s.id} s={s} />
+              <SessionCard key={s.id} s={s} presenter={presenter} />
             ))}
           </div>
         )}
@@ -127,15 +142,36 @@ export function InterviewsPanel() {
   );
 }
 
-function SessionCard({ s }: { s: InterviewSession }) {
+// Presenter mode — blur structured PII (name/contacts) and redact identity
+// (name, email, phone) out of free text + the transcript, so the tab can be
+// shown as a live demo without exposing real candidates.
+function Blur({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return on ? <span className="select-none blur-[5px]">{children}</span> : <>{children}</>;
+}
+function redact(text: string, name: string, on: boolean): string {
+  if (!on || !text) return text;
+  let out = text;
+  const parts = [name, ...name.split(/\s+/)].filter(t => t && t.length >= 3);
+  for (const t of parts) {
+    const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    out = out.replace(re, '•••');
+  }
+  out = out.replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '•••');
+  out = out.replace(/\+?\d[\d\s().-]{6,}\d/g, '•••');
+  return out;
+}
+
+function SessionCard({ s, presenter }: { s: InterviewSession; presenter: boolean }) {
   const [showTranscript, setShowTranscript] = useState(false);
   const done = s.status === 'completed';
+  const name = s.candidate.name;
+  const rd = (t?: string) => redact(t ?? '', name, presenter);
   return (
     <div className="rounded-lg border border-ink-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-ink-900">{s.candidate.name}</p>
+            <p className="text-sm font-semibold text-ink-900"><Blur on={presenter}>{s.candidate.name}</Blur></p>
             {done && s.summary ? (
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${VERDICT_CHIP[s.summary.verdict]}`}>
                 {VERDICT_LABEL[s.summary.verdict]}
@@ -147,8 +183,8 @@ function SessionCard({ s }: { s: InterviewSession }) {
             )}
           </div>
           <p className="mt-0.5 text-[11px] text-ink-500">
-            {s.candidate.email} · {s.candidate.phone}
-            {s.candidate.resumeUrl && (
+            <Blur on={presenter}>{s.candidate.email} · {s.candidate.phone}</Blur>
+            {s.candidate.resumeUrl && !presenter && (
               <>
                 {' · '}
                 <a href={s.candidate.resumeUrl} target="_blank" rel="noreferrer" className="text-indigo-600 underline">
@@ -165,14 +201,14 @@ function SessionCard({ s }: { s: InterviewSession }) {
 
       {s.summary && (
         <div className="mt-3 rounded-md border border-ink-100 bg-cream-50/60 p-3">
-          <p className="text-xs leading-relaxed text-ink-700">{s.summary.summary}</p>
+          <p className="text-xs leading-relaxed text-ink-700">{rd(s.summary.summary)}</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {s.summary.strengths.length > 0 && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">Strengths</p>
                 <ul className="mt-0.5 list-disc pl-4 text-[11px] text-ink-700">
                   {s.summary.strengths.map((x, i) => (
-                    <li key={i}>{x}</li>
+                    <li key={i}>{rd(x)}</li>
                   ))}
                 </ul>
               </div>
@@ -182,7 +218,7 @@ function SessionCard({ s }: { s: InterviewSession }) {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-700">Concerns</p>
                 <ul className="mt-0.5 list-disc pl-4 text-[11px] text-ink-700">
                   {s.summary.concerns.map((x, i) => (
-                    <li key={i}>{x}</li>
+                    <li key={i}>{rd(x)}</li>
                   ))}
                 </ul>
               </div>
@@ -190,7 +226,7 @@ function SessionCard({ s }: { s: InterviewSession }) {
           </div>
           {s.summary.hardCheckNotes && (
             <p className="mt-2 text-[11px] text-ink-600">
-              <span className="font-semibold">Hard checks:</span> {s.summary.hardCheckNotes}
+              <span className="font-semibold">Hard checks:</span> {rd(s.summary.hardCheckNotes)}
             </p>
           )}
         </div>
@@ -199,7 +235,7 @@ function SessionCard({ s }: { s: InterviewSession }) {
       {s.questionsForRhea && (
         <div className="mt-2 rounded-md border border-indigo-100 bg-indigo-50/60 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-700">Their questions for you</p>
-          <p className="mt-0.5 whitespace-pre-wrap text-xs text-ink-700">{s.questionsForRhea}</p>
+          <p className="mt-0.5 whitespace-pre-wrap text-xs text-ink-700">{rd(s.questionsForRhea)}</p>
         </div>
       )}
 
@@ -222,9 +258,9 @@ function SessionCard({ s }: { s: InterviewSession }) {
                   m.role === 'candidate' ? 'bg-ink-900 text-cream' : 'bg-cream-50 text-ink-700'
                 }`}
               >
-                {m.text}
+                {rd(m.text)}
               </div>
-              {m.audioUrl && (
+              {m.audioUrl && !presenter && (
                 <audio controls preload="none" src={m.audioUrl} className="h-7 max-w-[85%]" />
               )}
             </div>
