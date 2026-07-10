@@ -234,9 +234,14 @@ function TaskCard({ t, onRun, onDelete }: { t: RhaiTask; onRun: () => void; onDe
         )}
         {t.status === 'running' && <span className="text-[11px] text-amber-600">working…</span>}
         {t.result && (
-          <button type="button" onClick={() => setOpen(v => !v)} className="text-[11px] text-indigo-600 hover:underline">
-            {open ? 'Hide result' : 'View result'}
-          </button>
+          <>
+            <a href={`/tasks/${t.id}`} className="text-[11px] font-medium text-indigo-600 hover:underline">
+              Open →
+            </a>
+            <button type="button" onClick={() => setOpen(v => !v)} className="text-[11px] text-ink-400 hover:underline">
+              {open ? 'hide' : 'peek'}
+            </button>
+          </>
         )}
         <button type="button" onClick={onDelete} className="ml-auto text-[11px] text-ink-300 hover:text-rose-600">
           ✕

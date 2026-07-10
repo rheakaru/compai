@@ -340,6 +340,8 @@ export interface RhaiTask {
   status: RhaiTaskStatus;
   /** The output: research findings, draft text, prep notes… */
   result?: string;
+  /** Iterating chat on the task detail page — Rhea ↔ Rhai edits of the result. */
+  chat?: { role: 'rhea' | 'rhai'; text: string; at: number }[];
   /** Set when the output was saved as a generated client document. */
   documentId?: string;
   error?: string;
