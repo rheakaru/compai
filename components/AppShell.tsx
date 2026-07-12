@@ -44,9 +44,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Rhai company homepage and its adjacent marketing pages — they bring
-  // their own top bar. Don't stack a second one.
-  if (pathname === '/' || pathname === '/hang-w-ai') {
+  // Rhai company homepage, its marketing pages, and the Hire product — they
+  // bring their own top bar. Candidate /apply pages are public + bare too.
+  if (pathname === '/' || pathname === '/hang-w-ai' || pathname.startsWith('/hire') || pathname.startsWith('/apply')) {
     return <div className="min-h-screen">{children}</div>;
   }
 

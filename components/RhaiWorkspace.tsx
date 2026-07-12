@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { BriefingStrip } from './BriefingStrip';
 import { AdminOntologiesClient } from './AdminOntologiesClient';
+import { HireAdminPanel } from './HireAdminPanel';
 import { InvoicesPanel } from './InvoicesPanel';
 import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
@@ -43,6 +44,7 @@ type Tab =
   | 'discovery'
   | 'invoices'
   | 'ontologies'
+  | 'hire'
   | 'context'
   | 'skills';
 
@@ -57,6 +59,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'discovery', label: 'Discovery' },
   { id: 'invoices', label: 'Invoices' },
   { id: 'ontologies', label: 'Ontologies' },
+  { id: 'hire', label: 'Hire' },
   { id: 'context', label: 'Context' },
   { id: 'skills', label: 'Skills' }
 ];
@@ -215,6 +218,14 @@ export function RhaiWorkspace() {
         </Panel>
       )}
       {tab === 'ontologies' && <AdminOntologiesClient />}
+      {tab === 'hire' && (
+        <Panel
+          title="Rhai Interviews · admin"
+          sub="The hiring product other companies use (heyrhai.com/hire). Set pricing globally or per company, watch jobs and payments come in, and grant entitlements manually when needed."
+        >
+          <HireAdminPanel />
+        </Panel>
+      )}
       {tab === 'context' && <ContextPanel />}
       {tab === 'skills' && <SkillsPanel />}
 

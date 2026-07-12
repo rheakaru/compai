@@ -258,6 +258,30 @@ export function RhaiHome() {
         </div>
       </section>
 
+      {/* Rhai Interviews — the hiring product. */}
+      <section className="border-b border-ink-200/60">
+        <div className="mx-auto max-w-5xl px-6 py-20">
+          <p className="eyebrow">A tool for hiring</p>
+          <h2 className="mt-3 max-w-3xl font-display text-3xl tracking-tight text-ink-900 sm:text-4xl">
+            Rhai Interviews — every applicant interviewed, ranked before you wake up.
+          </h2>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-700">
+            Upload a job description and Rhai designs a structured first-round interview with you — you edit every
+            question. Share one link; every candidate gets a real, consistent interview any time of day, and you get
+            transcripts summarised, scored, and ranked for fit. It&apos;s how we screen our own hires.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <a
+              href="/hire"
+              className="inline-flex items-center gap-2 rounded-md bg-ink-900 px-5 py-2.5 text-sm font-medium text-cream hover:bg-ink-800"
+            >
+              Try it — first job free →
+            </a>
+            <span className="text-[11px] text-ink-500">Then ₹1,000 per role · pay only when applications flow.</span>
+          </div>
+        </div>
+      </section>
+
       {/* How we work — the shape of an engagement, plainly. */}
       <section className="border-b border-ink-200/60">
         <div className="mx-auto max-w-5xl px-6 py-20">
