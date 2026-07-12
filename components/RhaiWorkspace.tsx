@@ -14,6 +14,7 @@ import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
 import { DiscoveryPanel } from './RhaiDiscovery';
 import { InterviewsPanel } from './RhaiInterviews';
+import { PlansPanel } from './PlansPanel';
 import { PeoplePanel, PersonDrawer } from './RhaiPeople';
 import { TasksPanel } from './RhaiTasks';
 import { TodosSection } from './RhaiTodos';
@@ -34,6 +35,7 @@ import {
 type Tab =
   | 'pipeline'
   | 'today'
+  | 'week'
   | 'tasks'
   | 'people'
   | 'ideas'
@@ -47,6 +49,7 @@ type Tab =
 const TABS: { id: Tab; label: string }[] = [
   { id: 'pipeline', label: 'Pipeline' },
   { id: 'today', label: 'Today' },
+  { id: 'week', label: 'Week' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'people', label: 'People' },
   { id: 'ideas', label: 'Ideas' },
@@ -162,6 +165,14 @@ export function RhaiWorkspace() {
 
       {tab === 'pipeline' && <LeadsDashboard />}
       {tab === 'today' && <TodayPanel />}
+      {tab === 'week' && (
+        <Panel
+          title="This week"
+          sub="Everyone's plan for the week — post yours rough (type, paste, go day-wise, or drop a voice note), edit it anytime. Rhai reads it and pulls out the days, the clients (linked to the pipeline), and the to-dos, so the team stays in sync."
+        >
+          <PlansPanel />
+        </Panel>
+      )}
       {tab === 'tasks' && (
         <Panel
           title="Tasks"
