@@ -277,6 +277,12 @@ export function RhaiHome() {
             >
               Try it — first job free →
             </a>
+            <a
+              href="/hire/how-it-works"
+              className="inline-flex items-center gap-2 rounded-md border border-ink-300 bg-white/70 px-5 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
+            >
+              How it works
+            </a>
             <span className="text-[11px] text-ink-500">Then ₹1,000 per role · pay only when applications flow.</span>
           </div>
         </div>

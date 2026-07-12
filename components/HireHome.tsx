@@ -69,13 +69,21 @@ function Marketing({ onStart }: { onStart: () => void }) {
             question. Share one link; every candidate gets a real, consistent interview, and you get transcripts
             ranked for fit.
           </p>
-          <button
-            type="button"
-            onClick={onStart}
-            className="mt-8 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
-          >
-            Start free — first job on us →
-          </button>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={onStart}
+              className="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
+            >
+              Start free — first job on us →
+            </button>
+            <Link
+              href="/hire/how-it-works"
+              className="rounded-md border border-ink-300 bg-white/70 px-5 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
+            >
+              How it works
+            </Link>
+          </div>
         </div>
       </section>
 
