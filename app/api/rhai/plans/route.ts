@@ -1,12 +1,10 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { requireOperator } from '@/lib/rhai/server';
-import { planDocId, weekStartISO, type WeekPlan } from '@/lib/rhai/plans';
+import { COL_PLANS, planDocId, weekStartISO, type WeekPlan } from '@/lib/rhai/plans';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-export const COL_PLANS = 'rhaiPlans';
 
 // GET ?week=YYYY-MM-DD — every teammate's plan for that week (defaults to the
 // current week). `me` tells the client which plan it may edit.

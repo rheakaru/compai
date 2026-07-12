@@ -3,8 +3,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { buildRhaiSystemPrompt, loadContextSections, parseJsonLoose, requireOperator, runRhaiWithContext } from '@/lib/rhai/server';
 import { modelFor } from '@/lib/rhai/models';
 import type { WorkshopLead } from '@/lib/leads/types';
-import { COL_PLANS } from '../route';
-import { planDocId, weekLabel, weekStartISO, type PlanItem, type PlanStructure, type WeekPlan } from '@/lib/rhai/plans';
+import { COL_PLANS, planDocId, weekLabel, weekStartISO, type PlanItem, type PlanStructure, type WeekPlan } from '@/lib/rhai/plans';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

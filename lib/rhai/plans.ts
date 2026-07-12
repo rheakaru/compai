@@ -5,6 +5,8 @@
 //
 // Isomorphic (client + server) — no server-only imports.
 
+export const COL_PLANS = 'rhaiPlans';
+
 export interface PlanItem {
   text: string;
   date?: string; // 'YYYY-MM-DD'
