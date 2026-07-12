@@ -228,6 +228,8 @@ export interface LeadDocument {
   sizeBytes?: number;
   /** Prior versions of a generated doc, oldest→newest, before the current text. */
   versions?: { text: string; note: string; at: number }[];
+  /** Iterating chat on the document detail page — Rhea ↔ Rhai edits. */
+  chat?: { role: 'rhea' | 'rhai'; text: string; at: number }[];
   createdAt: number;
   updatedAt: number;
 }
