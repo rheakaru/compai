@@ -62,7 +62,9 @@ export async function POST(req: NextRequest) {
     return new Response('Could not save your recording — please try again.', { status: 500 });
   }
 
-  const transcript = await transcribeAudio(buffer, `testimonial.${ext}`, mime);
+  // Transcribe from the ORIGINAL Blob (Blob is re-readable, so reading the
+  // buffer above for storage doesn't consume it).
+  const transcript = await transcribeAudio(audio, `testimonial.${ext}`);
 
   const doc: Omit<Testimonial, 'id'> = {
     name,
