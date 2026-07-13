@@ -67,3 +67,14 @@ export function adminRtdb(): Database {
 export function adminBucket() {
   return getStorage(init()).bucket();
 }
+
+/**
+ * Media bucket (asia-south1) for audio/blobs that must survive — the default
+ * `.firebasestorage.app` bucket was never provisioned on this project, so
+ * anything relying on adminBucket() silently failed. This one is created and
+ * owned by the app's service account. Served to the public via streaming
+ * routes (no object-ACL / makePublic dependency).
+ */
+export function mediaBucket() {
+  return getStorage(init()).bucket(process.env.MEDIA_BUCKET || 'compai-57d55-media');
+}

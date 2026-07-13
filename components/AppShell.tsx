@@ -46,7 +46,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Rhai company homepage, its marketing pages, and the Hire product — they
   // bring their own top bar. Candidate /apply pages are public + bare too.
-  if (pathname === '/' || pathname === '/hang-w-ai' || pathname.startsWith('/hire') || pathname.startsWith('/apply')) {
+  if (
+    pathname === '/' ||
+    pathname === '/hang-w-ai' ||
+    pathname.startsWith('/hire') ||
+    pathname.startsWith('/apply') ||
+    pathname.startsWith('/testimonial')
+  ) {
     return <div className="min-h-screen">{children}</div>;
   }
 

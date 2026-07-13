@@ -9,6 +9,7 @@
 // signed-in app feel like one thing.
 
 import { useAuth } from './AuthProvider';
+import { VoiceWall } from './VoiceWall';
 
 const MARKETING_TOOL = 'https://compai-marketing.web.app';
 const PERSONAL_SITE = 'https://rheakaru.github.io';
@@ -205,6 +206,9 @@ export function RhaiHome() {
           </div>
         </div>
       </section>
+
+      {/* Voice testimonials — renders only if Rhea has approved any. */}
+      <VoiceWall />
 
       {/* The free tool — the giveaway + soft lead capture. */}
       <section id="tool" className="border-b border-ink-200/60 bg-cream-100">
