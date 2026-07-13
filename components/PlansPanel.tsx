@@ -31,7 +31,11 @@ export function PlansPanel() {
   );
 
   useEffect(() => {
-    if (user) load(week).catch(() => undefined);
+    if (!user) return;
+    // Clear first so the editor unmounts and remounts against the NEW week's
+    // data (never seeds from the previous week's stale plan mid-switch).
+    setPlans(null);
+    load(week).catch(() => undefined);
   }, [user, week, load]);
 
   const mine = plans?.find(p => p.ownerEmail === me) ?? null;
@@ -71,6 +75,7 @@ export function PlansPanel() {
       ) : (
         <div className="space-y-5">
           <MyPlan
+            key={week}
             week={week}
             plan={mine}
             ownerName={user?.displayName ?? undefined}
@@ -131,11 +136,16 @@ function MyPlan({
     });
   });
 
-  // Reset when switching weeks / when the loaded plan arrives.
+  // Seed the editor ONCE, on mount. The parent remounts this component per
+  // week (key={week}), so each week starts from its own saved plan. We must
+  // NOT re-seed on later `plan` prop changes: every autosave echoes the saved
+  // plan back down as a new prop, and re-seeding mid-type would overwrite the
+  // textarea and jump the cursor (the "glitching" while typing).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setRaw(plan?.raw ?? '');
     setStructure(plan?.structure);
-  }, [plan?.id, plan?.raw, plan?.structure, week]);
+  }, []);
 
   const save = useCallback(
     (value: string) => {
