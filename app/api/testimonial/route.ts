@@ -62,9 +62,10 @@ export async function POST(req: NextRequest) {
     return new Response('Could not save your recording — please try again.', { status: 500 });
   }
 
-  // Transcribe from the ORIGINAL Blob (Blob is re-readable, so reading the
-  // buffer above for storage doesn't consume it).
-  const transcript = await transcribeAudio(audio, `testimonial.${ext}`);
+  // Transcribe from a fresh Blob built off the buffer we already read — avoids
+  // a second read of the stream-backed formData Blob. (Currently returns '' if
+  // the ElevenLabs account is out of credits; the recording still saves fine.)
+  const transcript = await transcribeAudio(new Blob([buffer], { type: mime }), `testimonial.${ext}`);
 
   const doc: Omit<Testimonial, 'id'> = {
     name,
