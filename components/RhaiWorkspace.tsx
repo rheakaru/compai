@@ -12,6 +12,7 @@ import { AdminOntologiesClient } from './AdminOntologiesClient';
 import { HireAdminPanel } from './HireAdminPanel';
 import { InvoicesPanel } from './InvoicesPanel';
 import { TestimonialsPanel } from './TestimonialsPanel';
+import { RsvpPanel } from './RsvpPanel';
 import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
 import { DiscoveryPanel } from './RhaiDiscovery';
@@ -47,6 +48,7 @@ type Tab =
   | 'ontologies'
   | 'hire'
   | 'voices'
+  | 'party'
   | 'context'
   | 'skills';
 
@@ -63,6 +65,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'ontologies', label: 'Ontologies' },
   { id: 'hire', label: 'Hire' },
   { id: 'voices', label: 'Voices' },
+  { id: 'party', label: 'Party' },
   { id: 'context', label: 'Context' },
   { id: 'skills', label: 'Skills' }
 ];
@@ -235,6 +238,14 @@ export function RhaiWorkspace() {
           sub="Voice notes from Hang w AI attendees (heyrhai.com/testimonial). Play each, read the transcript, toggle it onto the homepage, and drag the featured ones into order."
         >
           <TestimonialsPanel />
+        </Panel>
+      )}
+      {tab === 'party' && (
+        <Panel
+          title="Launch party · guest list"
+          sub="RSVPs from the 3D invite at heyrhai.com/party — Episode X of Hang w AI, Saturday 18 July, 7 PM. Copy the list for the door; resubmissions update in place, so no dupes."
+        >
+          <RsvpPanel />
         </Panel>
       )}
       {tab === 'context' && <ContextPanel />}
