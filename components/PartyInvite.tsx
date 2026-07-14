@@ -101,13 +101,27 @@ function makeNetwork(n: number): { positions: Float32Array; edges: Float32Array 
   }
   const placedCount = nodes.length; // dart throwing may place fewer than asked
   const positions = new Float32Array(n * 3);
-  const nodeShare = Math.floor(n * 0.58); // tail indices = the faint dust class
+  const brightShare = Math.floor(n * 0.58); // tail indices = the faint dust class
+  // Each node is a tight stack of a few sprites — additive blending turns the
+  // stack into one clean glowing dot (bright core, soft halo), not a splat.
+  const perNode = 6;
+  const nodeParticles = placedCount * perNode;
   for (let i = 0; i < n; i++) {
-    if (i < nodeShare) {
-      const nd = nodes[i % placedCount];
-      positions[i * 3] = nd[0] + gauss() * 0.22;
-      positions[i * 3 + 1] = nd[1] + gauss() * 0.22;
-      positions[i * 3 + 2] = nd[2] + gauss() * 0.22;
+    if (i < nodeParticles) {
+      const nd = nodes[Math.floor(i / perNode)];
+      positions[i * 3] = nd[0] + gauss() * 0.07;
+      positions[i * 3 + 1] = nd[1] + gauss() * 0.07;
+      positions[i * 3 + 2] = nd[2] + gauss() * 0.07;
+    } else if (i < brightShare) {
+      // Surplus bright particles recede into a deep far shell — the universe
+      // pulls back and leaves only the constellation.
+      const u = Math.random() * 2 - 1;
+      const th2 = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u);
+      const r = 32 + 16 * Math.cbrt(Math.random());
+      positions[i * 3] = s * Math.cos(th2) * r;
+      positions[i * 3 + 1] = s * Math.sin(th2) * r * 0.8;
+      positions[i * 3 + 2] = u * r;
     } else {
       const u = Math.random() * 2 - 1;
       const th2 = Math.random() * Math.PI * 2;
@@ -126,7 +140,7 @@ function makeNetwork(n: number): { positions: Float32Array; edges: Float32Array 
       .map((p, b) => ({ b, d: (p[0] - nodes[a][0]) ** 2 + (p[1] - nodes[a][1]) ** 2 + (p[2] - nodes[a][2]) ** 2 }))
       .filter(e => e.b !== a)
       .sort((x, y) => x.d - y.d)
-      .slice(0, 2);
+      .slice(0, 3);
     for (const { b } of dists) {
       const key = a < b ? `${a}-${b}` : `${b}-${a}`;
       if (seen.has(key)) continue;
@@ -304,6 +318,18 @@ export function PartyInvite() {
       const dustClass = i >= N * 0.58;
       const r = Math.random();
       let c: [number, number, number];
+      if (i < 400) {
+        // The constellation-node sprites (first placedCount×6 indices) — a big
+        // soft halo + small hot cores per node, chapel-style. In other scenes
+        // they just read as the brightest sparkles.
+        c = i % 6 < 2 ? [0.97, 0.9, 0.78] : [0.9, 0.55, 0.4];
+        sizes[i] = i % 6 === 0 ? 15 + Math.random() * 6 : 5 + Math.random() * 4;
+        colors[i * 3] = c[0];
+        colors[i * 3 + 1] = c[1];
+        colors[i * 3 + 2] = c[2];
+        phases[i] = Math.random() * Math.PI * 2;
+        continue;
+      }
       if (dustClass) {
         c = r < 0.6 ? [0.4, 0.24, 0.17] : [0.3, 0.27, 0.23]; // faint ember / ash
         sizes[i] = 2.2 + Math.pow(Math.random(), 2) * 4;
@@ -345,7 +371,7 @@ export function PartyInvite() {
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute('position', new THREE.BufferAttribute(net.edges, 3));
     const lineMat = new THREE.LineBasicMaterial({
-      color: new THREE.Color(ORANGE),
+      color: new THREE.Color('#e3b48f'), // pale gold-peach — chapel-style threads
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
@@ -779,6 +805,10 @@ html:has(.party-root) { background: #070605; }
 }
 .party-hero { min-height: 100svh; }
 .party-finale { min-height: 140vh; justify-content: flex-start; padding-top: 24vh; }
+/* Dark scrim behind each copy beat so text stays readable over the particles. */
+.party-sec:not(.party-hero):not(.party-finale) {
+  background: radial-gradient(ellipse 60% 42% at 50% 50%, rgba(7,6,5,0.88), rgba(7,6,5,0.5) 55%, transparent 78%);
+}
 
 .party-eyebrow {
   font-family: var(--mono); font-size: clamp(10px, 1.4vw, 12px); letter-spacing: 0.42em;
