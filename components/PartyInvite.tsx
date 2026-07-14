@@ -226,14 +226,14 @@ void main() {
 
 // ---------------------------------------------------------------------------
 
-const EVENT_START_UTC = '2026-07-18T09:30:00Z'; // 3:00 PM IST
+const EVENT_START_UTC = '2026-07-19T09:30:00Z'; // 3:00 PM IST, Sun 19 Jul
 const MAPS_URL =
   'https://www.google.com/maps/search/?api=1&query=' +
   encodeURIComponent('1391, 3rd Cross, 9th Main, Judicial Layout, Bengaluru 560065');
 const CAL_URL =
   'https://calendar.google.com/calendar/render?action=TEMPLATE' +
   `&text=${encodeURIComponent('Rhai Launch Party · Hang w AI, Episode X')}` +
-  '&dates=20260718T093000Z/20260718T133000Z' +
+  '&dates=20260719T093000Z/20260719T133000Z' +
   `&details=${encodeURIComponent("You're on the list. Special news, shared in person. — heyrhai.com/party")}` +
   `&location=${encodeURIComponent('1391, 3rd Cross, 9th Main, Judicial Layout, Bengaluru 560065')}`;
 
@@ -602,7 +602,7 @@ export function PartyInvite() {
           <span className="party-dot" />
           Rhai
         </span>
-        <span className="party-meta">18.07.2026 · BLR</span>
+        <span className="party-meta">19.07.2026 · BLR</span>
       </header>
 
       <button type="button" className="party-jump" data-on={showJump && status !== 'done'} onClick={jumpToRsvp}>
@@ -693,7 +693,7 @@ export function PartyInvite() {
             <dl className="party-details">
               <div>
                 <dt>Date</dt>
-                <dd>Saturday, 18 July 2026</dd>
+                <dd>Sunday, 19 July 2026</dd>
               </div>
               <div>
                 <dt>Time</dt>

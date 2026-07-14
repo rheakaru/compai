@@ -9,7 +9,7 @@ const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-party-m
 
 export const metadata: Metadata = {
   title: 'You’re invited — Rhai',
-  description: 'Episode X of Hang w AI, and a launch to celebrate. Saturday 18 July 2026, Bengaluru.',
+  description: 'Episode X of Hang w AI, and a launch to celebrate. Sunday 19 July 2026, Bengaluru.',
   robots: { index: false, follow: false } // invite-only — shared by link
 };
 
