@@ -226,14 +226,14 @@ void main() {
 
 // ---------------------------------------------------------------------------
 
-const EVENT_START_UTC = '2026-07-18T13:30:00Z'; // 7:00 PM IST
+const EVENT_START_UTC = '2026-07-18T09:30:00Z'; // 3:00 PM IST
 const MAPS_URL =
   'https://www.google.com/maps/search/?api=1&query=' +
   encodeURIComponent('1391, 3rd Cross, 9th Main, Judicial Layout, Bengaluru 560065');
 const CAL_URL =
   'https://calendar.google.com/calendar/render?action=TEMPLATE' +
   `&text=${encodeURIComponent('Rhai Launch Party · Hang w AI, Episode X')}` +
-  '&dates=20260718T133000Z/20260718T173000Z' +
+  '&dates=20260718T093000Z/20260718T133000Z' +
   `&details=${encodeURIComponent("You're on the list. Special news, shared in person. — heyrhai.com/party")}` +
   `&location=${encodeURIComponent('1391, 3rd Cross, 9th Main, Judicial Layout, Bengaluru 560065')}`;
 
@@ -246,6 +246,7 @@ export function PartyInvite() {
   const [webglOk, setWebglOk] = useState(true);
   const [typed, setTyped] = useState('');
   const [showJump, setShowJump] = useState(false);
+  const [nudge, setNudge] = useState(false);
   const [left, setLeft] = useState<{ d: string; h: string; m: string; s: string } | null>(null);
 
   // RSVP form
@@ -534,15 +535,27 @@ export function PartyInvite() {
     return () => clearInterval(iv);
   }, []);
 
-  // ------------------------------------------------------- RSVP jump pill
+  // -------------------------------------- RSVP jump pill + keep-going nudge
   useEffect(() => {
+    let idle: ReturnType<typeof setTimeout>;
     const onScroll = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const y = window.scrollY;
       setShowJump(y > window.innerHeight * 0.6 && y < max - window.innerHeight * 1.4);
+      // If they stall mid-journey (past the hero, before the RSVP), nudge them
+      // to keep scrolling so they don't miss the reveal.
+      setNudge(false);
+      clearTimeout(idle);
+      const midJourney = y > window.innerHeight * 0.35 && y < max - window.innerHeight * 1.6;
+      if (midJourney) idle = setTimeout(() => setNudge(true), 2600);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    // First idle nudge if they never scroll at all.
+    idle = setTimeout(() => window.scrollY < window.innerHeight * 0.35 && setNudge(true), 4000);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      clearTimeout(idle);
+    };
   }, []);
 
   const submit = useCallback(
@@ -575,6 +588,7 @@ export function PartyInvite() {
   );
 
   const jumpToRsvp = () => document.getElementById('rsvp')?.scrollIntoView({ behavior: 'smooth' });
+  const scrollNudge = () => window.scrollBy({ top: window.innerHeight * 0.92, behavior: 'smooth' });
 
   return (
     <div className="party-root">
@@ -595,6 +609,11 @@ export function PartyInvite() {
         RSVP ↓
       </button>
 
+      {/* Keep-going nudge — appears when the reader stalls mid-journey. */}
+      <button type="button" className="party-nudge" data-on={nudge && status !== 'done'} onClick={scrollNudge}>
+        keep scrolling <span className="party-nudge-chev">⌄</span>
+      </button>
+
       <main className="party-main">
         <section ref={setSec(0)} className="party-sec party-hero">
           <p className="party-eyebrow">Rhai × Hang w AI · Episode X · by invitation</p>
@@ -607,16 +626,17 @@ export function PartyInvite() {
             {typed}
             <span className="party-caret" />
           </p>
-          <div className="party-cue">
+          <button type="button" className="party-cue" onClick={scrollNudge}>
+            <span className="party-cue-word">scroll to open your invite</span>
             <span className="party-cue-line" />
-            scroll
-          </div>
+            <span className="party-cue-chev">⌄</span>
+          </button>
         </section>
 
         <section ref={setSec(1)} className="party-sec">
           <p className="party-eyebrow">The occasion</p>
           <h2 className="party-h2">
-            Ten Saturdays
+            Ten weeks
             <br />
             of Hang w AI.
           </h2>
@@ -677,7 +697,7 @@ export function PartyInvite() {
               </div>
               <div>
                 <dt>Time</dt>
-                <dd>7:00 PM onwards</dd>
+                <dd>3:00 PM onwards</dd>
               </div>
               <div>
                 <dt>Place</dt>
@@ -839,12 +859,30 @@ html:has(.party-root) { background: #070605; }
 @keyframes party-blink { 50% { opacity: 0; } }
 
 .party-cue {
-  position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
+  position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 10px;
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase; color: ${MUTED};
+  background: none; border: 0; cursor: pointer; padding: 8px 12px;
+  animation: party-bob 2.2s ease-in-out infinite;
 }
-.party-cue-line { width: 1px; height: 44px; background: linear-gradient(${ORANGE}, transparent); animation: party-drop 1.8s ease-in-out infinite; }
+.party-cue-word {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.34em; text-transform: uppercase; color: ${ORANGE};
+}
+.party-cue-line { width: 1px; height: 40px; background: linear-gradient(${ORANGE}, transparent); animation: party-drop 1.8s ease-in-out infinite; }
+.party-cue-chev { font-size: 16px; line-height: 0; color: ${ORANGE}; margin-top: -8px; }
 @keyframes party-drop { 0% { transform: scaleY(0); transform-origin: top; } 45% { transform: scaleY(1); transform-origin: top; } 55% { transform: scaleY(1); transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+@keyframes party-bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 7px); } }
+
+.party-nudge {
+  position: fixed; bottom: clamp(16px, 3vw, 30px); left: 50%; transform: translate(-50%, 12px);
+  z-index: 10; display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: ${ORANGE}; background: rgba(7,6,5,0.6); backdrop-filter: blur(10px);
+  border: 1px solid rgba(217,119,87,0.5); border-radius: 999px; padding: 11px 18px;
+  cursor: pointer; opacity: 0; pointer-events: none;
+  transition: opacity .5s ease, transform .5s ease;
+}
+.party-nudge[data-on="true"] { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; animation: party-bob 2.2s ease-in-out infinite .5s; }
+.party-nudge-chev { font-size: 15px; line-height: 0; }
 
 .party-card {
   width: min(660px, 94vw);
