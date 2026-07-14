@@ -809,6 +809,9 @@ html:has(.party-root) { background: #070605; }
 .party-sec:not(.party-hero):not(.party-finale) {
   background: radial-gradient(ellipse 60% 42% at 50% 50%, rgba(7,6,5,0.88), rgba(7,6,5,0.5) 55%, transparent 78%);
 }
+.party-hero {
+  background: radial-gradient(ellipse 56% 40% at 50% 50%, rgba(7,6,5,0.86), rgba(7,6,5,0.48) 55%, transparent 76%);
+}
 
 .party-eyebrow {
   font-family: var(--mono); font-size: clamp(10px, 1.4vw, 12px); letter-spacing: 0.42em;
