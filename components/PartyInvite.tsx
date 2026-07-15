@@ -765,7 +765,7 @@ export function PartyInvite({ mode = 'rsvp' }: { mode?: 'rsvp' | 'request' }) {
               )}
               <div>
                 <dt>Mood</dt>
-                <dd>Black tie optional. Curiosity mandatory.</dd>
+                <dd>Tech bro chic. Curiosity mandatory.</dd>
               </div>
             </dl>
 
