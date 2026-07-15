@@ -99,7 +99,7 @@ export function LeadWorkspace({ leadId }: { leadId: string }) {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <NotesColumn
           leadId={leadId}
           lead={lead}
