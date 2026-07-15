@@ -52,7 +52,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/hire') ||
     pathname.startsWith('/apply') ||
     pathname.startsWith('/testimonial') ||
-    pathname.startsWith('/party')
+    pathname.startsWith('/party') ||
+    pathname.startsWith('/join')
   ) {
     return <div className="min-h-screen">{children}</div>;
   }

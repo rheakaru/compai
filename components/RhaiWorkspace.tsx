@@ -243,7 +243,7 @@ export function RhaiWorkspace() {
       {tab === 'party' && (
         <Panel
           title="Launch party · guest list"
-          sub="RSVPs from the 3D invite at heyrhai.com/party — Episode X of Hang w AI, Saturday 18 July, 7 PM. Copy the list for the door; resubmissions update in place, so no dupes."
+          sub="Episode X of Hang w AI, Sunday 19 July, 3 PM. Confirmed RSVPs from heyrhai.com/party plus requests from heyrhai.com/join — approve a request and the venue unlocks on their page. Copy the list for the door; resubmissions update in place."
         >
           <RsvpPanel />
         </Panel>

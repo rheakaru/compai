@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { PARTY_EVENT } from '@/lib/rhai/rsvp';
 
 const ORANGE = '#d97757';
 const CREAM = '#f4efe6';
@@ -226,20 +227,22 @@ void main() {
 
 // ---------------------------------------------------------------------------
 
-const EVENT_START_UTC = '2026-07-19T09:30:00Z'; // 3:00 PM IST, Sun 19 Jul
-const MAPS_URL =
-  'https://www.google.com/maps/search/?api=1&query=' +
-  encodeURIComponent('1391, 3rd Cross, 9th Main, Judicial Layout, Bengaluru 560065');
-const CAL_URL =
-  'https://calendar.google.com/calendar/render?action=TEMPLATE' +
-  `&text=${encodeURIComponent('Rhai Launch Party · Hang w AI, Episode X')}` +
-  '&dates=20260719T093000Z/20260719T133000Z' +
-  `&details=${encodeURIComponent("You're on the list. Special news, shared in person. — heyrhai.com/party")}` +
-  `&location=${encodeURIComponent('1391, 3rd Cross, 9th Main, Judicial Layout, Bengaluru 560065')}`;
+const EVENT_START_UTC = PARTY_EVENT.startUtc;
+const MAPS_URL = PARTY_EVENT.mapsUrl;
+const CAL_URL = PARTY_EVENT.calUrl;
 
 const TYPED_LINE = '> loading celebration.exe · guests: 100 · surprise: [REDACTED]';
 
-export function PartyInvite() {
+const REQUEST_ID_KEY = 'rhai.party.request.id';
+
+type EventDetails = { date: string; time: string; venue: string; mapsUrl: string; calUrl: string };
+
+// The invite runs in two modes:
+//  • 'rsvp'    — the /party page: full details incl. venue, direct confirm.
+//  • 'request' — the /join page: venue hidden, submitting files a request that
+//    an operator approves; details unlock on the page once approved.
+export function PartyInvite({ mode = 'rsvp' }: { mode?: 'rsvp' | 'request' }) {
+  const isRequest = mode === 'request';
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const secRefs = useRef<(HTMLElement | null)[]>([]);
   const burstRef = useRef<number>(0); // timestamp of RSVP-success burst
@@ -253,9 +256,16 @@ export function PartyInvite() {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [guests, setGuests] = useState<1 | 2>(1);
+  const [note, setNote] = useState(''); // request mode: "how do you know Rhai"
   const [status, setStatus] = useState<'idle' | 'sending' | 'done'>('idle');
   const [error, setError] = useState('');
   const [wasUpdate, setWasUpdate] = useState(false);
+
+  // Request mode: once approved, the page unlocks the details. `approved` holds
+  // the event once the status check comes back going; `checking` gates the button.
+  const [approved, setApproved] = useState<EventDetails | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkedEmpty, setCheckedEmpty] = useState(false); // checked, still pending
 
   const setSec = (i: number) => (el: HTMLElement | null) => {
     secRefs.current[i] = el;
@@ -558,6 +568,37 @@ export function PartyInvite() {
     };
   }, []);
 
+  // Poll a request's status by the id we stored on submit. If they're going
+  // (approved/confirmed) the endpoint returns the event and we unlock it.
+  const checkStatus = useCallback(async (id: string, manual = false) => {
+    if (manual) setChecking(true);
+    try {
+      const res = await fetch(`/api/rsvp/status?id=${encodeURIComponent(id)}`);
+      if (res.ok) {
+        const j = (await res.json()) as { status?: string; event?: EventDetails };
+        if (j.event) {
+          setApproved(j.event);
+          burstRef.current = performance.now();
+        } else if (manual) {
+          setCheckedEmpty(true);
+        }
+      }
+    } catch {
+      /* offline — leave them on the pending screen */
+    } finally {
+      if (manual) setChecking(false);
+    }
+  }, []);
+
+  // Returning requester: if approved since last visit, unlock straight away.
+  useEffect(() => {
+    if (!isRequest) return;
+    const id = localStorage.getItem(REQUEST_ID_KEY);
+    if (!id) return;
+    setStatus('done');
+    checkStatus(id);
+  }, [isRequest, checkStatus]);
+
   const submit = useCallback(
     async (ev: React.FormEvent) => {
       ev.preventDefault();
@@ -568,23 +609,28 @@ export function PartyInvite() {
         const res = await fetch('/api/rsvp', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ name, contact, guests })
+          body: JSON.stringify({ name, contact, guests, ...(isRequest ? { list: 'request', note } : {}) })
         });
         if (!res.ok) {
           setError(await res.text());
           setStatus('idle');
           return;
         }
-        const j = (await res.json()) as { updated?: boolean };
+        const j = (await res.json()) as { updated?: boolean; id?: string; status?: string };
         setWasUpdate(Boolean(j.updated));
         setStatus('done');
         burstRef.current = performance.now();
+        if (isRequest && j.id) {
+          localStorage.setItem(REQUEST_ID_KEY, j.id);
+          // If they were already approved before (re-submit), unlock now.
+          if (j.status === 'approved' || j.status === 'confirmed') checkStatus(j.id);
+        }
       } catch {
         setError('Something hiccuped — try once more?');
         setStatus('idle');
       }
     },
-    [name, contact, guests, status]
+    [name, contact, guests, note, isRequest, status, checkStatus]
   );
 
   const jumpToRsvp = () => document.getElementById('rsvp')?.scrollIntoView({ behavior: 'smooth' });
@@ -606,7 +652,7 @@ export function PartyInvite() {
       </header>
 
       <button type="button" className="party-jump" data-on={showJump && status !== 'done'} onClick={jumpToRsvp}>
-        RSVP ↓
+        {isRequest ? 'REQUEST ↓' : 'RSVP ↓'}
       </button>
 
       {/* Keep-going nudge — appears when the reader stalls mid-journey. */}
@@ -616,7 +662,7 @@ export function PartyInvite() {
 
       <main className="party-main">
         <section ref={setSec(0)} className="party-sec party-hero">
-          <p className="party-eyebrow">Rhai × Hang w AI · Episode X · by invitation</p>
+          <p className="party-eyebrow">Rhai × Hang w AI · Episode X · {isRequest ? 'request to join' : 'by invitation'}</p>
           <h1 className="party-h1">
             You&rsquo;re
             <br />
@@ -693,21 +739,30 @@ export function PartyInvite() {
             <dl className="party-details">
               <div>
                 <dt>Date</dt>
-                <dd>Sunday, 19 July 2026</dd>
+                <dd>{PARTY_EVENT.date}</dd>
               </div>
               <div>
                 <dt>Time</dt>
-                <dd>3:00 PM onwards</dd>
+                <dd>{PARTY_EVENT.time}</dd>
               </div>
-              <div>
-                <dt>Place</dt>
-                <dd>
-                  1391, 3rd Cross, 9th Main, Judicial Layout, Bengaluru{' '}
-                  <a href={MAPS_URL} target="_blank" rel="noreferrer" className="party-link">
-                    directions ↗
-                  </a>
-                </dd>
-              </div>
+              {/* Venue is shown to guests, and to requesters only once approved.
+                  Until then it's a locked, luxe teaser — not blasted widely. */}
+              {(!isRequest || approved) ? (
+                <div>
+                  <dt>Place</dt>
+                  <dd>
+                    {PARTY_EVENT.venue.replace(' 560065', '')}{' '}
+                    <a href={MAPS_URL} target="_blank" rel="noreferrer" className="party-link">
+                      directions ↗
+                    </a>
+                  </dd>
+                </div>
+              ) : (
+                <div>
+                  <dt>Place</dt>
+                  <dd className="party-locked">Somewhere lovely in Bengaluru — revealed once you&rsquo;re in.</dd>
+                </div>
+              )}
               <div>
                 <dt>Mood</dt>
                 <dd>Black tie optional. Curiosity mandatory.</dd>
@@ -715,22 +770,49 @@ export function PartyInvite() {
             </dl>
 
             {status === 'done' ? (
-              <div className="party-done">
-                <p className="party-done-mark">✳</p>
-                <p className="party-done-title">You&rsquo;re on the list.</p>
-                <p className="party-done-sub">
-                  {wasUpdate ? 'We updated your earlier RSVP. ' : ''}
-                  We&rsquo;ll ping you the day before. Come hungry, leave indoctrinated.
-                </p>
-                <div className="party-done-actions">
-                  <a href={CAL_URL} target="_blank" rel="noreferrer" className="party-btn party-btn-ghost">
-                    Add to calendar
-                  </a>
-                  <a href={MAPS_URL} target="_blank" rel="noreferrer" className="party-btn party-btn-ghost">
-                    Get directions
-                  </a>
+              isRequest && !approved ? (
+                // Request filed, awaiting approval.
+                <div className="party-done">
+                  <p className="party-done-mark">⌛</p>
+                  <p className="party-done-title">Request received.</p>
+                  <p className="party-done-sub">
+                    We read every one personally. If you&rsquo;re in, the venue and details unlock right here — we&rsquo;ll also drop you a note. Hang tight.
+                  </p>
+                  <div className="party-done-actions">
+                    <button
+                      type="button"
+                      className="party-btn party-btn-ghost"
+                      disabled={checking}
+                      onClick={() => {
+                        const id = localStorage.getItem(REQUEST_ID_KEY);
+                        if (id) checkStatus(id, true);
+                      }}
+                    >
+                      {checking ? 'Checking…' : 'Check my status'}
+                    </button>
+                  </div>
+                  {checkedEmpty && <p className="party-fine">Still pending — check back a little later.</p>}
                 </div>
-              </div>
+              ) : (
+                // Confirmed guest, or an approved requester who just unlocked.
+                <div className="party-done">
+                  <p className="party-done-mark">✳</p>
+                  <p className="party-done-title">{isRequest ? 'You’re in.' : 'You’re on the list.'}</p>
+                  <p className="party-done-sub">
+                    {isRequest
+                      ? 'Approved — the details are yours above. Come hungry, leave indoctrinated.'
+                      : `${wasUpdate ? 'We updated your earlier RSVP. ' : ''}We’ll ping you the day before. Come hungry, leave indoctrinated.`}
+                  </p>
+                  <div className="party-done-actions">
+                    <a href={CAL_URL} target="_blank" rel="noreferrer" className="party-btn party-btn-ghost">
+                      Add to calendar
+                    </a>
+                    <a href={MAPS_URL} target="_blank" rel="noreferrer" className="party-btn party-btn-ghost">
+                      Get directions
+                    </a>
+                  </div>
+                </div>
+              )
             ) : (
               <form className="party-form" onSubmit={submit}>
                 <label className="party-field">
@@ -739,8 +821,14 @@ export function PartyInvite() {
                 </label>
                 <label className="party-field">
                   <span>WhatsApp or email</span>
-                  <input value={contact} onChange={e => setContact(e.target.value)} placeholder="For the guest list" autoComplete="tel" required maxLength={120} />
+                  <input value={contact} onChange={e => setContact(e.target.value)} placeholder={isRequest ? 'Where we’ll send your invite' : 'For the guest list'} autoComplete="tel" required maxLength={120} />
                 </label>
+                {isRequest && (
+                  <label className="party-field">
+                    <span>How do you know Rhai?</span>
+                    <input value={note} onChange={e => setNote(e.target.value)} placeholder="Sessions you’ve joined, or who sent you" maxLength={300} />
+                  </label>
+                )}
                 <div className="party-field">
                   <span>Bringing anyone?</span>
                   <div className="party-pills">
@@ -754,9 +842,11 @@ export function PartyInvite() {
                 </div>
                 {error && <p className="party-error">{error}</p>}
                 <button type="submit" className="party-btn party-btn-fill" disabled={status === 'sending'}>
-                  {status === 'sending' ? 'Saving…' : 'Save my spot'}
+                  {status === 'sending' ? (isRequest ? 'Sending…' : 'Saving…') : isRequest ? 'Request my spot' : 'Save my spot'}
                 </button>
-                <p className="party-fine">The guest list closes when we&rsquo;re full.</p>
+                <p className="party-fine">
+                  {isRequest ? 'We approve requests personally — you’ll get the details once you’re in.' : 'The guest list closes when we’re full.'}
+                </p>
               </form>
             )}
           </div>
@@ -912,6 +1002,7 @@ html:has(.party-root) { background: #070605; }
 .party-details dd { margin: 0; font-family: var(--sans); font-size: 15.5px; line-height: 1.55; color: ${CREAM}; }
 .party-link { color: ${ORANGE}; text-decoration: none; font-size: 13.5px; white-space: nowrap; }
 .party-link:hover { text-decoration: underline; }
+.party-locked { color: ${MUTED}; font-style: italic; }
 
 .party-form { margin-top: 34px; display: grid; gap: 18px; }
 .party-field { display: grid; gap: 8px; }
