@@ -48,5 +48,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     at: Date.now()
   };
   const ref = await leadRef.collection('noteSessions').add(session);
+  // Touch the lead so it re-ranks to the top of the recency-sorted pipeline.
+  await leadRef.update({ updatedAt: Date.now() });
   return Response.json({ session: { id: ref.id, ...session } });
 }

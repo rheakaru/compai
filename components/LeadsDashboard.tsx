@@ -17,7 +17,6 @@ import {
 import {
   BILLING_LABELS,
   DAY_RATE_INR,
-  DEAD_STAGES,
   JUNE_TARGET_INR,
   LIKELIHOOD_LABELS,
   STAGE_LABELS,
@@ -228,12 +227,11 @@ export function LeadsDashboard() {
       </Wrapper>
     );
 
-  const all = (leads ?? []).slice().sort((a, b) => leadOrder(a) - leadOrder(b));
+  // Rank by most-recently-changed first, so leads bubble up as you work them —
+  // not by when they were added.
+  const all = (leads ?? []).slice().sort((a, b) => b.updatedAt - a.updatedAt);
   const visible = filter === 'all' ? all : all.filter(l => l.type === filter);
   const buckets = revenueBuckets(all);
-  const jobConnects = all.filter(l => l.jobConnect);
-  const orgScheduled = all.filter(l => l.type === 'org' && l.stage !== 'interested' && !DEAD_STAGES.includes(l.stage));
-  const paidWon = all.filter(l => l.billing === 'paid' && (l.paymentReceived || l.stage === 'paid' || l.stage === 'closed'));
 
   return (
     <Wrapper>
@@ -265,35 +263,6 @@ export function LeadsDashboard() {
           <CalendarLeadSync calToken={calToken} leads={leads} onPatch={patch} />
         )}
       </div>
-
-      {/* ---- goals ---- */}
-      <section className="mt-4 grid gap-3 sm:grid-cols-3">
-        <GoalCard
-          title="Teach AI at scale"
-          body="Build a large base of people I teach AI to — free sessions and org talks feed the funnel."
-        />
-        <GoalCard
-          title="Convert 4 companies / month"
-          body="Turn 4 companies monthly into ₹3-lakh paid engagements (recce + build days)."
-          stat={`${paidWon.length} won this month`}
-        />
-        <GoalCard
-          title="Land an AI role in SF"
-          body="AI Educator / advocate / forward-deployed engineer — via connects made through these sessions."
-          stat={`${jobConnects.length} job-connects flagged`}
-        />
-      </section>
-
-      {/* ---- outreach + job-connect strips ---- */}
-      <section className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Stat label="Paid engagements won" value={String(paidWon.length)} sub="goal: 4 / month" />
-        <Stat label="Org sessions scheduled+" value={String(orgScheduled.length)} sub="CREDAI · YPO · EO · FICCI FLO …" />
-        <Stat
-          label="Job-connect leads"
-          value={String(jobConnects.length)}
-          sub={jobConnects.length ? jobConnects.map(j => j.company || j.person).filter(Boolean).slice(0, 3).join(' · ') : 'Anthropic · Sarvam …'}
-        />
-      </section>
 
       {/* ---- leads table ---- */}
       <section className="mt-6">
@@ -337,7 +306,7 @@ export function LeadsDashboard() {
             No leads yet. Click “Add lead”.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {visible.map(l => (
               <LeadCard
                 key={l.id}
@@ -349,7 +318,7 @@ export function LeadsDashboard() {
                 calToken={calToken}
                 onConnectCal={connectCal}
                 authedFetch={authedFetch}
-                dragEnabled={filter === 'all'}
+                dragEnabled={false}
                 isDragging={dragId === l.id}
                 dragTarget={dragId !== null && dragId !== l.id}
                 onDragStart={() => setDragId(l.id)}
@@ -430,7 +399,7 @@ function LeadCard({
     <div
       className={`${expanded ? 'sm:col-span-2 xl:col-span-3' : ''} rounded-lg border border-l-[3px] border-ink-200 ${
         STRENGTH_BORDER[lead.likelihood]
-      } bg-white p-3 transition-shadow hover:shadow-sm ${isDragging ? 'opacity-40' : ''} ${
+      } bg-white p-2.5 transition-shadow hover:shadow-sm ${isDragging ? 'opacity-40' : ''} ${
         dragTarget ? 'ring-1 ring-accent' : ''
       }`}
       onDragOver={e => {
@@ -464,7 +433,7 @@ function LeadCard({
               <InlineText
                 value={lead.person}
                 placeholder="Person"
-                className="font-medium text-ink-900"
+                className="text-sm font-medium text-ink-900"
                 onSave={v => onPatch(lead.id, { person: v })}
               />
               {lead.jobConnect && (
@@ -511,11 +480,11 @@ function LeadCard({
       </div>
 
       {/* stage chip + value */}
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-1.5 flex items-center justify-between gap-2">
         <select
           value={lead.stage}
           onChange={e => onPatch(lead.id, { stage: e.target.value as LeadStage })}
-          className={`cursor-pointer rounded-full border-0 py-0.5 pl-2 pr-1 text-[11px] font-medium ${
+          className={`cursor-pointer rounded-full border-0 py-0.5 pl-2 pr-1 text-[10px] font-medium ${
             STAGE_CHIP[lead.stage] ?? 'bg-ink-100 text-ink-600'
           }`}
         >
@@ -542,7 +511,7 @@ function LeadCard({
       </div>
 
       {/* next step */}
-      <div className="mt-1.5 flex items-start gap-1">
+      <div className="mt-1 flex items-start gap-1">
         <InlineText
           value={lead.nextSteps}
           placeholder="Next step…"
@@ -1449,26 +1418,6 @@ function Legend({ dot, label, value }: { dot: string; label: string; value: numb
       <span className={`inline-block h-2.5 w-2.5 rounded-full ${dot}`} />
       {label} <span className="font-medium text-ink-800">{formatINR(value)}</span>
     </span>
-  );
-}
-
-function GoalCard({ title, body, stat }: { title: string; body: string; stat?: string }) {
-  return (
-    <div className="rounded-md border border-ink-200 bg-white px-4 py-3">
-      <p className="text-sm font-semibold text-ink-900">{title}</p>
-      <p className="mt-1 text-xs leading-relaxed text-ink-500">{body}</p>
-      {stat && <p className="mt-2 text-[11px] font-medium text-accent">{stat}</p>}
-    </div>
-  );
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-md border border-ink-200 bg-white px-4 py-3">
-      <p className="text-[11px] uppercase tracking-wider text-ink-500">{label}</p>
-      <p className="mt-0.5 text-2xl font-semibold text-ink-900">{value}</p>
-      {sub && <p className="mt-0.5 truncate text-[11px] text-ink-400">{sub}</p>}
-    </div>
   );
 }
 
