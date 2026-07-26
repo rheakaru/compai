@@ -50,6 +50,13 @@ env:
   - variable: ELEVENLABS_API_KEY
     secret: ELEVENLABS_API_KEY
     availability: [RUNTIME]
+  # Sarvam Saarika — primary speech-to-text for the interview/discovery mics
+  # (Indian-English accuracy + where we have credits). ElevenLabs above is the
+  # fallback used only when this is unset. Grant access before deploying:
+  #   firebase apphosting:secrets:grantaccess SARVAM_API_KEY --backend compai-web
+  - variable: SARVAM_API_KEY
+    secret: SARVAM_API_KEY
+    availability: [RUNTIME]
 
   # WhatsApp (Meta Cloud API) — Rhai over WhatsApp (/api/whatsapp).
   #   firebase apphosting:secrets:set WHATSAPP_TOKEN        (permanent access token)

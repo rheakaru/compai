@@ -2,12 +2,14 @@
 
 // Voice input. Two backends:
 //
-// 1) Preferred: MediaRecorder + /api/transcribe (ElevenLabs Scribe).
-//    Dramatically more accurate on Indian English + code-switched Hindi/
-//    Kannada/Tamil words than the browser's built-in recognition. Works
-//    cross-browser (Chrome, Safari, Firefox, mobile Safari, mobile Chrome).
-//    Also uploads the raw audio to Cloud Storage so Rhea can hear the
-//    guest's actual voice from the transcript later.
+// 1) Preferred: MediaRecorder + /api/transcribe (Sarvam Saarika, or ElevenLabs
+//    Scribe as fallback). Dramatically more accurate on Indian English +
+//    code-switched Hindi/Kannada/Tamil words than the browser's built-in
+//    recognition. Works cross-browser (Chrome, Safari, Firefox, mobile).
+//    Recording is cut into ≤25s segments (Sarvam's sync API caps at 30s) by
+//    restarting the recorder on the same stream; segments are transcribed in
+//    parallel and joined in order. Single-segment replies also upload the raw
+//    audio to Cloud Storage so Rhea can hear the guest's actual voice later.
 //
 // 2) Fallback: browser SpeechRecognition. Used only when the server endpoint
 //    is not configured (probe returns { available: false }) or when
@@ -61,11 +63,18 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
   // Browser SR state (fallback)
   const recRef = useRef<SpeechRecognitionLike | null>(null);
 
-  // MediaRecorder state (primary)
+  // MediaRecorder state (primary). Recording is cut into ≤SEGMENT_MS segments
+  // by restarting the recorder on the same mic stream — each segment is a
+  // complete, independently-decodable file, kept under Sarvam's 30s sync limit.
+  // On stop, every segment is transcribed and the texts are joined in order.
   const mediaRecRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const chunksRef = useRef<Blob[]>([]); // chunks of the ACTIVE segment
+  const segmentsRef = useRef<Blob[]>([]); // completed segments, in order
+  const segTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listeningRef = useRef(false); // mirror of `listening` for async closures
   const uploadingRef = useRef(false);
+  const SEGMENT_MS = 25_000;
 
   // Detect what's available. Probe the server endpoint once; if it returns
   // { available: true } AND the browser has getUserMedia+MediaRecorder, use
@@ -134,8 +143,18 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
     })();
     return () => {
       cancelled = true;
+      listeningRef.current = false;
+      if (segTimerRef.current) {
+        clearTimeout(segTimerRef.current);
+        segTimerRef.current = null;
+      }
       try {
         recRef.current?.stop();
+      } catch {
+        // already stopped
+      }
+      try {
+        if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') mediaRecRef.current.stop();
       } catch {
         // already stopped
       }
@@ -143,54 +162,109 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
     };
   }, []);
 
-  const stopServer = useCallback(async () => {
-    const mr = mediaRecRef.current;
-    if (!mr) return;
+  // Begin a fresh recorder segment on an already-open mic stream.
+  const startSegment = useCallback((stream: MediaStream) => {
+    const mime = pickMime();
+    const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    mediaRecRef.current = mr;
+    chunksRef.current = [];
+    mr.ondataavailable = ev => {
+      if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
+    };
+    mr.start();
+  }, []);
 
-    await new Promise<void>(resolve => {
-      mr.onstop = () => resolve();
+  // Stop the active recorder and resolve its accumulated blob (or null).
+  const finishSegment = useCallback((): Promise<Blob | null> => {
+    const mr = mediaRecRef.current;
+    if (!mr) return Promise.resolve(null);
+    return new Promise<Blob | null>(resolve => {
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
+        chunksRef.current = [];
+        resolve(blob.size > 0 ? blob : null);
+      };
       try {
         if (mr.state !== 'inactive') mr.stop();
-        else resolve();
+        else resolve(null);
       } catch {
-        resolve();
+        resolve(null);
       }
     });
+  }, []);
+
+  // Timer-driven rotation: close the current segment, immediately open the
+  // next on the same stream, and re-arm. Guards against firing after stop.
+  const rotateSegment = useCallback(async () => {
+    if (!listeningRef.current) return;
+    const blob = await finishSegment();
+    if (blob) segmentsRef.current.push(blob);
+    if (!listeningRef.current || !streamRef.current) return;
+    startSegment(streamRef.current);
+    segTimerRef.current = setTimeout(() => void rotateSegment(), SEGMENT_MS);
+  }, [finishSegment, startSegment, SEGMENT_MS]);
+
+  const stopServer = useCallback(async () => {
+    if (!mediaRecRef.current) return;
+    listeningRef.current = false;
+    if (segTimerRef.current) {
+      clearTimeout(segTimerRef.current);
+      segTimerRef.current = null;
+    }
+
+    const last = await finishSegment();
+    if (last) segmentsRef.current.push(last);
     stopStream(streamRef.current);
     streamRef.current = null;
     mediaRecRef.current = null;
     setListening(false);
 
-    const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
-    chunksRef.current = [];
-    if (blob.size === 0) return;
+    const segments = segmentsRef.current;
+    segmentsRef.current = [];
+    if (segments.length === 0) return;
+    const single = segments.length === 1;
 
     uploadingRef.current = true;
     try {
-      const form = new FormData();
-      form.append('audio', blob, `speech.webm`);
-      form.append('language', 'en');
-      // Tie the recording to a session so the server can persist audio.
+      // Transcribe all segments in parallel; join in original order. Audio is
+      // only persisted for a single-segment reply (the message schema carries
+      // one audioUrl — a partial clip of a long answer would mislead).
       const c = ctxRef.current;
-      if (c?.sessionId) {
-        form.append('sessionKind', c.kind);
-        form.append('sessionId', c.sessionId);
-      }
-      const res = await fetch('/api/transcribe', { method: 'POST', body: form });
-      if (!res.ok) {
+      const parts = await Promise.all(
+        segments.map(async (seg, i) => {
+          const form = new FormData();
+          form.append('audio', seg, `speech.webm`);
+          form.append('language', 'en');
+          if (single && c?.sessionId) {
+            form.append('sessionKind', c.kind);
+            form.append('sessionId', c.sessionId);
+          }
+          const res = await fetch('/api/transcribe', { method: 'POST', body: form });
+          if (!res.ok) return { i, text: '', audioUrl: undefined, ok: false };
+          const j = (await res.json()) as { text?: string; audioUrl?: string };
+          return { i, text: (j.text ?? '').trim(), audioUrl: j.audioUrl, ok: true };
+        })
+      );
+
+      if (parts.every(p => !p.ok)) {
         setError('Transcription is unavailable right now — please type instead.');
         return;
       }
-      const j = (await res.json()) as { text?: string; audioUrl?: string };
-      const text = (j.text ?? '').trim();
-      if (text) onTextRef.current(text);
-      if (j.audioUrl) setLastAudioUrl(j.audioUrl);
+      const joined = parts
+        .sort((a, b) => a.i - b.i)
+        .map(p => p.text)
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      if (joined) onTextRef.current(joined);
+      const audioUrl = single ? parts[0]?.audioUrl : undefined;
+      if (audioUrl) setLastAudioUrl(audioUrl);
     } catch {
       setError('Transcription failed — please type instead.');
     } finally {
       uploadingRef.current = false;
     }
-  }, []);
+  }, [finishSegment]);
 
   const startServer = useCallback(async () => {
     setError(null);
@@ -203,20 +277,16 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
         }
       });
       streamRef.current = stream;
-      const mime = pickMime();
-      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      mediaRecRef.current = mr;
-      chunksRef.current = [];
-      mr.ondataavailable = ev => {
-        if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
-      };
-      mr.start();
+      segmentsRef.current = [];
+      startSegment(stream);
+      listeningRef.current = true;
       setListening(true);
+      segTimerRef.current = setTimeout(() => void rotateSegment(), SEGMENT_MS);
     } catch {
       setError('Microphone permission was denied.');
       setListening(false);
     }
-  }, []);
+  }, [startSegment, rotateSegment, SEGMENT_MS]);
 
   const toggle = useCallback(() => {
     const backend = backendRef.current;
