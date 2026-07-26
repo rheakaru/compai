@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
+import { getUserFromRequest } from '@/lib/firebase/auth-server';
 import {
   DAY_RATE_INR,
   EMPTY_CHECKLIST,
@@ -14,7 +14,9 @@ export const dynamic = 'force-dynamic';
 const COLLECTION = 'workshopLeads';
 
 async function requireOperator(req: NextRequest) {
-  const user = await getUserFromAuthHeader(req.headers.get('authorization'));
+  // Bearer token first; falls back to the __rhai_session cookie when client
+  // Firebase storage has been evicted (Safari ITP).
+  const user = await getUserFromRequest(req);
   if (!user) return { error: new Response('unauthorized', { status: 401 }) };
   if (!user.operator) return { error: new Response('forbidden — operator only', { status: 403 }) };
   return { user };
@@ -55,6 +57,7 @@ export async function POST(req: NextRequest) {
     jobConnect: body.jobConnect ?? false,
     jobConnectNotes: body.jobConnectNotes,
     notes: body.notes,
+    contacts: body.contacts,
     createdAt: now,
     updatedAt: now
   };

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
+import { getUserFromRequest } from '@/lib/firebase/auth-server';
 import { modelFor } from '@/lib/rhai/models';
 
 export const runtime = 'nodejs';
@@ -28,7 +28,7 @@ function toImageBlock(dataUrl: string): ImageBlock | null {
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getUserFromAuthHeader(req.headers.get('authorization'));
+  const user = await getUserFromRequest(req);
   if (!user) return new Response('unauthorized', { status: 401 });
   if (!user.operator) return new Response('forbidden — operator only', { status: 403 });
   await ctx.params; // lead id — reserved for future per-lead context

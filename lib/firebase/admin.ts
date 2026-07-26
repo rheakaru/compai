@@ -63,18 +63,22 @@ export function adminRtdb(): Database {
   return getDatabase(init());
 }
 
-/** Default Cloud Storage bucket — holds original uploaded client documents. */
+// The default Firebase Storage bucket (`compai-57d55.firebasestorage.app`)
+// was NEVER provisioned on this project — verified: it does not exist, nor
+// does `.appspot.com`. The only real bucket is `compai-57d55-media`, created
+// and owned by the app's service account. So EVERYTHING routes there: any
+// prior `bucket()` (default) write silently failed against a phantom bucket,
+// which is exactly why the NDA signature save, generated PDFs, lead-document
+// uploads, invoices and testimonials appeared to "save" but stored nothing.
+const DURABLE_BUCKET = process.env.MEDIA_BUCKET || 'compai-57d55-media';
+
+/** Cloud Storage bucket for uploaded/generated documents. Points at the one
+ * bucket that actually exists on this project (see note above). */
 export function adminBucket() {
-  return getStorage(init()).bucket();
+  return getStorage(init()).bucket(DURABLE_BUCKET);
 }
 
-/**
- * Media bucket (asia-south1) for audio/blobs that must survive — the default
- * `.firebasestorage.app` bucket was never provisioned on this project, so
- * anything relying on adminBucket() silently failed. This one is created and
- * owned by the app's service account. Served to the public via streaming
- * routes (no object-ACL / makePublic dependency).
- */
+/** Same durable bucket, kept as a distinct name for audio/blob call sites. */
 export function mediaBucket() {
-  return getStorage(init()).bucket(process.env.MEDIA_BUCKET || 'compai-57d55-media');
+  return getStorage(init()).bucket(DURABLE_BUCKET);
 }

@@ -12,6 +12,7 @@ import {
   type RhaiToolDef
 } from './server';
 import { upsertPersonIntel } from './people';
+import { insertEventServer } from './gcal-server';
 import { modelFor } from './models';
 import { normalizeLead, type WorkshopLead } from '@/lib/leads/types';
 import { SUGGESTION_KIND_LABELS, type SuggestionKind } from './types';
@@ -39,6 +40,29 @@ export async function sendWhatsAppText(to: string, body: string): Promise<void> 
       to,
       type: 'text',
       text: { body: body.slice(0, 4096), preview_url: false }
+    })
+  }).catch(() => undefined);
+}
+
+/** Send a document (e.g. a generated NDA PDF) by link — Meta fetches the URL,
+ * so it must be publicly reachable for ~a minute (a signed Storage URL works). */
+export async function sendWhatsAppDocument(
+  to: string,
+  link: string,
+  filename: string,
+  caption?: string
+): Promise<void> {
+  const token = process.env.WHATSAPP_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneId) return;
+  await fetch(`${GRAPH}/${phoneId}/messages`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'document',
+      document: { link, filename, ...(caption ? { caption: caption.slice(0, 1024) } : {}) }
     })
   }).catch(() => undefined);
 }
@@ -108,15 +132,28 @@ interface StoredTurn {
   at: number;
 }
 
-const WHATSAPP_ADDENDUM = `
-You are talking to Rhea over WhatsApp — she's on her phone, capturing things on the move. Keep replies short and skimmable: a few lines, plain text, no markdown headers or long essays. This is a primary capture channel — route what she gives you, don't just chat:
+function whatsappAddendum(): string {
+  // Today's date in Asia/Kolkata so relative dates ("tomorrow at 3") resolve
+  // correctly regardless of the server's locale/timezone.
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'long',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+  return `
+You are talking to Rhea over WhatsApp — she's on her phone, capturing things on the move. Keep replies short and skimmable: a few lines, plain text, no markdown headers or long essays. Today is ${today} (Asia/Kolkata). This is a primary capture channel — route what she gives you, don't just chat:
 - A task/reminder for herself → call add_todo.
 - An idea → call add_idea (a one-line take is welcome, but capture it first).
 - Something to draft/prep for a client, or any actionable that shouldn't be lost → call propose_action so it lands on Today.
 - Intel about a person → call update_person.
 - Use get_pipeline before answering pipeline questions.
+- A scheduling request ("set up a call with X tomorrow at 3, invite a@b.com") → call schedule_meeting; resolve relative dates from today's date above, times are Asia/Kolkata. Include the event + Meet links from the tool result in your confirmation.
+- A company legal name with an NDA ask ("NDA for Acme Widgets Private Limited") → call generate_nda; the PDF is sent to her chat by the tool. Relay the blanks she still has to fill and whether it was signature-stamped.
 - You can brainstorm and sketch a proposal inline; the full proposal document gets built in the app, so offer to file it via propose_action.
 - Briefly confirm what you saved. Warm, concrete, no filler.`;
+}
 
 export async function buildWhatsappReply(params: {
   from: string;
@@ -226,6 +263,135 @@ export async function buildWhatsappReply(params: {
     },
     {
       schema: {
+        name: 'schedule_meeting',
+        description:
+          'Create a Google Calendar event on Rhea’s primary calendar, optionally inviting attendees by email (they get an invite + Google Meet link). Times are Asia/Kolkata.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Event title' },
+            date: { type: 'string', description: 'YYYY-MM-DD (Asia/Kolkata)' },
+            time: { type: 'string', description: 'HH:mm, 24-hour, Asia/Kolkata' },
+            durationMins: { type: 'number', description: 'Duration in minutes (default 45)' },
+            attendeeEmails: { type: 'array', items: { type: 'string' }, description: 'Attendee emails to invite (optional)' },
+            description: { type: 'string', description: 'Event description (optional)' },
+            withMeet: {
+              type: 'boolean',
+              description: 'Attach a Google Meet link. Defaults to true when attendees are present.'
+            }
+          },
+          required: ['title', 'date', 'time']
+        }
+      },
+      execute: async input => {
+        const i = input as {
+          title?: string;
+          date?: string;
+          time?: string;
+          durationMins?: number;
+          attendeeEmails?: string[];
+          description?: string;
+          withMeet?: boolean;
+        };
+        const title = String(i.title ?? '').trim();
+        const date = String(i.date ?? '').trim();
+        const time = String(i.time ?? '').trim();
+        if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+          return 'tool error: need title, date (YYYY-MM-DD) and time (HH:mm, 24h IST)';
+        }
+        const durationMins = Number.isFinite(i.durationMins) && (i.durationMins as number) > 0 ? Math.round(i.durationMins as number) : 45;
+        const attendeeEmails = (i.attendeeEmails ?? []).map(e => String(e).trim()).filter(e => /.+@.+\..+/.test(e));
+        const withMeet = i.withMeet ?? attendeeEmails.length > 0;
+
+        // Build start/end wall-clock strings and let the Calendar API apply the
+        // timezone — never trust the server's locale for IST math.
+        const [h, m] = time.split(':').map(Number);
+        const endTotal = h * 60 + m + durationMins;
+        let endDate = date;
+        let endMins = endTotal;
+        if (endTotal >= 24 * 60) {
+          // Rolls past midnight — bump the date (UTC math on the date string is safe).
+          endMins = endTotal - 24 * 60;
+          const dNext = new Date(`${date}T00:00:00Z`);
+          dNext.setUTCDate(dNext.getUTCDate() + 1);
+          endDate = dNext.toISOString().slice(0, 10);
+        }
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const tz = 'Asia/Kolkata';
+        const ev = await insertEventServer({
+          summary: title,
+          ...(i.description ? { description: String(i.description).slice(0, 2000) } : {}),
+          start: { dateTime: `${date}T${time}:00`, timeZone: tz },
+          end: { dateTime: `${endDate}T${pad(Math.floor(endMins / 60))}:${pad(endMins % 60)}:00`, timeZone: tz },
+          ...(attendeeEmails.length ? { attendeeEmails } : {}),
+          withMeet
+        });
+        return [
+          `Scheduled "${title}" on ${date} at ${time} IST (${durationMins} min).`,
+          attendeeEmails.length ? `Invited: ${attendeeEmails.join(', ')}` : null,
+          `Event: ${ev.htmlLink}`,
+          ev.meetLink ? `Meet: ${ev.meetLink}` : null
+        ]
+          .filter(Boolean)
+          .join('\n');
+      }
+    },
+    {
+      schema: {
+        name: 'generate_nda',
+        description:
+          'Generate Rhea’s standard mutual NDA as a signed PDF and send it to her right here on WhatsApp. Use when she sends a company legal name and wants the NDA. Include "Private Limited"/"Limited" exactly as she gives it. Optionally pass leadLabel (person/company) to pull discovery context for the Purpose clause.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            clientLegalName: { type: 'string', description: 'Client’s full legal name, verbatim' },
+            leadLabel: { type: 'string', description: 'Optional person/company to link the NDA to a pipeline lead' }
+          },
+          required: ['clientLegalName']
+        }
+      },
+      execute: async input => {
+        const i = input as { clientLegalName?: string; leadLabel?: string };
+        const clientLegalName = String(i.clientLegalName ?? '').trim();
+        if (!clientLegalName) return 'tool error: clientLegalName required';
+
+        // Resolve an optional lead by fuzzy person/company match so the NDA
+        // lands on the right client and its Purpose clause uses discovery.
+        let leadId: string | undefined;
+        const label = String(i.leadLabel ?? clientLegalName).toLowerCase();
+        try {
+          const s = await db.collection('workshopLeads').orderBy('updatedAt', 'desc').limit(100).get();
+          const hit = s.docs.find(d => {
+            const l = d.data() as { person?: string; company?: string };
+            return [l.person, l.company]
+              .filter(Boolean)
+              .some(v => label.includes(String(v).toLowerCase()) || String(v).toLowerCase().includes(label.split(' ')[0]));
+          });
+          leadId = hit?.id;
+        } catch {
+          /* lead link is best-effort */
+        }
+
+        const { generateAndStoreNda } = await import('./nda');
+        const nda = await generateAndStoreNda({ clientLegalName, leadId });
+        await sendWhatsAppDocument(
+          params.from,
+          nda.url,
+          nda.filename,
+          nda.signed ? 'Signed and dated — review the blanks before sending.' : 'Unsigned — no signature on file yet.'
+        );
+        return [
+          `NDA generated and sent as a PDF: ${nda.filename}.`,
+          nda.signed
+            ? 'Stamped with her signature on every page + the signature block, dated today.'
+            : 'NOT signature-stamped — she hasn’t uploaded a signature in the NDA tab yet.',
+          nda.blanks.length ? `Blanks she must fill before sending: ${nda.blanks.join('; ')}.` : 'No blanks — ready to send.',
+          leadId ? 'Filed on the matching lead’s documents.' : 'No matching pipeline lead found — not filed on a lead.'
+        ].join('\n');
+      }
+    },
+    {
+      schema: {
         name: 'get_pipeline',
         description: 'Fetch the current leads pipeline snapshot (stages, values, next steps, notes).',
         input_schema: { type: 'object', properties: {} }
@@ -244,7 +410,7 @@ export async function buildWhatsappReply(params: {
   const reply = await runRhaiWithContext({
     model: modelFor('suggest'),
     maxTokens: 1500,
-    system: buildRhaiSystemPrompt(sections) + WHATSAPP_ADDENDUM,
+    system: buildRhaiSystemPrompt(sections) + whatsappAddendum(),
     priorMessages: prior,
     userContent: params.text,
     clientTools,

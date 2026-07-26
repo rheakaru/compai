@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "compai-57d55"
+  },
+  "targets": {
+    "compai-57d55": {
+      "hosting": {
+        "marketing": [
+          "compai-marketing"
+        ]
+      }
+    }
+  }
+}

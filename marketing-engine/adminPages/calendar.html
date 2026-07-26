@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calendar · Rhai</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/code/marketing.css" />
+<link rel="stylesheet" href="/code/calendar.css" />
+</head><body>
+<main id="root"></main>
+<script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-storage.js"></script>
+<script src="/code/loginScript.js"></script>
+<script>(function(){function b(){return Math.floor(Date.now()/(5*60*1000));}function l(s,c){var e=document.createElement('script');e.src=s+'?v='+b();e.onload=c;document.body.appendChild(e);}l('/code/marketingCommon.js',function(){l('/code/calendar.js',function(){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',window.Cal.init);else window.Cal.init();});});})();</script>
+</body></html>

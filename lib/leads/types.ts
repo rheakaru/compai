@@ -161,6 +161,13 @@ export interface WorkshopLead {
 
   notes?: string;
 
+  /**
+   * Client-side email addresses seen on calls with this lead (never Rhea's
+   * own). Used by the Fireflies ingestion pipeline to auto-match transcripts
+   * to this lead by attendee email.
+   */
+  contacts?: string[];
+
   // ---- Rhai layer ----
   /**
    * Manual sort order for drag-to-reorder (lower = higher in the list). When
@@ -228,6 +235,12 @@ export interface LeadDocument {
   sizeBytes?: number;
   /** Prior versions of a generated doc, oldest→newest, before the current text. */
   versions?: { text: string; note: string; at: number }[];
+  /**
+   * The date ON the document (ms epoch) — an NDA's effective date, a
+   * proposal's issue date. Extracted on upload (or operator override); used by
+   * the deal-velocity tracker in preference to `createdAt`.
+   */
+  docDate?: number;
   /** Iterating chat on the document detail page — Rhea ↔ Rhai edits. */
   chat?: { role: 'rhea' | 'rhai'; text: string; at: number }[];
   createdAt: number;
@@ -238,7 +251,7 @@ export interface LeadDocument {
 export interface LeadNoteSession {
   id: string;
   text: string;
-  source: 'typed' | 'voice' | 'transcribed' | 'rhai-research';
+  source: 'typed' | 'voice' | 'transcribed' | 'rhai-research' | 'claude-sync';
   /** Optional label, e.g. "Recce day 1" or "Call with CFO". */
   label?: string;
   at: number;

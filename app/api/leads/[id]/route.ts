@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
+import { getUserFromRequest } from '@/lib/firebase/auth-server';
 import type { LeadInput, WorkshopLead } from '@/lib/leads/types';
 
 export const runtime = 'nodejs';
@@ -9,7 +9,9 @@ export const dynamic = 'force-dynamic';
 const COLLECTION = 'workshopLeads';
 
 async function requireOperator(req: NextRequest) {
-  const user = await getUserFromAuthHeader(req.headers.get('authorization'));
+  // Bearer token first; falls back to the __rhai_session cookie when client
+  // Firebase storage has been evicted (Safari ITP).
+  const user = await getUserFromRequest(req);
   if (!user) return { error: new Response('unauthorized', { status: 401 }) };
   if (!user.operator) return { error: new Response('forbidden — operator only', { status: 403 }) };
   return { user };
@@ -38,6 +40,7 @@ const MUTABLE_KEYS: (keyof LeadInput)[] = [
   'jobConnect',
   'jobConnectNotes',
   'notes',
+  'contacts',
   'order',
   'smartNotes',
   'smartNotesUpdatedAt',

@@ -25,7 +25,7 @@ export const RHAI_TOUR_STEPS: TourStep[] = [
           Draft-only autonomy is the rule.
         </p>
         <p className="mt-2 text-[11px] text-ink-500">
-          You&apos;ll click through 8 quick steps. Use ← → to navigate, Esc to skip.
+          You&apos;ll click through 7 quick steps. Use ← → to navigate, Esc to skip.
         </p>
       </>
     )
@@ -66,18 +66,20 @@ export const RHAI_TOUR_STEPS: TourStep[] = [
     placement: 'bottom'
   },
   {
-    selector: '[data-tour="tab-today"]',
-    title: 'Today — approve or dismiss',
+    selector: '[data-tour="tab-plan"]',
+    title: 'Plan — today, this week, parked ideas',
     body: (
       <>
         <p>
-          The full list of Rhai&apos;s suggested moves lives here. Approve them and they
-          queue up for execution; dismiss what doesn&apos;t fit.
+          All the planning surfaces in one place. <strong>Today</strong> is Rhai&apos;s
+          suggested moves — approve to queue for execution, dismiss what doesn&apos;t fit —
+          plus the <strong>Quick to-dos</strong> box for fast capture. <strong>This
+          week</strong> holds everyone&apos;s weekly plan.
         </p>
         <p className="mt-2">
-          The <strong>Quick to-dos</strong> box at the top is for fast capture — write
-          &ldquo;follow up with Mitali Monday&rdquo; and Rhai links it to the right lead
-          automatically.
+          <strong>Parked ideas</strong> is Rhai&apos;s scratchpad: park a rough thought,
+          Rhai researches it, and <em>Promote to lead</em> lands the whole thread on the
+          pipeline.
         </p>
       </>
     ),
@@ -113,43 +115,29 @@ export const RHAI_TOUR_STEPS: TourStep[] = [
         </p>
         <p className="mt-2">
           &ldquo;<em>Rhai, research them</em>&rdquo; web-searches and builds a profile — or
-          asks you for their LinkedIn if it can&apos;t confidently identify them.
+          asks you for their LinkedIn if it can&apos;t confidently identify them. The{' '}
+          <strong>Voices</strong> and <strong>Party</strong> sections here hold the
+          testimonials and the launch-party guest list.
         </p>
       </>
     ),
     placement: 'bottom'
   },
   {
-    selector: '[data-tour="tab-ideas"]',
-    title: 'Ideas — Rhai&apos;s scratchpad',
+    selector: '[data-tour="tab-plumbing"]',
+    title: 'Plumbing — Rhai&apos;s brain & skills',
     body: (
       <>
         <p>
-          Park rough thoughts (&ldquo;should ask Aishwarya about her school&rdquo;). Rhai
-          researches the people, brainstorms the play, and asks what it needs to know.
-        </p>
-        <p className="mt-2">
-          <em>Promote to lead</em> attaches the whole thread to a matching lead (or creates
-          a new one), lands the brainstorm on the case as a note session, and queues Rhai
-          tasks. Nothing gets lost between pages.
-        </p>
-      </>
-    ),
-    placement: 'bottom'
-  },
-  {
-    selector: '[data-tour="tab-context"]',
-    title: 'Context — Rhai&apos;s brain',
-    body: (
-      <>
-        <p>
-          This is what Rhai always knows: Rhea&apos;s background, networks, teaching modules,
-          the Hoovu demo library, projects Rhea&apos;s built, community directory.
+          The plumbing for Rhai. <strong>Context</strong> is what Rhai always knows:
+          Rhea&apos;s background, networks, teaching modules, the Hoovu demo library,
+          projects Rhea&apos;s built, community directory.
         </p>
         <p className="mt-2">
           Green &ldquo;Always loaded&rdquo; sections ride in every prompt. Indigo &ldquo;On
           demand&rdquo; sections are big reference docs — Rhai reads a short index card of
-          each and pulls the full text only when a task needs it (keeps costs down).
+          each and pulls the full text only when a task needs it. <strong>Skills</strong>{' '}
+          is the registry of what Rhai can reach for, each with a default model.
         </p>
       </>
     ),

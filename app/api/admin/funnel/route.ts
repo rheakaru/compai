@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
+import { getUserFromRequest } from '@/lib/firebase/auth-server';
 import type { FunnelEvent, FunnelStage } from '@/lib/funnel/events';
 import type { CompanyDoc } from '@/lib/model/claims';
 import type { RoleDoc } from '@/lib/model/role';
@@ -23,7 +23,7 @@ const STAGE_ORDER: FunnelStage[] = [
 ];
 
 export async function GET(req: NextRequest) {
-  const user = await getUserFromAuthHeader(req.headers.get('authorization'));
+  const user = await getUserFromRequest(req);
   if (!user) return new Response('unauthorized', { status: 401 });
   if (!user.operator) return new Response('forbidden — operator only', { status: 403 });
 

@@ -235,6 +235,11 @@ export interface InterviewConfig {
   openingMessage: string;
   /** Candidate turns before Rhai must wrap up. */
   maxTurns: number;
+  /**
+   * Operator's scheduling / booking link (e.g. a Google Calendar appointment
+   * page). Pasted once per role; reused to invite shortlisted candidates.
+   */
+  schedulingLink?: string;
   createdAt: number;
 }
 
@@ -271,6 +276,12 @@ export interface InterviewSession {
   candidate: InterviewCandidate;
   messages: InterviewMessage[];
   status: 'in_progress' | 'completed';
+  /**
+   * Operator hiring stage — undefined means "just applied" (the default
+   * inbox). Rhea shortlists promising candidates, then marks them invited
+   * once she's sent them a scheduling link.
+   */
+  stage?: 'shortlisted' | 'invited';
   /** Candidate's closing questions — relayed to Rhea, not answered by Rhai. */
   questionsForRhea?: string;
   summary?: InterviewSummary;

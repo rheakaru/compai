@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminAuth, adminRtdb } from '@/lib/firebase/admin';
-import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
+import { getUserFromRequest } from '@/lib/firebase/auth-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -116,9 +116,25 @@ function buildOntologyMarkdown(wsid: string, v: Record<string, any>): string {
 }
 
 export async function GET(req: NextRequest) {
-  const user = await getUserFromAuthHeader(req.headers.get('authorization'));
+  const user = await getUserFromRequest(req);
   if (!user) return new Response('unauthorized', { status: 401 });
   if (!user.operator) return new Response('forbidden — operator only', { status: 403 });
+
+  // Lightweight activity summary for the workspace tab badge — per-workspace
+  // activity timestamps (created / last active) only, no content.
+  if (req.nextUrl.searchParams.get('summary')) {
+    const snap = await adminRtdb().ref('Workspaces').once('value');
+    const all = (snap.val() || {}) as Record<string, any>;
+    const recentAt = Object.values(all)
+      .map(v => {
+        const meta = (v as any)?.meta || {};
+        return Math.max(meta.created_at ?? 0, meta.last_active ?? 0);
+      })
+      .filter(t => t > 0)
+      .sort((a, b) => b - a)
+      .slice(0, 50);
+    return Response.json({ recentAt, latestAt: recentAt[0] ?? 0 });
+  }
 
   const workspaceId = req.nextUrl.searchParams.get('workspaceId');
 

@@ -1,0 +1,44 @@
+.ap-wrap { max-width: 980px; margin: 0 auto; padding: 28px 36px 80px 36px; }
+
+.ap-intro {
+  background: linear-gradient(135deg, var(--brand-soft), var(--surface));
+  border: 1px solid var(--brand-line); border-radius: var(--radius-lg);
+  padding: 28px 32px; margin-bottom: 22px;
+}
+.ap-intro h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
+.ap-intro p { color: var(--ink-2); font-size: 14.5px; line-height: 1.6; margin: 0 0 16px; max-width: 640px; }
+
+.ap-result { display: flex; flex-direction: column; gap: 16px; }
+
+.ap-hero {
+  background: var(--surface); border: 2px solid var(--brand-line); border-radius: var(--radius-lg);
+  padding: 24px 28px; box-shadow: var(--shadow-lg);
+}
+.ap-hero .cat { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--brand-deep); font-weight: 700; }
+.ap-hero h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.025em; margin: 6px 0 10px; line-height: 1.25; }
+.ap-hero .why { font-size: 14.5px; color: var(--ink-2); line-height: 1.6; }
+.ap-hero .outcome { margin-top: 12px; display: inline-block; background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+
+.ap-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px 24px; }
+.ap-card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); font-weight: 700; margin: 0 0 14px; }
+
+.ap-steps { display: flex; flex-direction: column; gap: 0; }
+.ap-step { display: grid; grid-template-columns: 36px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.ap-step:last-child { border-bottom: 0; }
+.ap-step-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--brand-soft);
+  color: var(--brand-deep); font-weight: 700; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ap-step-title { font-weight: 600; font-size: 14px; }
+.ap-step-detail { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-top: 2px; }
+.ap-step-tool { font-size: 11.5px; color: var(--ink-3); margin-top: 4px; }
+
+.ap-artifact {
+  background: var(--line-soft); border-radius: 10px; padding: 16px 20px;
+  font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; color: var(--ink);
+  max-height: 460px; overflow-y: auto;
+}
+.ap-ontology-links { display: flex; flex-direction: column; gap: 8px; }
+.ap-link { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; }
+.ap-link .arrow { color: var(--brand); font-weight: 700; flex-shrink: 0; }

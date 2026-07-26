@@ -13,6 +13,20 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const { error } = await requireOperator(req);
   if (error) return error;
+
+  // Lightweight activity summary for the workspace tab badge — createdAt of
+  // the most recent sessions only, no transcripts.
+  if (req.nextUrl.searchParams.get('summary')) {
+    const snap = await adminDb()
+      .collection('rhaiDiscoverySessions')
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .select('createdAt')
+      .get();
+    const recentAt = snap.docs.map(d => (d.data().createdAt as number) ?? 0);
+    return Response.json({ recentAt, latestAt: recentAt[0] ?? 0 });
+  }
+
   const snap = await adminDb()
     .collection('rhaiDiscoverySessions')
     .orderBy('createdAt', 'desc')

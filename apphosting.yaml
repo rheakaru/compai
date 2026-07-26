@@ -71,3 +71,41 @@ env:
   - variable: WHATSAPP_ALLOWED_NUMBERS
     value: '919886750009'
     availability: [RUNTIME]
+
+  # Rhai pipelines — Fireflies ingestion, cron auth, server-side Google
+  # Calendar (WhatsApp scheduling + pre-call briefings).
+  #   firebase apphosting:secrets:set FIREFLIES_API_KEY
+  #   firebase apphosting:secrets:set CRON_SECRET          (same value as the
+  #     functions secret — the scheduler in functions/rhai-cron.js sends it)
+  #   firebase apphosting:secrets:set GOOGLE_OAUTH_CLIENT_ID
+  #   firebase apphosting:secrets:set GOOGLE_OAUTH_CLIENT_SECRET
+  #   firebase apphosting:secrets:set GOOGLE_OAUTH_REFRESH_TOKEN  (mint once
+  #     with: npx tsx scripts/get-google-refresh-token.ts)
+  - variable: FIREFLIES_API_KEY
+    secret: FIREFLIES_API_KEY
+    availability: [RUNTIME]
+  - variable: CRON_SECRET
+    secret: CRON_SECRET
+    availability: [RUNTIME]
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    secret: GOOGLE_OAUTH_CLIENT_ID
+    availability: [RUNTIME]
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
+    availability: [RUNTIME]
+  - variable: GOOGLE_OAUTH_REFRESH_TOKEN
+    secret: GOOGLE_OAUTH_REFRESH_TOKEN
+    availability: [RUNTIME]
+  # Where pre-call briefings are sent (falls back to WHATSAPP_ALLOWED_NUMBERS).
+  - variable: WHATSAPP_BRIEFING_TO
+    value: '919886750009'
+    availability: [RUNTIME]
+
+  # Rhai MCP server (/api/mcp/<token>) — claude.ai custom connector into the
+  # dashboard. The token IS the credential (capability URL); mint with
+  # `openssl rand -hex 32`, then:
+  #   firebase apphosting:secrets:set RHAI_MCP_TOKEN
+  # Rotate the secret to revoke every connected client at once.
+  - variable: RHAI_MCP_TOKEN
+    secret: RHAI_MCP_TOKEN
+    availability: [RUNTIME]

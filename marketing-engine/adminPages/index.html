@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rhai · Brand Ontology</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/code/marketing.css" />
+</head>
+<body>
+  <main id="root"></main>
+
+  <script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.4/firebase-storage.js"></script>
+  <script src="/code/loginScript.js"></script>
+  <script>
+    (function () {
+      function bucket() { return Math.floor(Date.now() / (5 * 60 * 1000)); }
+      function load(src, cb) {
+        var s = document.createElement('script'); s.src = src + '?v=' + bucket(); s.onload = cb; document.body.appendChild(s);
+      }
+      load('/code/marketingCommon.js', function () {
+        load('/code/index.js', function () {
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window.Index.init);
+          else window.Index.init();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

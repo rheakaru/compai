@@ -1,9 +1,10 @@
 'use client';
 
 // The Rhai workspace — the surface where Rhea and her AI cofounder meet.
-// Tabs: Pipeline (the existing LeadsDashboard) · Today (Rhai's proactive
-// suggestions) · Ideas (scratchpad Rhai enriches) · Context (the vault) ·
-// Skills (registry + default models). All operator-only.
+// Tabs: Pipeline · Plan (Today + This week + parked Ideas) · Tasks · People
+// (directory + Voices + Party) · Interviews · Discovery (chats + Ontologies)
+// · Docs · Invoices · NDA · Hire · Plumbing (Context + Skills). All
+// operator-only.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
@@ -11,6 +12,7 @@ import { BriefingStrip } from './BriefingStrip';
 import { AdminOntologiesClient } from './AdminOntologiesClient';
 import { HireAdminPanel } from './HireAdminPanel';
 import { InvoicesPanel } from './InvoicesPanel';
+import { NdaGenerator } from './NdaGenerator';
 import { TestimonialsPanel } from './TestimonialsPanel';
 import { RsvpPanel } from './RsvpPanel';
 import { LeadsDashboard } from './LeadsDashboard';
@@ -18,6 +20,7 @@ import { RhaiChat } from './RhaiChat';
 import { DiscoveryPanel } from './RhaiDiscovery';
 import { InterviewsPanel } from './RhaiInterviews';
 import { PlansPanel } from './PlansPanel';
+import RhaiDocs from '@/components/RhaiDocs';
 import { PeoplePanel, PersonDrawer } from './RhaiPeople';
 import { TasksPanel } from './RhaiTasks';
 import { TodosSection } from './RhaiTodos';
@@ -37,38 +40,44 @@ import {
 
 type Tab =
   | 'pipeline'
-  | 'today'
-  | 'week'
+  | 'plan'
   | 'tasks'
   | 'people'
-  | 'ideas'
   | 'interviews'
   | 'discovery'
+  | 'docs'
   | 'invoices'
-  | 'ontologies'
+  | 'nda'
   | 'hire'
-  | 'voices'
-  | 'party'
-  | 'context'
-  | 'skills';
+  | 'plumbing';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'pipeline', label: 'Pipeline' },
-  { id: 'today', label: 'Today' },
-  { id: 'week', label: 'Week' },
+  { id: 'plan', label: 'Plan' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'people', label: 'People' },
-  { id: 'ideas', label: 'Ideas' },
   { id: 'interviews', label: 'Interviews' },
   { id: 'discovery', label: 'Discovery' },
+  { id: 'docs', label: 'Docs' },
   { id: 'invoices', label: 'Invoices' },
-  { id: 'ontologies', label: 'Ontologies' },
+  { id: 'nda', label: 'NDA' },
   { id: 'hire', label: 'Hire' },
-  { id: 'voices', label: 'Voices' },
-  { id: 'party', label: 'Party' },
-  { id: 'context', label: 'Context' },
-  { id: 'skills', label: 'Skills' }
+  { id: 'plumbing', label: 'Plumbing' }
 ];
+
+// Old tab ids (pre-consolidation) → their new home + sub-view. Anything that
+// still asks for an old id (saved state, events, future deep links) lands in
+// the right place instead of resetting.
+const LEGACY_TABS: Record<string, { tab: Tab; sub?: string }> = {
+  today: { tab: 'plan', sub: 'today' },
+  week: { tab: 'plan', sub: 'week' },
+  ideas: { tab: 'plan', sub: 'ideas' },
+  voices: { tab: 'people', sub: 'voices' },
+  party: { tab: 'people', sub: 'party' },
+  ontologies: { tab: 'discovery', sub: 'ontologies' },
+  context: { tab: 'plumbing', sub: 'context' },
+  skills: { tab: 'plumbing', sub: 'skills' }
+};
 
 function useAuthedFetch() {
   const { getToken } = useAuth();
@@ -89,12 +98,68 @@ function useAuthedFetch() {
 }
 
 const TOUR_SEEN_KEY = 'rhai.tour.seen';
+const LAST_SEEN_KEY = (section: string) => `rhai.lastSeen.${section}`;
 
 export function RhaiWorkspace() {
   const [tab, setTab] = useState<Tab>('pipeline');
+  // Current sub-view within each composite tab (plan/people/discovery/plumbing).
+  const [subTabs, setSubTabs] = useState<Record<string, string>>({});
   const [drawerPerson, setDrawerPerson] = useState<RhaiPerson | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
+  // Unread counts for the Discovery tab badge — new discovery chats and new
+  // ontology activity since each section was last viewed.
+  const [fresh, setFresh] = useState<{ discovery: number; ontologies: number }>({ discovery: 0, ontologies: 0 });
   const { user, getToken } = useAuth();
+  const authedFetch = useAuthedFetch();
+
+  // Accepts old (pre-consolidation) tab ids and routes them to the new home.
+  const openTab = useCallback((id: string) => {
+    const legacy = LEGACY_TABS[id];
+    if (legacy) {
+      setTab(legacy.tab);
+      if (legacy.sub) setSubTabs(prev => ({ ...prev, [legacy.tab]: legacy.sub! }));
+    } else if (TABS.some(t => t.id === id)) {
+      setTab(id as Tab);
+    }
+  }, []);
+
+  const setSubTab = useCallback((forTab: string, sub: string) => {
+    setSubTabs(prev => ({ ...prev, [forTab]: sub }));
+  }, []);
+
+  // Badge data — one lightweight fetch per section on mount. Counts items
+  // newer than the locally-stored last-seen stamp for that section.
+  useEffect(() => {
+    if (!user) return;
+    const countFresh = (recentAt: number[], section: string) => {
+      const lastSeen = Number(localStorage.getItem(LAST_SEEN_KEY(section)) ?? 0);
+      return recentAt.filter(t => t > lastSeen).length;
+    };
+    (async () => {
+      const [dRes, oRes] = await Promise.all([
+        authedFetch('/api/rhai/discovery?summary=1'),
+        authedFetch('/api/admin/ontologies?summary=1')
+      ]);
+      const d = dRes.ok ? ((await dRes.json()) as { recentAt: number[] }) : { recentAt: [] };
+      const o = oRes.ok ? ((await oRes.json()) as { recentAt: number[] }) : { recentAt: [] };
+      setFresh({
+        discovery: countFresh(d.recentAt ?? [], 'discovery'),
+        ontologies: countFresh(o.recentAt ?? [], 'ontologies')
+      });
+    })().catch(() => undefined);
+  }, [user, authedFetch]);
+
+  // Viewing a Discovery sub-section marks it seen and clears its share of the
+  // badge.
+  const discoverySub = subTabs.discovery ?? 'discovery';
+  useEffect(() => {
+    if (tab !== 'discovery') return;
+    const section = discoverySub === 'ontologies' ? 'ontologies' : 'discovery';
+    localStorage.setItem(LAST_SEEN_KEY(section), String(Date.now()));
+    setFresh(prev => (prev[section] ? { ...prev, [section]: 0 } : prev));
+  }, [tab, discoverySub]);
+
+  const discoveryBadge = fresh.discovery + fresh.ontologies;
 
   // Auto-launch the onboarding tour once per user. Waits until they're
   // signed in and the UI has rendered so tour selectors resolve.
@@ -148,7 +213,7 @@ export function RhaiWorkspace() {
       {/* Rhai's briefing — the first thing on the page, front and center. */}
       {tab === 'pipeline' && (
         <div data-tour="briefing">
-          <BriefingStrip onOpenToday={() => setTab('today')} />
+          <BriefingStrip onOpenToday={() => openTab('today')} />
         </div>
       )}
 
@@ -167,20 +232,42 @@ export function RhaiWorkspace() {
               }`}
             >
               {t.label}
+              {t.id === 'discovery' && discoveryBadge > 0 && (
+                <span
+                  className="ml-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-accent px-1 py-px align-middle text-[10px] font-semibold leading-4 text-white"
+                  title={`${discoveryBadge} new since you last looked`}
+                >
+                  {discoveryBadge > 99 ? '99+' : discoveryBadge}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
       {tab === 'pipeline' && <LeadsDashboard />}
-      {tab === 'today' && <TodayPanel />}
-      {tab === 'week' && (
-        <Panel
-          title="This week"
-          sub="Everyone's plan for the week — post yours rough (type, paste, go day-wise, or drop a voice note), edit it anytime. Rhai reads it and pulls out the days, the clients (linked to the pipeline), and the to-dos, so the team stays in sync."
-        >
-          <PlansPanel />
-        </Panel>
+      {tab === 'plan' && (
+        <>
+          <SubTabBar
+            tabs={[
+              { id: 'today', label: 'Today' },
+              { id: 'week', label: 'This week' },
+              { id: 'ideas', label: 'Parked ideas' }
+            ]}
+            active={subTabs.plan ?? 'today'}
+            onSelect={s => setSubTab('plan', s)}
+          />
+          {(subTabs.plan ?? 'today') === 'today' && <TodayPanel />}
+          {subTabs.plan === 'week' && (
+            <Panel
+              title="This week"
+              sub="Everyone's plan for the week — post yours rough (type, paste, go day-wise, or drop a voice note), edit it anytime. Rhai reads it and pulls out the days, the clients (linked to the pipeline), and the to-dos, so the team stays in sync."
+            >
+              <PlansPanel />
+            </Panel>
+          )}
+          {subTabs.plan === 'ideas' && <IdeasPanel />}
+        </>
       )}
       {tab === 'tasks' && (
         <Panel
@@ -191,14 +278,35 @@ export function RhaiWorkspace() {
         </Panel>
       )}
       {tab === 'people' && (
-        <Panel
-          title="People"
-          sub="Everyone in your orbit — leads, hosts, amplifiers, collaborators. Click anyone to see Rhai's profile, add context by voice or text, or send Rhai to research them."
-        >
-          <PeoplePanel onOpen={setDrawerPerson} />
-        </Panel>
+        <>
+          <SubTabBar
+            tabs={[
+              { id: 'directory', label: 'Directory' },
+              { id: 'voices', label: 'Voices' },
+              { id: 'party', label: 'Party' }
+            ]}
+            active={subTabs.people ?? 'directory'}
+            onSelect={s => setSubTab('people', s)}
+          />
+          {(subTabs.people ?? 'directory') === 'directory' && <PeopleDirectorySection onOpen={setDrawerPerson} />}
+          {subTabs.people === 'voices' && (
+            <Panel
+              title="Voice testimonials"
+              sub="Voice notes from Hang w AI attendees (heyrhai.com/testimonial). Play each, read the transcript, toggle it onto the homepage, and drag the featured ones into order."
+            >
+              <TestimonialsPanel />
+            </Panel>
+          )}
+          {subTabs.people === 'party' && (
+            <Panel
+              title="Launch party · guest list"
+              sub="Episode X of Hang w AI, Sunday 19 July, 3 PM. Confirmed RSVPs from heyrhai.com/party plus requests from heyrhai.com/join — approve a request and the venue unlocks on their page. Copy the list for the door; resubmissions update in place."
+            >
+              <RsvpPanel />
+            </Panel>
+          )}
+        </>
       )}
-      {tab === 'ideas' && <IdeasPanel />}
       {tab === 'interviews' && (
         <Panel
           title="Interviews"
@@ -208,13 +316,27 @@ export function RhaiWorkspace() {
         </Panel>
       )}
       {tab === 'discovery' && (
-        <Panel
-          title="Discovery"
-          sub="Every 'Talk to Rhai' conversation from the homepage — completed and dropped-off. Contact details, Rhai's summary, the full transcript with voice clips, and a link to the lead it created."
-        >
-          <DiscoveryPanel />
-        </Panel>
+        <>
+          <SubTabBar
+            tabs={[
+              { id: 'discovery', label: 'Discovery chats', badge: fresh.discovery },
+              { id: 'ontologies', label: 'Ontologies', badge: fresh.ontologies }
+            ]}
+            active={discoverySub}
+            onSelect={s => setSubTab('discovery', s)}
+          />
+          {discoverySub === 'discovery' && (
+            <Panel
+              title="Discovery"
+              sub="Every 'Talk to Rhai' conversation from the homepage — completed and dropped-off. Contact details, Rhai's summary, the full transcript with voice clips, and a link to the lead it created."
+            >
+              <DiscoveryPanel />
+            </Panel>
+          )}
+          {discoverySub === 'ontologies' && <AdminOntologiesClient />}
+        </>
       )}
+      {tab === 'docs' && <RhaiDocs />}
       {tab === 'invoices' && (
         <Panel
           title="Invoices"
@@ -223,7 +345,14 @@ export function RhaiWorkspace() {
           <InvoicesPanel />
         </Panel>
       )}
-      {tab === 'ontologies' && <AdminOntologiesClient />}
+      {tab === 'nda' && (
+        <Panel
+          title="NDA"
+          sub="One-click NDA — enter the client's legal name and get the finished PDF: your standard mutual NDA with your details, today's date, and your scanned signature stamped on every page. Link a lead and Rhai drafts the Purpose and itemisation from discovery."
+        >
+          <NdaGenerator />
+        </Panel>
+      )}
       {tab === 'hire' && (
         <Panel
           title="Rhai Interviews · admin"
@@ -232,24 +361,20 @@ export function RhaiWorkspace() {
           <HireAdminPanel />
         </Panel>
       )}
-      {tab === 'voices' && (
-        <Panel
-          title="Voice testimonials"
-          sub="Voice notes from Hang w AI attendees (heyrhai.com/testimonial). Play each, read the transcript, toggle it onto the homepage, and drag the featured ones into order."
-        >
-          <TestimonialsPanel />
-        </Panel>
+      {tab === 'plumbing' && (
+        <>
+          <SubTabBar
+            tabs={[
+              { id: 'context', label: 'Context' },
+              { id: 'skills', label: 'Skills' }
+            ]}
+            active={subTabs.plumbing ?? 'context'}
+            onSelect={s => setSubTab('plumbing', s)}
+          />
+          {(subTabs.plumbing ?? 'context') === 'context' && <ContextPanel />}
+          {subTabs.plumbing === 'skills' && <SkillsPanel />}
+        </>
       )}
-      {tab === 'party' && (
-        <Panel
-          title="Launch party · guest list"
-          sub="Episode X of Hang w AI, Sunday 19 July, 3 PM. Confirmed RSVPs from heyrhai.com/party plus requests from heyrhai.com/join — approve a request and the venue unlocks on their page. Copy the list for the door; resubmissions update in place."
-        >
-          <RsvpPanel />
-        </Panel>
-      )}
-      {tab === 'context' && <ContextPanel />}
-      {tab === 'skills' && <SkillsPanel />}
 
       {drawerPerson && <PersonDrawer person={drawerPerson} onClose={() => setDrawerPerson(null)} />}
       <RhaiChat />
@@ -304,6 +429,122 @@ function Panel({
         )}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-tab bar — the section switcher inside a consolidated tab (Plan, People,
+// Discovery, Plumbing). Pills, so it reads clearly as a level below the main
+// tab bar.
+// ---------------------------------------------------------------------------
+
+function SubTabBar({
+  tabs,
+  active,
+  onSelect
+}: {
+  tabs: { id: string; label: string; badge?: number }[];
+  active: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="mx-auto max-w-5xl px-6 pt-6">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tabs.map(t => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onSelect(t.id)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              active === t.id
+                ? 'border-accent bg-accent text-white'
+                : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50 hover:text-ink-900'
+            }`}
+          >
+            {t.label}
+            {typeof t.badge === 'number' && t.badge > 0 && (
+              <span
+                className={`ml-1.5 inline-flex min-w-[15px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-4 ${
+                  active === t.id ? 'bg-white/25 text-white' : 'bg-accent text-white'
+                }`}
+              >
+                {t.badge > 99 ? '99+' : t.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// People · Directory — the PeoplePanel plus the party-RSVP sync. Everyone who
+// RSVP'd to the launch party gets folded into the directory: auto-runs once
+// when the section mounts (idempotent server-side), with a button to re-run.
+// ---------------------------------------------------------------------------
+
+function PeopleDirectorySection({ onOpen }: { onOpen: (p: RhaiPerson) => void }) {
+  const authedFetch = useAuthedFetch();
+  const { user } = useAuth();
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  // Bumped after a sync that changed anything, so PeoplePanel remounts and
+  // picks up the new people.
+  const [listKey, setListKey] = useState(0);
+  const ranRef = useRef(false);
+
+  const sync = useCallback(
+    async (silent: boolean) => {
+      setSyncing(true);
+      if (!silent) setSyncMsg(null);
+      try {
+        const res = await authedFetch('/api/rhai/people/sync-rsvps', { method: 'POST' });
+        if (!res.ok) throw new Error(await res.text());
+        const d = (await res.json()) as { scanned: number; created: number; noted: number };
+        if (d.created + d.noted > 0) setListKey(k => k + 1);
+        if (!silent || d.created + d.noted > 0) {
+          setSyncMsg(
+            d.created + d.noted === 0
+              ? `Party RSVPs already synced (${d.scanned} checked).`
+              : `Synced party RSVPs — ${d.created} new ${d.created === 1 ? 'person' : 'people'}, ${d.noted} updated.`
+          );
+        }
+      } catch (e) {
+        if (!silent) setSyncMsg(e instanceof Error ? e.message : 'RSVP sync failed');
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [authedFetch]
+  );
+
+  // Auto-sync once per mount — cheap and idempotent on the server.
+  useEffect(() => {
+    if (!user || ranRef.current) return;
+    ranRef.current = true;
+    sync(true).catch(() => undefined);
+  }, [user, sync]);
+
+  return (
+    <Panel
+      title="People"
+      sub="Everyone in your orbit — leads, hosts, amplifiers, collaborators, and everyone who RSVP'd to the party. Click anyone to see Rhai's profile, add context by voice or text, or send Rhai to research them."
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => sync(false)}
+          disabled={syncing}
+          className="rounded-md border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50 disabled:opacity-60"
+          title="Fold the launch-party RSVP list into the directory. Safe to re-run — never duplicates."
+        >
+          {syncing ? 'Syncing…' : '↻ Sync party RSVPs'}
+        </button>
+        {syncMsg && <span className="text-[11px] text-ink-500">{syncMsg}</span>}
+      </div>
+      <PeoplePanel key={listKey} onOpen={onOpen} />
+    </Panel>
   );
 }
 

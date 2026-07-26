@@ -11,10 +11,12 @@
     "rhai:intents": "tsx scripts/rhai-intents.ts",
     "rhai:sync-skills": "tsx scripts/rhai-sync-skills.ts",
     "rhai:context": "tsx scripts/rhai-context-upload.ts",
-    "rhai:seed-people": "tsx scripts/rhai-seed-people.ts"
+    "rhai:seed-people": "tsx scripts/rhai-seed-people.ts",
+    "gcal-token": "tsx scripts/get-google-refresh-token.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@types/pdfkit": "^0.17.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^11.0.2",
@@ -22,6 +24,8 @@
     "lucide-react": "^0.460.0",
     "marked": "^18.0.5",
     "next": "15.5.18",
+    "pdf-parse": "^1.1.4",
+    "pdfkit": "^0.19.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^2.5.5",

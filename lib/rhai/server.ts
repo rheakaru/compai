@@ -2,7 +2,7 @@ import 'server-only';
 import type { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { adminDb } from '@/lib/firebase/admin';
-import { getUserFromAuthHeader } from '@/lib/firebase/auth-server';
+import { getUserFromRequest } from '@/lib/firebase/auth-server';
 import {
   DEFAULT_CONTEXT_SECTIONS,
   SECTION_MODE,
@@ -23,7 +23,9 @@ export const DOC_SKILLS = 'rhaiConfig/skills';
 export const DOC_PREFERENCES_DOC = 'rhaiConfig/docPreferences';
 
 export async function requireOperator(req: NextRequest) {
-  const user = await getUserFromAuthHeader(req.headers.get('authorization'));
+  // Bearer token first; falls back to the __rhai_session cookie when client
+  // Firebase storage has been evicted (Safari ITP).
+  const user = await getUserFromRequest(req);
   if (!user) return { error: new Response('unauthorized', { status: 401 }) };
   if (!user.operator) return { error: new Response('forbidden — operator only', { status: 403 }) };
   return { user };

@@ -228,7 +228,7 @@ function SessionCard({ s }: { s: LeadNoteSession }) {
     <div className="rounded-lg border border-ink-200 bg-white p-4">
       <div className="mb-1 flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-ink-900">
-          {s.label || (s.source === 'rhai-research' ? 'Rhai research' : 'Notes')}
+          {s.label || (s.source === 'rhai-research' ? 'Rhai research' : s.source === 'claude-sync' ? 'Claude project sync' : 'Notes')}
         </p>
         <p className="text-[10px] text-ink-400">
           {new Date(s.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}{' '}
