@@ -125,10 +125,18 @@ export async function POST(req: NextRequest) {
   const rawLang = String(inbound.get('language') || 'en').toLowerCase().slice(0, 5);
   const ext = extFor(audio.type);
 
+  // Browsers label MediaRecorder output "audio/webm;codecs=opus". Sarvam
+  // validates the multipart Content-Type against an exact allow-list, and the
+  // ";codecs=…" parameter makes it miss (base "audio/webm" is accepted). Read
+  // the bytes once and re-wrap with the bare MIME type — reused for storage.
+  const baseType = (audio.type || '').split(';')[0].trim() || 'audio/webm';
+  const buf = Buffer.from(await audio.arrayBuffer());
+  const cleanAudio = new Blob([buf], { type: baseType });
+
   const result =
     provider === 'sarvam'
-      ? await transcribeSarvam(audio, ext, rawLang)
-      : await transcribeEleven(audio, ext, rawLang);
+      ? await transcribeSarvam(cleanAudio, ext, rawLang)
+      : await transcribeEleven(cleanAudio, ext, rawLang);
 
   if (!result.ok) {
     // Surface the provider status so the client can tell "out of credits" from
@@ -151,9 +159,8 @@ export async function POST(req: NextRequest) {
       const bucket = adminBucket();
       const path = `voice/${sessionKind}/${sessionId}/${Date.now()}-${randomUUID()}.${ext}`;
       const file = bucket.file(path);
-      const buf = Buffer.from(await audio.arrayBuffer());
       await file.save(buf, {
-        contentType: audio.type || 'audio/webm',
+        contentType: baseType,
         resumable: false,
         metadata: { cacheControl: 'public, max-age=31536000, immutable' }
       });
