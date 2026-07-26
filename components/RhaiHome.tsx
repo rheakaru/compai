@@ -8,39 +8,16 @@
 // small-caps eyebrows · warm terracotta accent) so heyrhai.com and the
 // signed-in app feel like one thing.
 
-import { useAuth } from './AuthProvider';
+import { INSTAGRAM_URL, InstagramGlyph, PERSONAL_SITE, SiteFooter, SiteHeader } from './SiteChrome';
 import { VoiceWall } from './VoiceWall';
+import { FAQS } from '@/lib/site/faq';
 
 const MARKETING_TOOL = 'https://compai-marketing.web.app';
-const PERSONAL_SITE = 'https://rheakaru.github.io';
-const CONTACT_EMAIL = 'rhea@rosebazaar.in';
 
 export function RhaiHome() {
-  const { user } = useAuth();
-
   return (
     <main className="min-h-screen bg-cream text-ink-900">
-      {/* Minimal top bar — the marketing homepage doesn't need dashboard nav. */}
-      <header className="border-b border-ink-200/60">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-          <span className="flex items-baseline gap-2 text-ink-900">
-            <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
-            <span className="font-display text-[17px] font-medium tracking-tight">Rhai</span>
-          </span>
-          <div className="flex items-center gap-4 text-xs">
-            <a href="#work" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Work</a>
-            <a href="/hang-w-ai" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Hang w AI</a>
-            <a href="#tool" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Free tool</a>
-            <a href="#contact" className="hidden text-ink-500 hover:text-ink-900 sm:inline">Contact</a>
-            <a
-              href={user ? '/leads' : '#contact'}
-              className="whitespace-nowrap rounded-md border border-ink-300 bg-white/70 px-3 py-1.5 font-medium text-ink-800 hover:bg-white"
-            >
-              {user ? 'Dashboard →' : 'Start a conversation'}
-            </a>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero — one confident line, then the concrete offer. */}
       <section className="border-b border-ink-200/60">
@@ -419,19 +396,69 @@ export function RhaiHome() {
             <div className="text-sm text-ink-600">
               <p className="eyebrow text-ink-400">More on Rhea</p>
               <a
-                href={PERSONAL_SITE}
-                target="_blank"
-                rel="noreferrer"
+                href="/writing"
                 className="mt-2 inline-flex items-center gap-1 text-accent hover:underline"
               >
-                rheakaru.github.io ↗
+                Read the build logs →
               </a>
               <p className="mt-4 text-[11px] leading-relaxed text-ink-500">
-                Blog posts, past workshop write-ups, and side projects — Vanaja (vernacular-voice HR), Cahoots
-                (goal-tracking with a friend), Chapel (a commonplace book as a graph), and more.
+                Write-ups of everything we&apos;ve shipped — the Hoovu dashboard (an AI-run operating system for a
+                flower supply chain), Vanaja (vernacular-voice HR), the AI CMO, and more. Also on{' '}
+                <a href={PERSONAL_SITE} target="_blank" rel="noreferrer" className="text-ink-600 hover:text-accent">
+                  rheakaru.github.io ↗
+                </a>
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Writing — the build-log archive. Real depth for readers, and the
+          substance search + answer engines actually index. */}
+      <section id="writing" className="border-b border-ink-200/60">
+        <div className="mx-auto max-w-5xl px-6 py-20">
+          <p className="eyebrow">Writing</p>
+          <h2 className="mt-3 max-w-3xl font-display text-3xl tracking-tight text-ink-900 sm:text-4xl">
+            Build logs, not thought leadership.
+          </h2>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-700">
+            Every write-up is something we actually built and shipped — including the parts that didn&apos;t work.
+            An AI-run operating system for a flower supply chain across nine cities. Agents that live inside
+            dashboards. A vernacular voice HR partner. A diagnosis tool that refuses to fake completeness.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <a
+              href="/writing"
+              className="rounded-md bg-ink-900 px-5 py-2.5 text-sm font-medium text-cream hover:bg-ink-800"
+            >
+              Read the write-ups →
+            </a>
+            <a
+              href="/careers"
+              className="rounded-md border border-ink-300 bg-white/70 px-5 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
+            >
+              We&apos;re hiring
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ — visible answers that mirror the FAQPage structured data on this
+          route, so assistants quoting us are quoting something a human can see. */}
+      <section id="faq" className="border-b border-ink-200/60">
+        <div className="mx-auto max-w-3xl px-6 py-20">
+          <p className="eyebrow">Common questions</p>
+          <h2 className="mt-3 font-display text-3xl tracking-tight text-ink-900 sm:text-4xl">
+            The things people ask first.
+          </h2>
+          <dl className="mt-10 space-y-8">
+            {FAQS.map(faq => (
+              <div key={faq.q}>
+                <dt className="font-display text-lg text-ink-900">{faq.q}</dt>
+                <dd className="mt-2 text-sm leading-relaxed text-ink-700">{faq.a}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 
@@ -454,6 +481,15 @@ export function RhaiHome() {
             >
               Start a conversation with Rhai →
             </a>
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-ink-300 bg-white/70 px-5 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
+            >
+              <InstagramGlyph className="h-4 w-4" />
+              Follow @heyrhai
+            </a>
             <span className="text-[11px] text-ink-500">
               or <a href={MARKETING_TOOL} className="text-accent hover:underline">try the free tool first</a>.
             </span>
@@ -461,25 +497,7 @@ export function RhaiHome() {
         </div>
       </section>
 
-      <footer className="border-t border-ink-200/60">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-6 text-[11px] text-ink-400">
-          <p>Rhai · An AI practice by Rhea Karuturi.</p>
-          <p className="flex items-center gap-4">
-            <a href={PERSONAL_SITE} target="_blank" rel="noreferrer" className="hover:text-ink-700">
-              rheakaru.github.io
-            </a>
-            <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-ink-700">
-              {CONTACT_EMAIL}
-            </a>
-            <a href="/diagnosis" className="hover:text-ink-700">
-              Diagnosis tool
-            </a>
-            <a href="/privacy" className="hover:text-ink-700">
-              Privacy
-            </a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

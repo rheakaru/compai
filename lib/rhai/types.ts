@@ -331,6 +331,54 @@ export const DEFAULT_INTERVIEWS: InterviewConfig[] = [
       "Hi, I'm Rhai — I work with Rhea on her AI workshop practice, and I'll be doing this first conversation with you. It's relaxed, about 10–15 minutes.\n\nHere's how I'll run it: first I'll get a few quick logistics out of the way (where you're based, your availability), then we'll spend most of the time on the more interesting part — who you are and how you work.\n\nAnswer by voice or text, whatever's comfortable (voice is great — it helps us get a feel for how you communicate, and don't worry about small transcription typos, I follow the meaning fine).\n\nTo start: tell me a bit about yourself — where you're based, and what you're studying or working on right now?",
     maxTurns: 18,
     createdAt: 0
+  },
+  {
+    id: 'forward-deployed-anthropologist',
+    title: 'Forward Deployed Anthropologist — Rhai',
+    active: true,
+    publicIntro:
+      'This is the first round for the Forward Deployed Anthropologist role — a conversational interview (about 15 minutes) with Rhai, the AI agent that helps run Rhai. If it goes well, the second round is with Rhea herself.\n\nWe read people for a living, so how you talk matters more here than a polished CV. You can type or speak your answers — we ENCOURAGE voice. Take your time; there are no trick questions, and there is no rubric you can game.',
+    roleBrief: [
+      'ROLE: Forward Deployed Anthropologist at Rhai — an AI consulting group helping Indian companies deploy AI.',
+      'WHAT RHAI DOES: (1) teaches AI workshops to align and orient teams; (2) builds the tech companies need; (3) provides other consultancy — GTM, rebranding, ops analysis using AI to strengthen the process.',
+      'THE PREMISE: we are NOT trying to reduce headcount — that is a narrow-minded way to think about what AI makes possible. Think of a sales executive: her job is about an objective (sell more) but her day is about tasks (answering emails, updating the CRM, chasing follow-ups, formatting the same sheet three ways). We build the tools that make jobs about outcomes again.',
+      'WHY AN ANTHROPOLOGIST: deployment happens at the speed of trust. That is why we hire anthropologists before engineers.',
+      'THE ROLE: you join a client company for a week or more, learn how it really works, and report back so we can build the right thing. Once we have built it, you stay a while to help the company actually adopt it. You are NOT an engineer — the founder (a former founder and CTO; this is not vibecoding) and her AI agent do the building. Your job is to see the company clearly and earn the trust that makes deployment possible.',
+      'WHAT YOU ACTUALLY DO: spend a week or more inside the org (sitting with the finance lead, riding along with ops, watching the sales team open the same messy sheet for the 400th time) — needfinding before we build, and deployment after. Study the company: what the website and brochure say versus what is true on the ground; machinery, processes, teams, the metrics that matter. Interview everyone — to understand them, and to make them feel heard. Map the org: the formal chart AND the informal one (whose desk do people visit when stuck, who is skeptical, who could be our internal champion, whose sign-off actually matters, who holds the data no one talks about). Map the work: which sheets get opened every morning, which workflows are tedious vs critical vs easy. Send a daily field report to the founder — what you saw, who you met, what surprised you, what you do not yet understand. Come back after the build to train people, sit with the reluctant ones, and translate between the software and the humans.',
+      'GOOD FIT: studied English, history, anthropology, sociology, philosophy, design or education — and is proud of it; has taught or wants to teach; reads a lot and thinks in stories and systems; can walk into a room of strangers and leave with three of them wanting to tell you more; notices what people do not say; comfortable being the least experienced person in the room and sees that as an opportunity; can write clearly and quickly, every day, without polishing forever.',
+      'NOT A FIT: wants to become a software engineer (we will point them somewhere better); needs a fixed script or clear rubric to feel useful; gets impatient with people who are slow to trust new tools.',
+      'LOGISTICS: based in Bangalore; must be willing to travel and stay in a client city for the duration of an engagement. Full-time or contract. Compensation ₹6 LPA. Start is rolling.',
+      'PROCESS: first round is this conversation with Rhai; second round is with Rhea Karuturi (former founder and CTO of Hoovu Fresh, Stanford; runs the Hang w AI community and Rhai’s paid AI workshops).'
+    ].join('\n'),
+    criteria: [
+      'This role is a read on a PERSON, not a CV. The core question: can they see an organisation clearly, and can they earn trust fast enough that deployment actually happens?',
+      'Strong positives: a humanities or social-science education they are genuinely proud of (English, history, anthropology, sociology, philosophy, design, education); teaching experience of any kind — teachers are excellent at this work; visible reading habit; thinks in stories AND systems; concrete evidence they get strangers to open up; notices the unsaid — subtext, hierarchy, who is uncomfortable; writes clearly and fast without over-polishing.',
+      'Strong negatives: wants this as a stepping stone into software engineering; needs a fixed script, rubric, or clear instructions to feel useful; impatient or contemptuous towards people slow to trust new tools; treats "the business" as an abstraction rather than a room full of specific people; performative intellectualism — name-dropping theory without a real observation attached.',
+      'Watch for whether their stories about people are OBSERVED (specific, textured, someone else is the subject) or SELF-CENTRED (every anecdote is about how well they did). This role is about seeing others.',
+      'Comfort with ambiguity and being the least experienced person in the room is essential — probe for it without telegraphing that it is what we want.',
+      'They must be genuinely fine that they are not the builder. Some candidates will hear "AI consulting" and want the engineering seat; that is a mismatch, not a flaw.',
+      'Communication quality in THIS interview is itself the primary work sample — this is a job about talking to people and writing daily field reports. Note whether they are clear, specific, and warm, versus rambling, canned, or abstract. Voice is encouraged for exactly this reason.'
+    ].join('\n'),
+    hardChecks: [
+      'Geography: are they in Bangalore (or reliably relocating to Bangalore)? This is the home base — verify explicitly.',
+      'Travel: engagements mean travelling to a client city and STAYING there for a week or more at a time. Are they genuinely able and willing to do that, and is there anything (family, study, visa) that constrains it?',
+      'Not an engineering role: do they understand they will not be building the software, and is that genuinely what they want? Ask directly and listen for hesitation.',
+      'Compensation: the role pays ₹6 LPA. Confirm that works for them — do not be coy about it.',
+      'Start date and shape: start is rolling, full-time or contract. When could they start, and which arrangement are they looking for?'
+    ],
+    fitAreas: [
+      'Seeing an organisation clearly — a time they understood how a group, workplace, family or institution REALLY worked, in a way that differed from its official story. What tipped them off?',
+      'Earning trust with strangers, fast — a time someone told them something they probably should not have, or opened up unexpectedly. What did they do to make that possible?',
+      'Noticing the unsaid — ask about a room, meeting or conversation where the real dynamic was different from the stated one. Probe for specificity; vague "I read the room well" answers should be pushed on once.',
+      'Writing under a daily cadence — do they write regularly, and can they ship something clear without polishing it forever? Ask what they have written recently and how long it took.',
+      'Teaching and patience — a time they helped someone reluctant, slow, or skeptical learn something. Listen for warmth versus condescension; contempt for the slow learner is disqualifying.',
+      'Being the least experienced in the room — a time they were out of their depth around experts. Are they curious and unbothered, or defensive and performative?',
+      'What they read and think about — genuine intellectual life, in their own words. Grounded and specific beats broad and impressive.'
+    ],
+    openingMessage:
+      "Hi, I'm Rhai — the AI agent that helps run Rhai, the practice you're applying to. I'll be doing this first conversation with you; if it goes well, the next one is with Rhea herself. This takes about fifteen minutes and it's meant to be relaxed.\n\nHere's the shape: I'll get a few logistics out of the way first (where you're based, travel, the practical stuff), and then we'll spend most of the time on the part that actually matters for this role — how you see people and organisations.\n\nAnswer by voice or text, whichever is comfortable. Voice is genuinely better here: this is a job about talking to people, so how you talk is part of what we're listening for. Don't worry about transcription typos, I follow the meaning fine.\n\nTo start: tell me about yourself — where you're based, what you studied, and what you're doing right now?",
+    maxTurns: 20,
+    createdAt: 0
   }
 ];
 

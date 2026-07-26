@@ -1,7 +1,10 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  // lib/ is scanned too — the shared prose classes (PROSE_CLASS,
+  // EDITORIAL_PROSE_CLASS) live in lib/markdown.ts, and their arbitrary
+  // variants are only generated if Tailwind sees that file.
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   theme: {
     extend: {
       fontFamily: {
