@@ -45,9 +45,14 @@ export function anthropic(): Anthropic {
 export async function loadContextSections(): Promise<ContextSection[]> {
   const snap = await adminDb().collection(COL_CONTEXT).get();
   const byId = new Map(snap.docs.map(d => [d.id, { id: d.id, ...(d.data() as Omit<ContextSection, 'id'>) }]));
-  return DEFAULT_CONTEXT_SECTIONS.map(
-    def => byId.get(def.id) ?? { ...def, updatedAt: 0 }
-  );
+  return DEFAULT_CONTEXT_SECTIONS.map(def => {
+    const stored = byId.get(def.id);
+    if (!stored) return { id: def.id, title: def.title, body: def.body, updatedAt: 0 };
+    // Title is code-owned (DEFAULT_CONTEXT_SECTIONS); body/digest live in the
+    // vault. Stored docs historically omit title (the upload script only writes
+    // body/digest), so fall back to the def — an explicit UI rename still wins.
+    return { ...stored, title: stored.title || def.title };
+  });
 }
 
 // ---------------------------------------------------------------------------

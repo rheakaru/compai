@@ -98,6 +98,14 @@ export const DEFAULT_CONTEXT_SECTIONS: ContextSectionDef[] = [
     mode: 'library',
     whenToUse:
       'Read when spec’ing a client build or brainstorming a solution — 11 shipped projects (Vanaja vernacular voice, Cahoots structured AI actions, Chapel second-brain, Vendetta, ComPrice…) with a pattern→project index. We may have built it before.'
+  },
+  {
+    id: 'genai-divide',
+    title: 'MIT — The GenAI Divide (State of AI in Business 2025)',
+    body: '',
+    mode: 'library',
+    whenToUse:
+      'Read when framing WHY companies fail at AI or making the strategic case for Rhai — proposals, pitches, decks, objection handling, positioning. MIT NANDA evidence: ~95% of enterprise GenAI gets zero ROI; the divide is about APPROACH (learning + workflow-fit + trust), not model quality; external partnerships beat internal builds ~2:1; back-office is where the real ROI hides; deployment happens at the speed of trust.'
   }
 ];
 
