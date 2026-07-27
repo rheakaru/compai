@@ -379,6 +379,54 @@ export const DEFAULT_INTERVIEWS: InterviewConfig[] = [
       "Hi, I'm Rhai — the AI agent that helps run Rhai, the practice you're applying to. I'll be doing this first conversation with you; if it goes well, the next one is with Rhea herself. This takes about fifteen minutes and it's meant to be relaxed.\n\nHere's the shape: I'll get a few logistics out of the way first (where you're based, travel, the practical stuff), and then we'll spend most of the time on the part that actually matters for this role — how you see people and organisations.\n\nAnswer by voice or text, whichever is comfortable. Voice is genuinely better here: this is a job about talking to people, so how you talk is part of what we're listening for. Don't worry about transcription typos, I follow the meaning fine.\n\nTo start: tell me about yourself — where you're based, what you studied, and what you're doing right now?",
     maxTurns: 20,
     createdAt: 0
+  },
+  {
+    id: 'forward-deployed-engineer',
+    title: 'Forward Deployed Engineer — Rhai',
+    active: true,
+    publicIntro:
+      'This is the first round for the Forward Deployed Engineer role — a conversational interview (about 15 minutes) with Rhai, the AI agent you would build alongside. If it goes well, the second round is with Rhea herself.\n\nWe care far more about how you think — in systems, abstractions, and tradeoffs — than about your CV or which frameworks you know. You can type or speak your answers; we ENCOURAGE voice. Take your time; there are no trick questions.',
+    roleBrief: [
+      'ROLE: Forward Deployed Engineer at Rhai — an AI consulting group helping Indian companies deploy AI.',
+      'WHAT RHAI DOES: (1) teaches AI workshops to align and orient teams; (2) builds the tech companies need; (3) provides other consultancy — GTM, rebranding, ops analysis using AI to strengthen the process.',
+      'THE PREMISE: we are NOT trying to reduce headcount — that is a narrow-minded way to think about what AI makes possible. A sales executive’s job is about an objective (sell more) but her day is about tasks (email, CRM, chasing follow-ups, formatting the same sheet three ways). We build the tools that make jobs about outcomes again.',
+      'HOW WE BUILD: with AI in three places — to find patterns in a company’s data, to build custom tools fast, and inside the product itself, so the dashboards we ship make the company legible to people AND to AI (dashboards going from reports to operators).',
+      'WHY THIS ROLE: the building is done WITH an AI agent (Rhai), alongside the founder (a former founder and CTO). You are an engineer — but not the kind who hand-writes every line. The agent writes most of the code. Your value is the systems thinking, the abstraction sense, and the taste that decides WHAT to build and what "good" looks like — plus the judgment to touch a company’s real systems and data safely.',
+      'WHAT YOU ACTUALLY DO: embed in a client company (onsite, a week or more), learn how its systems, data, and stack really work. Model the domain — turn a tangle of spreadsheets, processes, and edge cases into a clean data model and a sane architecture. Build the tools they need (dashboards, integrations, automations) with the Rhai agent, on the client’s own Google/Microsoft tenant, their APIs, their data — you direct the agent, review and correct its output, and own the structure. Integrate safely: auth, data integrity, failure modes, reversibility. Then make it stick — sit with the people who will use it, fix what is awkward, and hand over something they actually adopt. Report to the founder as you go.',
+      'WHAT WE LOOK FOR: not ten years in one framework. Someone who can look at a mess and see the clean data model underneath; who thinks in interfaces, invariants, and layers; who knows when to abstract and when not to; who has shipped real software end to end (any stack, scrappy is fine); who is AI-native about building and has the taste to catch when the agent is quietly wrong; and who is careful with other people’s systems.',
+      'NOT A FIT: wants a heads-down IC role writing every line away from users; thinks AI-assisted building is beneath "real" engineering; over-engineers by default or needs a precise spec to function; careless with production data; impatient with people slow to trust new tools.',
+      'TRUST: deployment happens at the speed of trust — and it matters twice over here, because you are inside a company’s real systems and data. Trust and judgment about their stack are as central as the code.',
+      'LOGISTICS: based in Bangalore; must be willing to travel and stay in a client city for the duration of an engagement. Full-time or contract. Start is rolling.',
+      'PROCESS: first round is this conversation with Rhai; second round is with Rhea Karuturi (former founder and CTO of Hoovu Fresh, Stanford; runs the Hang w AI community and Rhai’s paid AI workshops).'
+    ].join('\n'),
+    criteria: [
+      'The core question: can they think clearly in systems and abstractions, do they have the taste to direct an AI agent to build the RIGHT thing well, and do they have the judgment to touch a client’s real systems and data safely?',
+      'Strong positives: decomposes a messy real-world domain into a clean data model; thinks in interfaces, invariants, and layers; knows when to abstract AND when not to (over-abstraction is itself a negative); has actually shipped working software end to end, even scrappy; comfortable directing AI to build and reviewing/correcting its output rather than needing to write every line; reasons soundly about auth, data integrity, APIs, and failure modes; can explain a technical idea simply to a non-technical person.',
+      'Strong negatives: cargo-cult / resume-driven answers with no WHY behind choices; either cannot abstract at all OR over-engineers everything; dismissive of AI-assisted building ("real engineers write it themselves") — a genuine mismatch for this role; careless about other people’s data and systems; needs a precise spec and cannot operate in the ambiguity of a messy live org.',
+      'Systems thinking is the PRIMARY signal — probe how they would model a real messy scenario and listen for clean decomposition, awareness of tradeoffs, and knowing the limits of their own model. A tidy model with no awareness of where it breaks is weaker than a rougher model that knows its edges.',
+      'Taste while building with AI: they should be genuinely energised by building fast with an agent, and have real judgment about when its output is right versus quietly wrong — not threatened by it, not blindly trusting it. Ask for a time AI got it wrong and they caught it.',
+      'Trust and care with client systems: they will have access to real production data and tenants. Look for humility, care, and good instincts about safety, blast radius, and reversibility.',
+      'Communication is itself a work sample — they will explain the tools they build to non-technical client teams. Note whether they explain systems clearly and concisely, or hide behind jargon.'
+    ].join('\n'),
+    hardChecks: [
+      'Geography: are they in Bangalore (or reliably relocating to Bangalore)? Verify explicitly.',
+      'Travel: engagements mean going onsite to a client city and STAYING there for a week or more. Are they genuinely able and willing, and is there anything (family, study, visa) that constrains it?',
+      'Has shipped something real: have they actually built AND shipped working software end to end — any stack, scrappy is fine, not just coursework? Ask for one concrete example and what broke.',
+      'Builds WITH an AI agent, on client systems: do they understand the agent writes most of the code and that they will be touching a company’s real production data — and is that genuinely what they want, not a pure heads-down coding role? Ask directly.',
+      'Start date and shape: start is rolling, full-time or contract. When could they start, and which arrangement are they looking for?'
+    ],
+    fitAreas: [
+      'Systems modelling — give them a messy real-world domain (e.g. a company’s orders, inventory, and cash across a few cities) and ask how they would model it into a clean data model. Probe decomposition, tradeoffs, and where their model would break.',
+      'Abstraction judgment — a time they chose to abstract something, or deliberately chose NOT to. Do they understand the cost of the wrong abstraction, from real experience?',
+      'Shipping under ambiguity — a real thing they built end to end from an unclear spec. What they cut, what they got wrong, and how they recovered.',
+      'Building with AI — how they use AI tools to build today. Do they direct and review with taste, or accept output blindly? A concrete time the AI was wrong and they caught it.',
+      'Trust and care with systems — a time they touched production or real data. How did they think about safety, blast radius, and reversibility?',
+      'Explaining to non-experts — can they make a technical idea land for a non-technical person without condescending? They will do this daily with client teams.'
+    ],
+    openingMessage:
+      "Hi, I'm Rhai — the AI agent that helps run Rhai, and the one you'd actually build alongside if this works out. I'll be doing this first conversation; if it goes well, the next one is with Rhea herself. It takes about fifteen minutes and it's meant to be relaxed.\n\nHere's the shape: I'll get a few logistics out of the way first (where you're based, travel, the practical stuff), and then we'll spend most of the time on the part that actually matters — how you think about systems, how you build, and how you work with AI to do it.\n\nAnswer by voice or text, whichever is comfortable. Don't worry about transcription typos, I follow the meaning fine.\n\nTo start: tell me a bit about yourself — where you're based, what you've built recently, and what you're working on right now?",
+    maxTurns: 20,
+    createdAt: 0
   }
 ];
 
