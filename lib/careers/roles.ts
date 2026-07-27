@@ -122,8 +122,8 @@ The first round is a conversation with Rhai, our own AI interviewer — about fi
     region: 'Karnataka',
     employmentTypes: ['FULL_TIME', 'CONTRACTOR'],
     employmentLabel: 'Full-time or contract',
-    salaryInr: 1200000,
-    salaryLabel: '₹12 LPA',
+    salaryInr: 600000,
+    salaryLabel: '₹6 LPA',
     startLabel: 'Rolling',
     travelRequired: true,
     datePosted: '2026-07-27',
@@ -182,7 +182,7 @@ We're not looking for ten years in one framework. We're looking for someone who 
 ## Logistics
 
 - Based in Bangalore; must be willing to travel and stay in a client city for the duration of an engagement
-- Compensation: ₹12 LPA
+- Compensation: ₹6 LPA
 - Full-time or contract
 - Start: rolling
 

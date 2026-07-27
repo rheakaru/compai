@@ -396,7 +396,7 @@ export const DEFAULT_INTERVIEWS: InterviewConfig[] = [
       'WHAT WE LOOK FOR: not ten years in one framework. Someone who can look at a mess and see the clean data model underneath; who thinks in interfaces, invariants, and layers; who knows when to abstract and when not to; who has shipped real software end to end (any stack, scrappy is fine); who is AI-native about building and has the taste to catch when the agent is quietly wrong; and who is careful with other people’s systems.',
       'NOT A FIT: wants a heads-down IC role writing every line away from users; thinks AI-assisted building is beneath "real" engineering; over-engineers by default or needs a precise spec to function; careless with production data; impatient with people slow to trust new tools.',
       'TRUST: deployment happens at the speed of trust — and it matters twice over here, because you are inside a company’s real systems and data. Trust and judgment about their stack are as central as the code.',
-      'LOGISTICS: based in Bangalore; must be willing to travel and stay in a client city for the duration of an engagement. Full-time or contract. Start is rolling.',
+      'LOGISTICS: based in Bangalore; must be willing to travel and stay in a client city for the duration of an engagement. Full-time or contract. Compensation ₹6 LPA (₹6,00,000/year). Start is rolling.',
       'PROCESS: first round is this conversation with Rhai; second round is with Rhea Karuturi (former founder and CTO of Hoovu Fresh, Stanford; runs the Hang w AI community and Rhai’s paid AI workshops).'
     ].join('\n'),
     criteria: [
@@ -413,6 +413,7 @@ export const DEFAULT_INTERVIEWS: InterviewConfig[] = [
       'Travel: engagements mean going onsite to a client city and STAYING there for a week or more. Are they genuinely able and willing, and is there anything (family, study, visa) that constrains it?',
       'Has shipped something real: have they actually built AND shipped working software end to end — any stack, scrappy is fine, not just coursework? Ask for one concrete example and what broke.',
       'Builds WITH an AI agent, on client systems: do they understand the agent writes most of the code and that they will be touching a company’s real production data — and is that genuinely what they want, not a pure heads-down coding role? Ask directly.',
+      'Compensation: the role pays ₹6 LPA. Confirm that works for them — do not be coy about it.',
       'Start date and shape: start is rolling, full-time or contract. When could they start, and which arrangement are they looking for?'
     ],
     fitAreas: [
