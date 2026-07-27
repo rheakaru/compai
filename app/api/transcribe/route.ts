@@ -32,12 +32,26 @@ function elevenKey() {
   return process.env.ELEVENLABS_API_KEY;
 }
 
+// Provider preference. Default is ElevenLabs (Scribe) — it transcribes an
+// entire answer in a single call with no 30s cap, so the client records one
+// continuous clip (best accuracy, no chunk-boundary word drops). Sarvam is the
+// fallback, or can be forced with TRANSCRIBE_PROVIDER=sarvam. Either way the
+// chosen provider must actually have a key configured.
+function chooseProvider(): 'elevenlabs' | 'sarvam' | null {
+  const pref = (process.env.TRANSCRIBE_PROVIDER || '').toLowerCase();
+  if (pref === 'sarvam' && sarvamKey()) return 'sarvam';
+  if (pref === 'elevenlabs' && elevenKey()) return 'elevenlabs';
+  if (elevenKey()) return 'elevenlabs';
+  if (sarvamKey()) return 'sarvam';
+  return null;
+}
+
 // GET is a lightweight availability probe. Client uses it once on mount to
 // decide whether to prefer server-side transcription or fall back to the
 // browser's built-in SpeechRecognition. (It confirms a provider is
 // configured, not that it has credits — a dry account still 502s per request.)
 export async function GET() {
-  const provider = sarvamKey() ? 'sarvam' : elevenKey() ? 'elevenlabs' : null;
+  const provider = chooseProvider();
   return Response.json({ available: !!provider, provider, model: provider === 'sarvam' ? SARVAM_MODEL : ELEVEN_MODEL });
 }
 
@@ -108,7 +122,7 @@ async function transcribeEleven(audio: Blob, ext: string, rawLang: string): Prom
 }
 
 export async function POST(req: NextRequest) {
-  const provider = sarvamKey() ? 'sarvam' : elevenKey() ? 'elevenlabs' : null;
+  const provider = chooseProvider();
   if (!provider) return new Response('transcription not configured', { status: 503 });
 
   let inbound: FormData;
