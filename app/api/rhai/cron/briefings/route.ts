@@ -39,6 +39,26 @@ const OWN_EMAILS = new Set(['rhea@rosebazaar.in']);
 const INTERNAL_DOMAIN = /@rosebazaar\.in$/i;
 const isInternalEmail = (e: string) => OWN_EMAILS.has(e.toLowerCase()) || INTERNAL_DOMAIN.test(e);
 
+// Hoovu internal ops meetings recur with recognizable names and are NEVER Rhai
+// client calls — but the attendee/lead heuristics above miss them: an outside
+// accountant on the cashflow call gives them an "external" attendee, and a
+// food/agri lead named e.g. "…Farm…"/"…Fresh…" falsely token-matches titles
+// like "Farm Ops Review". So we skip these by title outright, whatever the
+// attendees or lead match say. Add new recurring internal-meeting names here.
+const INTERNAL_TITLE_PATTERNS: RegExp[] = [
+  /operational excellence/i,
+  /all cities/i,
+  /cash\s*flow/i,
+  /farm ops/i,
+  /\bsales update\b/i,
+  /\bhr\b.*(check|review|update|sync)/i,
+  /customer service meeting/i,
+  /\bpricing\b.*(meeting|review|call)/i,
+  /\ball hands\b/i,
+  /\bstandup\b|\bstand-up\b|\bstand up\b/i
+];
+const isInternalMeeting = (title: string) => INTERNAL_TITLE_PATTERNS.some(re => re.test(title || ''));
+
 const WINDOW_MIN_MINS = 55;
 const WINDOW_MAX_MINS = 80;
 
@@ -172,6 +192,13 @@ export async function POST(req: NextRequest) {
     // 55-80 min window: a 15-min cron always lands at least one tick inside it;
     // the dedupe doc below makes the overlap harmless.
     if (!Number.isFinite(minsAway) || minsAway < WINDOW_MIN_MINS || minsAway > WINDOW_MAX_MINS) {
+      skipped++;
+      continue;
+    }
+
+    // Hoovu internal ops meetings — never briefed, regardless of attendees or
+    // any accidental lead token-match.
+    if (isInternalMeeting(event.summary)) {
       skipped++;
       continue;
     }
