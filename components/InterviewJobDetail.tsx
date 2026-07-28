@@ -487,6 +487,12 @@ function SessionCard({
           <p className="mt-0.5 text-[11px] text-ink-500">
             <Blur on={presenter}>{s.candidate.email} · {s.candidate.phone}</Blur>
           </p>
+          {s.candidate.applyType && (
+            <p className="mt-0.5 text-[11px] text-ink-400">
+              via {s.candidate.applyType}
+              {s.candidate.applyType === 'Agency' && s.candidate.agencyName ? ` — ${s.candidate.agencyName}` : ''}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <p className="text-[10px] text-ink-400">
@@ -531,7 +537,7 @@ function SessionCard({
           rel="noreferrer"
           className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
         >
-          📄 View CV / resume
+          📄 View CV{s.candidate.resumeName ? ` — ${s.candidate.resumeName}` : ''}
         </a>
       )}
 

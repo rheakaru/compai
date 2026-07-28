@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { adminDb } from '@/lib/firebase/admin';
 import { modelFor } from '@/lib/rhai/models';
 import {
+  APPLY_TYPE_OPTIONS,
   DEFAULT_INTERVIEWS,
   type InterviewCandidate,
   type InterviewConfig,
@@ -96,20 +97,42 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
     const name = c.name?.trim().slice(0, 80) ?? '';
     const email = c.email?.trim().slice(0, 120) ?? '';
     const phone = c.phone?.trim().slice(0, 30) ?? '';
+    const applyType = c.applyType?.trim().slice(0, 60) ?? '';
+    const agencyName = c.agencyName?.trim().slice(0, 80) ?? '';
+    const resumeUrl = c.resumeUrl?.trim().slice(0, 500) ?? '';
+    const resumeName = c.resumeName?.trim().slice(0, 120) ?? '';
 
-    // Layer 1 — format (mirrors the client). Layer 2 — the email domain can
-    // actually receive mail (catches x@fgdfg.com; fails open on DNS trouble).
-    const fmt = firstError(validateContactFormat({ name, email, phone }));
+    // Layer 1 — format (mirrors the client). Phone is a 10-digit mobile here.
+    const fmt = firstError(validateContactFormat({ name, email, phone }, { phoneMode: 'in10' }));
     if (fmt) return new Response(fmt, { status: 400 });
+    // Layer 2 — the email domain can actually receive mail (catches
+    // x@fgdfg.com; fails open on DNS trouble).
     if ((await checkMailDomain(email)) === 'no_domain')
       return new Response("That email address doesn't look like it can receive mail — please check it.", {
         status: 400
       });
+    // CV is mandatory, and must be a file we stored (not an arbitrary link).
+    if (!/^https:\/\/storage\.googleapis\.com\/[^"'\s]+$/.test(resumeUrl))
+      return new Response('Please upload your CV (PDF, DOC, or DOCX) before starting.', { status: 400 });
+    // Apply Type is mandatory and must be one of the known options.
+    if (!APPLY_TYPE_OPTIONS.includes(applyType as (typeof APPLY_TYPE_OPTIONS)[number]))
+      return new Response('Please select how you found this role.', { status: 400 });
+    // Agency name is mandatory when the source is an agency.
+    if (applyType === 'Agency' && !agencyName)
+      return new Response('Please select the agency.', { status: 400 });
 
     const opening: InterviewMessage = { role: 'rhai', text: config.openingMessage, at: Date.now() };
     const session: Omit<InterviewSession, 'id'> = {
       interviewId: slug,
-      candidate: { name, email, phone: normalizePhone(phone), ...(c.resumeUrl?.trim() ? { resumeUrl: c.resumeUrl.trim().slice(0, 300) } : {}) },
+      candidate: {
+        name,
+        email,
+        phone: normalizePhone(phone),
+        resumeUrl,
+        ...(resumeName ? { resumeName } : {}),
+        applyType,
+        ...(applyType === 'Agency' && agencyName ? { agencyName } : {})
+      },
       messages: [opening],
       status: 'in_progress',
       createdAt: Date.now()

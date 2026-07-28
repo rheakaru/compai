@@ -265,9 +265,37 @@ export interface InterviewCandidate {
   name: string;
   email: string;
   phone: string;
-  /** Optional — "not too interested in resumes but give the option". */
+  /** CV/resume file (PDF/DOC/DOCX) in Storage — now mandatory at capture. */
   resumeUrl?: string;
+  /** Original CV filename, for display. */
+  resumeName?: string;
+  /** How the candidate found the role (Apply Type dropdown). */
+  applyType?: string;
+  /** Which agency, when applyType is "Agency". */
+  agencyName?: string;
 }
+
+/** Apply Type dropdown — how the candidate reached the role. */
+export const APPLY_TYPE_OPTIONS = [
+  'Agency',
+  'LinkedIn',
+  'Naukri',
+  'Indeed',
+  'Foundit (Monster)',
+  'Apna Jobs',
+  'Shine',
+  'Hirist',
+  'Company Career Page',
+  'Employee Referral',
+  'Walk-in',
+  'Social Media',
+  'Campus Hiring',
+  'Other'
+] as const;
+
+/** Seed agencies for the Agency-Name dropdown. Extend as new agencies sign on
+ *  (a managed admin list is a fast-follow; "Other" covers the gap for now). */
+export const DEFAULT_AGENCIES = ['Placemate', 'Human Capital'] as const;
 
 export interface InterviewSummary {
   verdict: 'strong_fit' | 'possible' | 'not_a_fit';

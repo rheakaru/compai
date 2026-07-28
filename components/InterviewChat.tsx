@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVoice } from './useVoice';
 import { validateContactFormat, type ContactErrors } from '@/lib/validation/contact';
+import { APPLY_TYPE_OPTIONS, DEFAULT_AGENCIES } from '@/lib/rhai/types';
 import { Field, inputCls } from './DiscoveryChat';
 
 interface PublicInterview {
@@ -30,10 +31,15 @@ export function InterviewChat({ slug }: { slug: string }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [resumeUrl, setResumeUrl] = useState('');
+  const [applyType, setApplyType] = useState('');
+  const [agency, setAgency] = useState('');
+  const [agencyOther, setAgencyOther] = useState('');
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const [fieldErr, setFieldErr] = useState<ContactErrors>({});
+  const [extraErr, setExtraErr] = useState<{ cv?: string; applyType?: string; agency?: string }>({});
   const [formErr, setFormErr] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // chat
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -63,17 +69,45 @@ export function InterviewChat({ slug }: { slug: string }) {
 
   const start = async () => {
     setFormErr(null);
-    const errs = validateContactFormat({ name, email, phone });
+    const errs = validateContactFormat({ name, email, phone }, { phoneMode: 'in10' });
     setFieldErr(errs);
-    if (errs.name || errs.email || errs.phone) return;
+    const agencyValue = agency === 'Other' ? agencyOther.trim() : agency;
+    const extra: { cv?: string; applyType?: string; agency?: string } = {};
+    if (!cvFile) extra.cv = 'Please upload your CV (PDF, DOC, or DOCX).';
+    if (!applyType) extra.applyType = 'Please select how you found this role.';
+    if (applyType === 'Agency' && !agencyValue) extra.agency = 'Please select the agency.';
+    setExtraErr(extra);
+    if (errs.name || errs.email || errs.phone || extra.cv || extra.applyType || extra.agency) return;
+
     setStarting(true);
     try {
+      // 1) Upload the CV first — the interview can't start without it.
+      setUploading(true);
+      const fd = new FormData();
+      fd.append('cv', cvFile as File);
+      const up = await fetch(`/api/interview/${slug}/cv`, { method: 'POST', body: fd });
+      setUploading(false);
+      if (!up.ok) {
+        setFormErr((await up.text()) || 'CV upload failed — please try again.');
+        return;
+      }
+      const { url: resumeUrl, name: resumeName } = (await up.json()) as { url: string; name: string };
+
+      // 2) Start the interview with the full candidate record.
       const res = await fetch(`/api/interview/${slug}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           action: 'start',
-          candidate: { name, email, phone, ...(resumeUrl.trim() ? { resumeUrl } : {}) }
+          candidate: {
+            name,
+            email,
+            phone,
+            resumeUrl,
+            resumeName,
+            applyType,
+            ...(applyType === 'Agency' ? { agencyName: agencyValue } : {})
+          }
         })
       });
       if (!res.ok) {
@@ -86,6 +120,7 @@ export function InterviewChat({ slug }: { slug: string }) {
       setPhase('chat');
     } finally {
       setStarting(false);
+      setUploading(false);
     }
   };
 
@@ -163,12 +198,14 @@ export function InterviewChat({ slug }: { slug: string }) {
               <Field error={fieldErr.phone}>
                 <input
                   type="tel"
+                  inputMode="numeric"
                   value={phone}
                   onChange={e => {
-                    setPhone(e.target.value);
+                    setPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
                     if (fieldErr.phone) setFieldErr(p => ({ ...p, phone: undefined }));
                   }}
-                  placeholder="Phone (WhatsApp) *"
+                  maxLength={10}
+                  placeholder="10-digit mobile (WhatsApp) *"
                   className={inputCls(fieldErr.phone)}
                 />
               </Field>
@@ -184,14 +221,91 @@ export function InterviewChat({ slug }: { slug: string }) {
                   className={inputCls(fieldErr.email)}
                 />
               </Field>
-              <input
-                type="url"
-                value={resumeUrl}
-                onChange={e => setResumeUrl(e.target.value)}
-                placeholder="Resume / portfolio link (optional)"
-                className={inputCls()}
-              />
+
+              {/* Apply Type — how they found the role */}
+              <Field error={extraErr.applyType}>
+                <select
+                  value={applyType}
+                  onChange={e => {
+                    setApplyType(e.target.value);
+                    setExtraErr(p => ({ ...p, applyType: undefined }));
+                    if (e.target.value !== 'Agency') {
+                      setAgency('');
+                      setAgencyOther('');
+                    }
+                  }}
+                  className={`${inputCls(extraErr.applyType)} ${applyType ? '' : 'text-ink-400'}`}
+                >
+                  <option value="">How did you find this role? *</option>
+                  {APPLY_TYPE_OPTIONS.map(o => (
+                    <option key={o} value={o} className="text-ink-900">
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              {/* Agency name — only when the source is an agency */}
+              {applyType === 'Agency' && (
+                <Field error={extraErr.agency}>
+                  <select
+                    value={agency}
+                    onChange={e => {
+                      setAgency(e.target.value);
+                      setExtraErr(p => ({ ...p, agency: undefined }));
+                    }}
+                    className={`${inputCls(extraErr.agency)} ${agency ? '' : 'text-ink-400'}`}
+                  >
+                    <option value="">Which agency? *</option>
+                    {DEFAULT_AGENCIES.map(a => (
+                      <option key={a} value={a} className="text-ink-900">
+                        {a}
+                      </option>
+                    ))}
+                    <option value="Other" className="text-ink-900">
+                      Other…
+                    </option>
+                  </select>
+                </Field>
+              )}
+              {applyType === 'Agency' && agency === 'Other' && (
+                <input
+                  type="text"
+                  value={agencyOther}
+                  onChange={e => setAgencyOther(e.target.value)}
+                  placeholder="Agency name *"
+                  className={inputCls()}
+                />
+              )}
             </div>
+
+            {/* CV upload — mandatory */}
+            <div>
+              <label
+                className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm ${
+                  extraErr.cv ? 'border-rose-300 bg-rose-50/40' : 'border-ink-200 bg-white hover:bg-ink-50'
+                }`}
+              >
+                <span className={cvFile ? 'truncate text-ink-800' : 'text-ink-500'}>
+                  {cvFile ? `📄 ${cvFile.name}` : 'Upload your CV — PDF, DOC or DOCX *'}
+                </span>
+                <span className="shrink-0 rounded border border-ink-200 bg-cream-50 px-2 py-1 text-[11px] text-ink-600">
+                  {cvFile ? 'Change' : 'Choose file'}
+                </span>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={e => {
+                    setCvFile(e.target.files?.[0] ?? null);
+                    setExtraErr(p => ({ ...p, cv: undefined }));
+                    setFormErr(null);
+                  }}
+                  className="hidden"
+                />
+              </label>
+              {extraErr.cv && <p className="mt-1 text-xs text-rose-600">{extraErr.cv}</p>}
+            </div>
+
             {formErr && <p className="text-xs text-rose-600">{formErr}</p>}
             <button
               type="button"
@@ -199,7 +313,7 @@ export function InterviewChat({ slug }: { slug: string }) {
               disabled={starting}
               className="w-full rounded-md bg-ink-900 px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink-800 disabled:opacity-60 sm:w-auto"
             >
-              {starting ? 'Starting…' : 'Start the interview →'}
+              {uploading ? 'Uploading CV…' : starting ? 'Starting…' : 'Start the interview →'}
             </button>
             <p className="text-[11px] text-ink-400">
               Your answers go to Rhea directly. The conversation takes about 10–15 minutes.

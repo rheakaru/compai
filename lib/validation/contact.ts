@@ -40,6 +40,15 @@ export function isValidPhone(raw: string): boolean {
   return true;
 }
 
+/** Indian mobile: EXACTLY 10 numeric digits (no country code). Used by the
+ *  first-round interview form, which requires a local 10-digit mobile. */
+export function isValidIndianMobile(raw: string): boolean {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length !== 10) return false;
+  if (/^(\d)\1+$/.test(digits)) return false; // reject 0000000000 etc.
+  return true;
+}
+
 // Name must have ≥2 chars and contain an actual letter (Latin, accented Latin,
 // or Devanagari — covers our audience). Doesn't try to catch every gibberish
 // string ("asdf" will pass); it stops empty/numeric/symbol-only junk.
@@ -50,13 +59,21 @@ export function isValidName(raw: string): boolean {
   return n.length >= 2 && NAME_LETTER_RE.test(n);
 }
 
+export interface ContactFormatOptions {
+  /** 'e164' (default): 7–15 digits. 'in10': exactly 10 digits (interview). */
+  phoneMode?: 'e164' | 'in10';
+}
+
 /** Synchronous format validation. Returns per-field messages (empty = valid). */
-export function validateContactFormat(input: ContactInput): ContactErrors {
+export function validateContactFormat(input: ContactInput, opts: ContactFormatOptions = {}): ContactErrors {
   const errors: ContactErrors = {};
   if (!isValidName(input.name)) errors.name = 'Please enter your name.';
   if (!isValidEmailFormat(input.email)) errors.email = 'Enter a valid email address.';
-  if (!isValidPhone(input.phone))
+  if (opts.phoneMode === 'in10') {
+    if (!isValidIndianMobile(input.phone)) errors.phone = 'Enter a valid 10-digit mobile number.';
+  } else if (!isValidPhone(input.phone)) {
     errors.phone = 'Enter a valid phone number, including country or area code.';
+  }
   return errors;
 }
 
