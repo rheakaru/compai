@@ -19,6 +19,7 @@ import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
 import { DiscoveryPanel } from './RhaiDiscovery';
 import { RhaiCalls } from './RhaiCalls';
+import { RhaiAccounting } from './RhaiAccounting';
 import { InterviewsPanel } from './RhaiInterviews';
 import { PlansPanel } from './PlansPanel';
 import RhaiDocs from '@/components/RhaiDocs';
@@ -48,6 +49,7 @@ type Tab =
   | 'discovery'
   | 'docs'
   | 'invoices'
+  | 'accounting'
   | 'nda'
   | 'hire'
   | 'plumbing';
@@ -61,6 +63,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'discovery', label: 'Discovery' },
   { id: 'docs', label: 'Docs' },
   { id: 'invoices', label: 'Invoices' },
+  { id: 'accounting', label: 'Accounting' },
   { id: 'nda', label: 'NDA' },
   { id: 'hire', label: 'Hire' },
   { id: 'plumbing', label: 'Plumbing' }
@@ -353,6 +356,14 @@ export function RhaiWorkspace() {
           sub="Money owed and money in. Create an invoice from a lead or from scratch, or upload one you made elsewhere — Rhai reads the details off the PDF. Linked leads stay in sync."
         >
           <InvoicesPanel />
+        </Panel>
+      )}
+      {tab === 'accounting' && (
+        <Panel
+          title="Accounting"
+          sub="RHAI CONSULTING GROUP PRIVATE LIMITED — statutory compliance calendar, cost tracking, client-booked travel, and GST invoice generation. Fill in the Company section once and everything else runs off it."
+        >
+          <RhaiAccounting />
         </Panel>
       )}
       {tab === 'nda' && (

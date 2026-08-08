@@ -632,7 +632,8 @@ export const DEFAULT_SKILLS: RhaiSkill[] = [
   {
     id: 'freelance-invoices',
     name: 'Invoices',
-    description: 'Standard single-page Indian invoice — no GST, Net 7, NEFT/IMPS details, TDS 194J note.',
+    description:
+      'GST tax invoice under RHAI CONSULTING GROUP PRIVATE LIMITED — single page, Net 7, company bank details, CGST/SGST or IGST from the client GSTIN state. (Replaced the freelancer TDS-194J format, Aug 2026.)',
     model: 'claude-haiku-4-5-20251001',
     stage: 'billing',
     enabled: true

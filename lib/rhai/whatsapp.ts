@@ -151,6 +151,9 @@ You are talking to Rhea over WhatsApp — she's on her phone, capturing things o
 - Use get_pipeline before answering pipeline questions.
 - A scheduling request ("set up a call with X tomorrow at 3, invite a@b.com") → call schedule_meeting; resolve relative dates from today's date above, times are Asia/Kolkata. Include the event + Meet links from the tool result in your confirmation.
 - A company legal name with an NDA ask ("NDA for Acme Widgets Private Limited") → call generate_nda; the PDF is sent to her chat by the tool. Relay the blanks she still has to fill and whether it was signature-stamped.
+- An invoice ask ("invoice Kothari 1 lakh for the workshop") → call create_invoice; amounts she gives are the taxable value (GST is added on top automatically). The PDF is sent to her chat. If she doesn't give the client's GSTIN, generate anyway and remind her to add it if the client is registered.
+- Travel for a client trip ("Dodla trip 14–15 Aug, they still owe me flights and hotel") → call log_travel. Client-booked travel: track what the client still has to book for her.
+- A business expense / receipt amount ("paid 4,500 to Cleartax for filings") → call log_cost.
 - You can brainstorm and sketch a proposal inline; the full proposal document gets built in the app, so offer to file it via propose_action.
 - Briefly confirm what you saved. Warm, concrete, no filler.`;
 }
@@ -388,6 +391,171 @@ export async function buildWhatsappReply(params: {
           nda.blanks.length ? `Blanks she must fill before sending: ${nda.blanks.join('; ')}.` : 'No blanks — ready to send.',
           leadId ? 'Filed on the matching lead’s documents.' : 'No matching pipeline lead found — not filed on a lead.'
         ].join('\n');
+      }
+    },
+    {
+      schema: {
+        name: 'create_invoice',
+        description:
+          'Generate a GST tax invoice PDF under RHAI CONSULTING GROUP PRIVATE LIMITED and send it here on WhatsApp. Amounts are the taxable value in rupees — CGST/SGST or IGST is added automatically (from the client GSTIN state, else intra-state Karnataka). The invoice is saved as a draft in the dashboard Invoices tab.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            client: { type: 'string', description: 'Client legal name, verbatim as it should appear on the invoice' },
+            amount: { type: 'number', description: 'Taxable amount in rupees (before GST)' },
+            description: {
+              type: 'string',
+              description:
+                'Line item: first line a short bold title ("AI Workshop and Build Session"), then 1–3 sentences of concrete detail on following lines'
+            },
+            clientGstin: { type: 'string', description: 'Client GSTIN if she gives it' },
+            clientAddress: { type: 'string', description: 'Client billing address if she gives it' }
+          },
+          required: ['client', 'amount', 'description']
+        }
+      },
+      execute: async input => {
+        const i = input as {
+          client?: string;
+          amount?: number;
+          description?: string;
+          clientGstin?: string;
+          clientAddress?: string;
+        };
+        if (!i.client?.trim() || !i.amount || !i.description?.trim()) {
+          return 'tool error: client, amount and description are required';
+        }
+        try {
+          const { generateAndStoreInvoice } = await import('./invoice-pdf');
+          const inv = await generateAndStoreInvoice({
+            client: i.client.trim(),
+            clientGstin: i.clientGstin,
+            clientAddress: i.clientAddress,
+            lineItems: [{ description: i.description.trim(), amount: i.amount }]
+          });
+          await sendWhatsAppDocument(
+            params.from,
+            inv.url,
+            inv.filename,
+            `${inv.invoiceNumber} — total ₹${inv.gst.total.toLocaleString('en-IN')} incl. GST.`
+          );
+          return [
+            `Invoice ${inv.invoiceNumber} generated and sent as a PDF.`,
+            `Taxable ₹${inv.gst.taxable.toLocaleString('en-IN')} + ${
+              inv.gst.mode === 'igst'
+                ? `IGST ₹${inv.gst.igst.toLocaleString('en-IN')}`
+                : `CGST ₹${inv.gst.cgst.toLocaleString('en-IN')} + SGST ₹${inv.gst.sgst.toLocaleString('en-IN')}`
+            } = ₹${inv.gst.total.toLocaleString('en-IN')}.`,
+            'Saved as a draft in the Invoices tab — mark it sent from there.',
+            ...inv.warnings
+          ].join('\n');
+        } catch (e) {
+          return `tool error: ${e instanceof Error ? e.message : 'invoice generation failed'}`;
+        }
+      }
+    },
+    {
+      schema: {
+        name: 'log_travel',
+        description:
+          'Log or update a client trip in the travel tracker — client-booked travel/accommodation for an on-site engagement. Use when Rhea mentions an upcoming trip or what a client still needs to book for her.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            client: { type: 'string' },
+            city: { type: 'string' },
+            startDate: { type: 'string', description: 'YYYY-MM-DD' },
+            endDate: { type: 'string', description: 'YYYY-MM-DD' },
+            purpose: { type: 'string', description: 'recce / workshop / build session' },
+            items: {
+              type: 'array',
+              description: 'What the client must book: flight/hotel/cab/train with status needed|requested|booked',
+              items: {
+                type: 'object',
+                properties: {
+                  kind: { type: 'string', enum: ['flight', 'hotel', 'cab', 'train', 'other'] },
+                  status: { type: 'string', enum: ['needed', 'requested', 'booked'] },
+                  detail: { type: 'string' },
+                  confirmation: { type: 'string', description: 'PNR / booking ref once booked' }
+                },
+                required: ['kind', 'status']
+              }
+            },
+            note: { type: 'string' }
+          },
+          required: ['client']
+        }
+      },
+      execute: async input => {
+        const i = input as {
+          client?: string;
+          city?: string;
+          startDate?: string;
+          endDate?: string;
+          purpose?: string;
+          items?: Array<{ kind: string; status: string; detail?: string; confirmation?: string }>;
+          note?: string;
+        };
+        if (!i.client?.trim()) return 'tool error: client required';
+        const now = Date.now();
+        await db.collection('rhaiTravel').add({
+          client: i.client.trim(),
+          ...(i.city ? { city: i.city } : {}),
+          ...(i.startDate ? { startDate: i.startDate } : {}),
+          ...(i.endDate ? { endDate: i.endDate } : {}),
+          ...(i.purpose ? { purpose: i.purpose } : {}),
+          items: (i.items ?? [{ kind: 'flight', status: 'needed' }, { kind: 'hotel', status: 'needed' }]).slice(0, 20),
+          ...(i.note ? { note: i.note } : {}),
+          createdAt: now,
+          updatedAt: now
+        });
+        return `Trip logged for ${i.client} — it's in Accounting → Travel on the dashboard.`;
+      }
+    },
+    {
+      schema: {
+        name: 'log_cost',
+        description:
+          'Record a business expense for the company (vendor, amount, category). Use when Rhea mentions paying for something — filings, software, travel she covered herself, professional fees.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            vendor: { type: 'string' },
+            amount: { type: 'number', description: 'Rupees' },
+            category: {
+              type: 'string',
+              enum: ['travel', 'software', 'filings', 'professional-fees', 'office', 'other']
+            },
+            date: { type: 'string', description: 'YYYY-MM-DD; default today' },
+            gstPaid: { type: 'number', description: 'GST component if she mentions it' },
+            note: { type: 'string' }
+          },
+          required: ['vendor', 'amount']
+        }
+      },
+      execute: async input => {
+        const i = input as {
+          vendor?: string;
+          amount?: number;
+          category?: string;
+          date?: string;
+          gstPaid?: number;
+          note?: string;
+        };
+        if (!i.vendor?.trim() || !i.amount) return 'tool error: vendor and amount required';
+        const now = Date.now();
+        const { todayISO } = await import('./invoices');
+        await db.collection('rhaiCosts').add({
+          vendor: i.vendor.trim(),
+          amount: i.amount,
+          date: i.date ?? todayISO(now),
+          category: i.category ?? 'other',
+          ...(i.gstPaid ? { gstPaid: i.gstPaid } : {}),
+          ...(i.note ? { note: i.note } : {}),
+          createdAt: now,
+          updatedAt: now
+        });
+        return `Logged ₹${i.amount.toLocaleString('en-IN')} to ${i.vendor} (${i.category ?? 'other'}) — it's in Accounting → Costs.`;
       }
     },
     {

@@ -17,6 +17,48 @@ export interface InvoiceLineItem {
   amount: number;
 }
 
+// GST on a platform-generated tax invoice. Intra-state (client state ==
+// company state, from GSTIN prefixes) splits into CGST+SGST; inter-state is
+// IGST. Unregistered client with no GSTIN → place of supply assumed
+// inter-state only if an address says so; default to intra-state (Karnataka).
+export type GstMode = 'cgst-sgst' | 'igst';
+
+export interface GstBreakup {
+  ratePct: number;
+  mode: GstMode;
+  taxable: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  total: number; // taxable + tax
+}
+
+export function gstStateCode(gstin: string | undefined): string | null {
+  const g = (gstin ?? '').trim();
+  return /^\d{2}/.test(g) ? g.slice(0, 2) : null;
+}
+
+export function computeGst(
+  taxable: number,
+  ratePct: number,
+  clientGstin: string | undefined,
+  companyStateCode: string
+): GstBreakup {
+  const clientState = gstStateCode(clientGstin);
+  const mode: GstMode = clientState && clientState !== companyStateCode ? 'igst' : 'cgst-sgst';
+  const tax = Math.round((taxable * ratePct) / 100);
+  const half = Math.round(tax / 2);
+  return {
+    ratePct,
+    mode,
+    taxable,
+    cgst: mode === 'cgst-sgst' ? half : 0,
+    sgst: mode === 'cgst-sgst' ? tax - half : 0,
+    igst: mode === 'igst' ? tax : 0,
+    total: taxable + tax
+  };
+}
+
 export interface RhaiInvoice {
   id: string;
   source: InvoiceSource;
@@ -32,7 +74,13 @@ export interface RhaiInvoice {
   status: InvoiceStatus;
   paidDate?: string; // 'YYYY-MM-DD' — set when marked paid
   notes?: string;
-  // uploaded-source original file, streamed back via the operator-gated file route
+  // GST tax-invoice fields (platform invoices generated under the company).
+  gst?: GstBreakup;
+  clientGstin?: string;
+  clientAddress?: string;
+  sac?: string;
+  // uploaded-source original file, streamed back via the operator-gated file
+  // route; platform-generated invoices reuse these for their PDF.
   fileName?: string;
   storagePath?: string;
   mime?: string;
