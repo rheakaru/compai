@@ -8,7 +8,10 @@ import {
   fetchTranscript,
   ingestTranscript,
   listRecentTranscripts,
-  type FirefliesIngestRecord
+  loadAllLeads,
+  suggestLeadsForTranscript,
+  type FirefliesIngestRecord,
+  type LeadSuggestion
 } from '@/lib/rhai/fireflies';
 
 export const runtime = 'nodejs';
@@ -38,28 +41,49 @@ export async function GET(req: NextRequest) {
 
   // Fresh list from Fireflies is best-effort — the stored records must still
   // render if the API key is missing or the API is down.
+  const leads = await loadAllLeads();
+
   let recent: Array<{
     id: string;
     title: string;
     date: number;
     attendees: string[];
     status: FirefliesIngestRecord['status'] | 'new';
+    leadId?: string;
+    suggestions?: LeadSuggestion[];
   }> = [];
   let firefliesError: string | undefined;
   try {
-    const byId = new Map(records.map(r => [r.transcriptId, r.status]));
-    recent = (await listRecentTranscripts(14)).map(t => ({
-      id: t.id,
-      title: t.title ?? '',
-      date: t.date,
-      attendees: clientEmails(t),
-      status: byId.get(t.id) ?? 'new'
-    }));
+    const byId = new Map(records.map(r => [r.transcriptId, r]));
+    recent = (await listRecentTranscripts(14)).map(t => {
+      const rec = byId.get(t.id);
+      const status = rec?.status ?? 'new';
+      const needsLink = status === 'new' || status === 'unmatched';
+      return {
+        id: t.id,
+        title: t.title ?? '',
+        date: t.date,
+        attendees: clientEmails(t),
+        status,
+        ...(rec?.leadId ? { leadId: rec.leadId } : {}),
+        ...(needsLink ? { suggestions: suggestLeadsForTranscript(t, leads) } : {})
+      };
+    });
   } catch (e) {
     firefliesError = e instanceof Error ? e.message : 'Fireflies list failed';
   }
 
-  return Response.json({ records, recent, ...(firefliesError ? { firefliesError } : {}) });
+  // Light lead list for the manual-assign picker.
+  const leadOptions = leads
+    .map(l => ({ id: l.id, company: l.company ?? '', person: l.person ?? '' }))
+    .sort((a, b) => (a.company || a.person).localeCompare(b.company || b.person));
+
+  return Response.json({
+    records,
+    recent,
+    leadOptions,
+    ...(firefliesError ? { firefliesError } : {})
+  });
 }
 
 export async function POST(req: NextRequest) {

@@ -193,6 +193,65 @@ export function matchTranscriptToLead(
   return fuzzy.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
 }
 
+export interface LeadSuggestion {
+  leadId: string;
+  company?: string;
+  person?: string;
+  score: number;
+  reasons: string[];
+}
+
+/**
+ * Ranked lead candidates for a transcript that didn't auto-match (or for
+ * operator review). Wider net than matchTranscriptToLead: scores every signal
+ * and returns the top few with human-readable reasons.
+ */
+export function suggestLeadsForTranscript(
+  t: FirefliesTranscriptSummary,
+  leads: WorkshopLead[],
+  limit = 3
+): LeadSuggestion[] {
+  const emails = clientEmails(t);
+  const title = (t.title ?? '').toLowerCase();
+  const domains = emails.map(e => e.split('@')[1] ?? '').filter(Boolean);
+
+  const scored: LeadSuggestion[] = [];
+  for (const lead of leads) {
+    const reasons: string[] = [];
+    let score = 0;
+
+    const contacts = (lead.contacts ?? []).map(c => c.trim().toLowerCase());
+    const emailHit = emails.find(e => contacts.includes(e));
+    if (emailHit) {
+      score += 10;
+      reasons.push(`attendee ${emailHit} is a saved contact`);
+    }
+
+    for (const tok of [...tokens(lead.person), ...tokens(lead.company)]) {
+      if (title.includes(tok)) {
+        score += 3;
+        reasons.push(`call title mentions “${tok}”`);
+      }
+      const d = domains.find(dom => dom.includes(tok));
+      if (d) {
+        score += 2;
+        reasons.push(`attendee domain ${d} matches “${tok}”`);
+      }
+    }
+
+    if (score > 0) {
+      scored.push({
+        leadId: lead.id,
+        company: lead.company,
+        person: lead.person,
+        score,
+        reasons: [...new Set(reasons)].slice(0, 3)
+      });
+    }
+  }
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
 /** Load all leads once for a matching pass. */
 export async function loadAllLeads(): Promise<WorkshopLead[]> {
   const snap = await adminDb().collection('workshopLeads').get();

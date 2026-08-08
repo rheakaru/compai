@@ -399,7 +399,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'sync_client_context',
     description:
-      'Write-back from a Claude project chat: append a summarized recap of the work done for a client onto their lead (as a note session), record documents produced by name/link (not re-uploaded), and optionally update next steps. Idempotent per document name.',
+      'Write-back from a Claude chat to the Rhai dashboard: append a summarized recap of the work done for a client onto their lead (as a note session), record documents produced by name/link (not re-uploaded), and optionally update next steps. Idempotent per document name. CALL THIS PROACTIVELY whenever you create or materially revise a document (proposal, deck, brief, NDA, research note, artifact) for a specific client in this conversation — do not wait to be asked; the dashboard is the system of record and unsynced work is invisible to it. One call at the end of the work session covering everything produced is ideal.',
     inputSchema: {
       type: 'object',
       properties: {

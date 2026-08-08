@@ -18,6 +18,7 @@ import { RsvpPanel } from './RsvpPanel';
 import { LeadsDashboard } from './LeadsDashboard';
 import { RhaiChat } from './RhaiChat';
 import { DiscoveryPanel } from './RhaiDiscovery';
+import { RhaiCalls } from './RhaiCalls';
 import { InterviewsPanel } from './RhaiInterviews';
 import { PlansPanel } from './PlansPanel';
 import RhaiDocs from '@/components/RhaiDocs';
@@ -320,6 +321,7 @@ export function RhaiWorkspace() {
           <SubTabBar
             tabs={[
               { id: 'discovery', label: 'Discovery chats', badge: fresh.discovery },
+              { id: 'calls', label: 'Calls', badge: 0 },
               { id: 'ontologies', label: 'Ontologies', badge: fresh.ontologies }
             ]}
             active={discoverySub}
@@ -331,6 +333,14 @@ export function RhaiWorkspace() {
               sub="Every 'Talk to Rhai' conversation from the homepage — completed and dropped-off. Contact details, Rhai's summary, the full transcript with voice clips, and a link to the lead it created."
             >
               <DiscoveryPanel />
+            </Panel>
+          )}
+          {discoverySub === 'calls' && (
+            <Panel
+              title="Client calls"
+              sub="Every Fireflies call, synced daily. Matched calls are distilled into a Discovery Record on the client's profile; unmatched ones wait here with Rhai's best guesses — link them once and future calls auto-match."
+            >
+              <RhaiCalls />
             </Panel>
           )}
           {discoverySub === 'ontologies' && <AdminOntologiesClient />}
