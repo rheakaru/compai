@@ -235,7 +235,13 @@
         if (r.structured && opts.onStructured) opts.onStructured(r.structured);
       }).catch(function (e) {
         typing.remove();
-        bubble('agent', 'Hit a snag: ' + (e.message || e) + ' — try again?');
+        // Put the message back so retry is one click, and drop it from history
+        // so a resend doesn't double it up.
+        hist.pop();
+        ta.value = text;
+        console.error('agentChat failed:', e);
+        bubble('agent', 'I hit a technical error and couldn\'t process that (' + (e.message || e) + '). Your message is back in the box — hit send to retry. If this keeps happening, please let the Rhai team know.');
+        MKT.toast('CMO error: ' + (e.message || e), 'error', 4000);
       });
     }
     panel.querySelector('#cmo-send').onclick = send;
@@ -742,7 +748,10 @@
         MKT.callAI('generateEntitiesFromBuckets', { workspaceId: MKT.workspaceId }).then(function () {
           MKT.saveIntake({ entities_ready: true });
           state.intake.entities_ready = true;
-        }).catch(function () { /* retry from review step */ });
+        }).catch(function (e) {
+          console.error('generateEntitiesFromBuckets failed:', e);
+          MKT.toast('Entity generation failed: ' + (e.message || e) + ' — it will retry from the review step', 'error', 4000);
+        });
       }
       nextStep();
     };

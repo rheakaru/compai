@@ -24,6 +24,11 @@ interface WorkspaceSummary {
   calendarSlots: number;
   creatives: number;
   hasIntake: boolean;
+  // Partial-intake signals — what a stalled onboarding still captured.
+  website: string | null;
+  writeupSeed: string | null;
+  currentStep: number | null;
+  scrapeStatus: string | null;
 }
 
 // Marketing-tool member emails are stored with '@' → '_AT_' and '.' → '_DOT_'
@@ -57,8 +62,13 @@ function buildOntologyMarkdown(wsid: string, v: Record<string, any>): string {
     '',
     `_Workspace ${wsid}${meta.created_at ? `, created ${new Date(meta.created_at).toISOString().slice(0, 10)}` : ''} — Marketing Engine._`,
     '',
+    intake.website && intake.website !== '__skipped__' ? `**Website:** ${intake.website}` : '',
+    '',
     '## What this brand does',
-    intake.writeup || '_(not provided)_',
+    intake.writeup ||
+      (intake.writeup_seed
+        ? `_(no interview answer — from website scrape)_\n\n${intake.writeup_seed}`
+        : '_(not provided)_'),
     '',
     '## Who they sell to',
     intake.customer_types || '_(not provided)_',
@@ -195,7 +205,14 @@ export async function GET(req: NextRequest) {
         styleTemplates: asList(v.styleTemplates).length,
         calendarSlots,
         creatives: asList(v.creatives).length,
-        hasIntake: Boolean(v.intake && (v.intake.writeup || v.intake.customer_types))
+        hasIntake: Boolean(v.intake && (v.intake.writeup || v.intake.customer_types)),
+        website:
+          v.intake?.website && v.intake.website !== '__skipped__' ? v.intake.website : null,
+        writeupSeed: v.intake?.writeup_seed
+          ? String(v.intake.writeup_seed).slice(0, 200)
+          : null,
+        currentStep: v.intake?.current_step ?? null,
+        scrapeStatus: v.scrapeJob?.status ?? null
       };
     })
   );

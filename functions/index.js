@@ -21,7 +21,7 @@ if (!admin.apps.length) admin.initializeApp({
 });
 const db = admin.database();
 
-const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+const CLAUDE_MODEL = 'claude-sonnet-5';
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 
 // ===========================================================

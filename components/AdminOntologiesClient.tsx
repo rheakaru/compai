@@ -20,6 +20,10 @@ interface WorkspaceSummary {
   calendarSlots: number;
   creatives: number;
   hasIntake: boolean;
+  website: string | null;
+  writeupSeed: string | null;
+  currentStep: number | null;
+  scrapeStatus: string | null;
 }
 
 export function AdminOntologiesClient() {
@@ -159,8 +163,19 @@ export function AdminOntologiesClient() {
               <p className="mt-1 text-[11px] text-ink-500">
                 {ws.personas} personas · {ws.channels} channels · {ws.buckets} buckets ·{' '}
                 {ws.entityCollections} collections · {ws.calendarSlots} calendar slots
-                {!ws.hasIntake && <span className="ml-1 text-amber-700">· no intake</span>}
+                {!ws.hasIntake &&
+                  (ws.website || ws.writeupSeed ? (
+                    <span className="ml-1 text-amber-700">
+                      · partial intake (step {ws.currentStep ?? '?'}
+                      {ws.website ? ` · ${ws.website.replace(/^https?:\/\/(www\.)?/, '')}` : ''})
+                    </span>
+                  ) : (
+                    <span className="ml-1 text-amber-700">· no intake</span>
+                  ))}
               </p>
+              {!ws.hasIntake && ws.writeupSeed && (
+                <p className="mt-1 line-clamp-2 text-[11px] italic text-ink-400">{ws.writeupSeed}</p>
+              )}
             </button>
           ))}
         </div>
