@@ -124,6 +124,90 @@ export async function transcribeWhatsAppAudio(mediaId: string): Promise<string |
   }
 }
 
+/** Download any WhatsApp media item (image / document) as a buffer. */
+export async function downloadWhatsAppMedia(
+  mediaId: string
+): Promise<{ buffer: Buffer; mime: string } | null> {
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!mediaId || !token) return null;
+  try {
+    const metaRes = await fetch(`${GRAPH}/${mediaId}`, {
+      headers: { authorization: `Bearer ${token}` }
+    });
+    if (!metaRes.ok) return null;
+    const { url, mime_type } = (await metaRes.json()) as { url?: string; mime_type?: string };
+    if (!url) return null;
+    const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+    if (!res.ok) return null;
+    return {
+      buffer: Buffer.from(await res.arrayBuffer()),
+      mime: mime_type || res.headers.get('content-type') || 'application/octet-stream'
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A receipt photo / PDF sent on WhatsApp → a cost in the accounting tracker.
+ * Claude reads vendor/amount/date off it; the file is stored alongside.
+ * Returns the confirmation text to send back.
+ */
+export async function logReceiptFromWhatsApp(
+  media: { buffer: Buffer; mime: string },
+  caption?: string
+): Promise<string> {
+  const { extractInvoiceFields } = await import('./invoice-extract');
+  let extracted: Awaited<ReturnType<typeof extractInvoiceFields>> = {};
+  try {
+    extracted = await extractInvoiceFields(media.buffer, media.mime);
+  } catch {
+    /* best-effort */
+  }
+
+  const { todayISO } = await import('./invoices');
+  const now = Date.now();
+  const db = adminDb();
+  const ref = db.collection('rhaiCosts').doc();
+
+  const ext = media.mime.includes('pdf') ? 'pdf' : media.mime.split('/')[1] || 'jpg';
+  const fileName = `whatsapp-receipt-${new Date(now).toISOString().slice(0, 10)}-${ref.id.slice(0, 6)}.${ext}`;
+  let storagePath: string | undefined = `costDocuments/${ref.id}/${fileName}`;
+  try {
+    const { adminBucket } = await import('@/lib/firebase/admin');
+    await adminBucket().file(storagePath).save(media.buffer, {
+      contentType: media.mime,
+      resumable: false
+    });
+  } catch {
+    storagePath = undefined;
+  }
+
+  const vendor = extracted.client || '';
+  const amount = extracted.amount || 0;
+  await ref.set({
+    vendor,
+    amount,
+    date: extracted.issueDate || todayISO(now),
+    category: 'other',
+    ...(caption?.trim() ? { note: caption.trim().slice(0, 500) } : {}),
+    fileName,
+    ...(storagePath ? { storagePath } : {}),
+    mime: media.mime,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  if (vendor && amount) {
+    return `Receipt logged: ₹${amount.toLocaleString('en-IN')} to ${vendor}${
+      extracted.issueDate ? ` (${extracted.issueDate})` : ''
+    }. It's in Accounting → Costs — reply if the category should be travel/software/filings.`;
+  }
+  return `Receipt saved to Accounting → Costs, but I couldn't read the ${
+    !vendor && !amount ? 'vendor or amount' : !vendor ? 'vendor' : 'amount'
+  } off it — open the dashboard to fill that in, or text me the details.`;
+}
+
 // ---- the brain --------------------------------------------------------------
 
 interface StoredTurn {

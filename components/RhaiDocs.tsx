@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { useAuthedFetch } from './useAuthedFetch';
+import { RequestedDocsCard } from './RequestedDocsCard';
 import { STAGE_LABELS } from '@/lib/leads/types';
 import {
   DOC_KIND_LABELS,
@@ -80,6 +81,8 @@ export default function RhaiDocs() {
 
   return (
     <div>
+      <RequestedDocsCard />
+
       <BatchUploadCard
         getToken={getToken}
         api={api}

@@ -286,6 +286,19 @@ async function toolSyncClientContext(args: {
 
   // 2. Each produced doc is recorded by name/link (not re-uploaded). Same-name
   //    records update in place so re-syncing stays idempotent.
+  // Normalize the kind onto the deal-timeline vocabulary where recognizable —
+  // 'proposal' / 'nda' / 'nda-signed' drive the Docs page milestone tracker.
+  const normalizeDocKind = (kind: string | undefined, name: string): string => {
+    const k = (kind ?? '').trim().toLowerCase();
+    const n = name.toLowerCase();
+    if (k.includes('nda') || /(^|[^a-z])nda([^a-z]|$)/.test(n)) {
+      return k.includes('signed') || n.includes('signed') ? 'nda-signed' : 'nda';
+    }
+    if (k.includes('proposal') || k.includes('scope') || k.includes('costing') || n.includes('proposal') || n.includes('scope'))
+      return 'proposal';
+    return k.slice(0, 60) || 'claude-project';
+  };
+
   const docs = (args.documents ?? []).filter(d => d?.name?.trim()).slice(0, 25);
   let docsAdded = 0;
   let docsUpdated = 0;
@@ -306,7 +319,7 @@ async function toolSyncClientContext(args: {
       const doc: Omit<LeadDocument, 'id'> = {
         name,
         origin: 'generated',
-        kind: d.kind?.trim().slice(0, 60) || 'claude-project',
+        kind: normalizeDocKind(d.kind, name),
         text,
         createdAt: now,
         updatedAt: now
@@ -417,7 +430,11 @@ const TOOLS: ToolDef[] = [
             type: 'object',
             properties: {
               name: { type: 'string' },
-              kind: { type: 'string', description: 'e.g. proposal, nda, deck, research' },
+              kind: {
+                type: 'string',
+                description:
+                  'Doc type. Use the canonical values where they fit — "proposal", "nda", "nda-signed" (these drive the deal timeline on the Docs page) — else freeform: deck, research, one-pager, brief, invoice.'
+              },
               url: { type: 'string', description: 'Public/share link if one exists' },
               note: { type: 'string', description: 'One-line status, e.g. "sent to client 24 Jul"' }
             },

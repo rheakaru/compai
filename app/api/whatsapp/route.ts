@@ -2,7 +2,9 @@ import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import {
   buildWhatsappReply,
+  downloadWhatsAppMedia,
   isAllowedSender,
+  logReceiptFromWhatsApp,
   sendWhatsAppText,
   transcribeWhatsAppAudio,
   verifySignature
@@ -78,8 +80,24 @@ async function handleMessage(m: InboundMessage, name?: string): Promise<void> {
       return;
     }
     text = t;
+  } else if (m.type === 'image' || m.type === 'document') {
+    // A photo/PDF of a receipt → cost tracker. The caption (if any) becomes
+    // the note; Claude reads vendor/amount/date off the file itself.
+    const mediaId = String(m.image?.id ?? m.document?.id ?? '');
+    const caption = String(m.image?.caption ?? m.document?.caption ?? '').trim();
+    const media = mediaId ? await downloadWhatsAppMedia(mediaId) : null;
+    if (!media) {
+      await sendWhatsAppText(from, "Couldn't download that file — mind resending it?");
+      return;
+    }
+    const reply = await logReceiptFromWhatsApp(media, caption || undefined);
+    await sendWhatsAppText(from, reply);
+    return;
   } else {
-    await sendWhatsAppText(from, 'Send me a task, an idea, or a question — text or a voice note both work.');
+    await sendWhatsAppText(
+      from,
+      'Send me a task, an idea, or a question — text and voice notes work, and a photo of a receipt gets logged as a cost.'
+    );
     return;
   }
 
@@ -96,6 +114,8 @@ interface InboundMessage {
   text?: { body?: string };
   audio?: { id?: string };
   voice?: { id?: string };
+  image?: { id?: string; caption?: string };
+  document?: { id?: string; caption?: string };
 }
 interface WebhookPayload {
   entry?: {
