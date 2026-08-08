@@ -1035,7 +1035,10 @@ export async function buildWhatsappReply(params: {
   const sections = await loadContextSections();
   const reply = await runRhaiWithContext({
     model: modelFor('suggest'),
-    maxTokens: 1500,
+    // Generous budget: Sonnet 5 thinks by default and thinking counts against
+    // max_tokens — 1500 used to truncate long multi-action voice notes into
+    // empty replies with no tools run.
+    maxTokens: 6000,
     system: buildRhaiSystemPrompt(sections) + whatsappAddendum(),
     priorMessages: prior,
     userContent: params.text,
@@ -1054,5 +1057,10 @@ export async function buildWhatsappReply(params: {
     { merge: true }
   );
 
-  return reply || 'Got it.';
+  // Never mask an empty reply as success — if the model produced nothing,
+  // say so, so a silent failure is visible and retryable.
+  return (
+    reply ||
+    'I hit a snag processing that and took no action — mind sending it again? If it bundled several asks, splitting them helps.'
+  );
 }

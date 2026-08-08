@@ -228,6 +228,13 @@ export async function runRhaiWithContext(params: {
       messages
     });
 
+    // Server-side tools (web_search) can pause the turn mid-loop — resume by
+    // re-sending with the assistant content appended, no user message.
+    if (msg.stop_reason === 'pause_turn' && round < maxRounds) {
+      messages.push({ role: 'assistant', content: msg.content });
+      continue;
+    }
+
     const toolUses = msg.content.filter(
       (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && executors.has(b.name)
     );
