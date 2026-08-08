@@ -3,8 +3,8 @@ import { adminDb } from '@/lib/firebase/admin';
 import {
   buildWhatsappReply,
   downloadWhatsAppMedia,
+  handleWhatsAppAttachment,
   isAllowedSender,
-  logReceiptFromWhatsApp,
   sendWhatsAppText,
   transcribeWhatsAppAudio,
   verifySignature
@@ -81,8 +81,9 @@ async function handleMessage(m: InboundMessage, name?: string): Promise<void> {
     }
     text = t;
   } else if (m.type === 'image' || m.type === 'document') {
-    // A photo/PDF of a receipt → cost tracker. The caption (if any) becomes
-    // the note; Claude reads vendor/amount/date off the file itself.
+    // A photo/PDF → classified and routed: flight/train tickets go onto the
+    // calendar (if not already there) + travel tracker; receipts land in the
+    // cost tracker. Caption becomes the note.
     const mediaId = String(m.image?.id ?? m.document?.id ?? '');
     const caption = String(m.image?.caption ?? m.document?.caption ?? '').trim();
     const media = mediaId ? await downloadWhatsAppMedia(mediaId) : null;
@@ -90,7 +91,7 @@ async function handleMessage(m: InboundMessage, name?: string): Promise<void> {
       await sendWhatsAppText(from, "Couldn't download that file — mind resending it?");
       return;
     }
-    const reply = await logReceiptFromWhatsApp(media, caption || undefined);
+    const reply = await handleWhatsAppAttachment(media, caption || undefined);
     await sendWhatsAppText(from, reply);
     return;
   } else {

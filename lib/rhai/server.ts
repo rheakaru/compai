@@ -31,6 +31,20 @@ export async function requireOperator(req: NextRequest) {
   return { user };
 }
 
+/**
+ * Accounts scope — the operator, or a user with the `finance` custom claim
+ * (financeteam@). Finance users get Invoices/Accounting/Docs/NDA and
+ * read-only pipeline; everything else stays operator-only.
+ */
+export async function requireFinance(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return { error: new Response('unauthorized', { status: 401 }) };
+  if (!user.operator && !user.finance) {
+    return { error: new Response('forbidden', { status: 403 }) };
+  }
+  return { user };
+}
+
 let client: Anthropic | null = null;
 export function anthropic(): Anthropic {
   if (!client) {

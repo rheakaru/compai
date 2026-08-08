@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { generateAndStoreNda, loadNdaSettings } from '@/lib/rhai/nda';
 
 export const runtime = 'nodejs';
@@ -21,7 +21,7 @@ interface NdaRecord {
 
 /** Settings status + recent NDAs. */
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   const [settings, recentSnap] = await Promise.all([
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
  * generate_nda tool).
  */
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   const payload = (await req.json().catch(() => null)) as {

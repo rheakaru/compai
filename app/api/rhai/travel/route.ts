@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,7 +39,7 @@ export interface RhaiTrip {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const snap = await adminDb().collection(COL_TRAVEL).orderBy('updatedAt', 'desc').limit(200).get();
   const trips = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<RhaiTrip, 'id'>) }));
@@ -67,7 +67,7 @@ function cleanItems(raw: unknown): TravelItem[] {
 }
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as Partial<RhaiTrip>;
   if (!body.client?.trim()) return new Response('client required', { status: 400 });
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as Partial<RhaiTrip> & { id?: string };
   if (!body.id) return new Response('id required', { status: 400 });
@@ -104,7 +104,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as { id?: string };
   if (!body.id) return new Response('id required', { status: 400 });

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { COL_INVOICES } from '@/lib/rhai/invoice-server';
 import type { RhaiInvoice } from '@/lib/rhai/invoices';
 
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // Streams the original uploaded invoice file. Operator-gated — the file lives
 // in a server-only Storage path, never a public URL.
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const { id } = await ctx.params;
 

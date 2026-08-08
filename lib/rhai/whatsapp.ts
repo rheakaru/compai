@@ -148,6 +148,207 @@ export async function downloadWhatsAppMedia(
   }
 }
 
+// ---- attachments: receipts + travel tickets ---------------------------------
+
+interface AttachmentClassification {
+  type: 'receipt' | 'travel-ticket' | 'other';
+  receipt?: { vendor?: string; amount?: number; date?: string };
+  ticket?: {
+    carrier?: string;
+    number?: string; // "6E 123"
+    from?: string; // "BLR"
+    to?: string;
+    date?: string; // YYYY-MM-DD
+    depTime?: string; // HH:MM 24h local
+    arrTime?: string;
+    pnr?: string;
+    passenger?: string;
+  };
+}
+
+/** One Claude pass: is this a receipt or a travel ticket, and what's on it? */
+async function classifyAttachment(media: {
+  buffer: Buffer;
+  mime: string;
+}): Promise<AttachmentClassification> {
+  const isPdf = media.mime === 'application/pdf';
+  if (!isPdf && !media.mime.startsWith('image/')) return { type: 'other' };
+  const { anthropic, parseJsonLoose } = await import('./server');
+  const { modelFor } = await import('./models');
+  const source = {
+    type: 'base64',
+    media_type: isPdf ? 'application/pdf' : media.mime,
+    data: media.buffer.toString('base64')
+  };
+  const prompt = [
+    'Classify this document and extract its details. Return ONLY JSON, no prose:',
+    '{',
+    '  "type": "receipt" | "travel-ticket" | "other",',
+    '  "receipt": { "vendor": "...", "amount": <number>, "date": "YYYY-MM-DD" },  // if receipt/invoice',
+    '  "ticket": { "carrier": "IndiGo", "number": "6E 123", "from": "BLR", "to": "HYD",',
+    '              "date": "YYYY-MM-DD", "depTime": "HH:MM", "arrTime": "HH:MM",',
+    '              "pnr": "...", "passenger": "..." }  // if flight/train/bus ticket or booking confirmation',
+    '}',
+    'travel-ticket = a ticket or booking confirmation for a journey (flight, train, bus) or hotel.',
+    'receipt = a bill, invoice, or payment receipt for something purchased.',
+    'Omit fields you cannot read confidently. Times in 24h local time.'
+  ].join('\n');
+  try {
+    const msg = await anthropic().messages.create({
+      model: modelFor('transcribe'),
+      max_tokens: 800,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: isPdf ? 'document' : 'image', source },
+            { type: 'text', text: prompt }
+          ] as unknown as Anthropic.Messages.MessageParam['content']
+        }
+      ]
+    });
+    const text = msg.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+    const parsed = parseJsonLoose<AttachmentClassification>(text);
+    if (parsed && ['receipt', 'travel-ticket', 'other'].includes(parsed.type)) return parsed;
+  } catch {
+    /* fall through */
+  }
+  return { type: 'other' };
+}
+
+/**
+ * Route a WhatsApp attachment: travel tickets → Google Calendar (if not
+ * already there) + the travel tracker; everything else → the cost tracker.
+ * Returns the confirmation text to send back.
+ */
+export async function handleWhatsAppAttachment(
+  media: { buffer: Buffer; mime: string },
+  caption?: string
+): Promise<string> {
+  const cls = await classifyAttachment(media);
+  if (cls.type === 'travel-ticket' && cls.ticket?.date) {
+    return handleTicket(cls.ticket, media, caption);
+  }
+  // Receipts and anything unrecognized fall through to the cost tracker,
+  // reusing whatever the classifier already read.
+  return logReceiptFromWhatsApp(media, caption, cls.receipt);
+}
+
+async function handleTicket(
+  t: NonNullable<AttachmentClassification['ticket']>,
+  media: { buffer: Buffer; mime: string },
+  caption?: string
+): Promise<string> {
+  const db = adminDb();
+  const label = [t.carrier, t.number].filter(Boolean).join(' ') || 'Travel';
+  const route = t.from && t.to ? `${t.from} → ${t.to}` : '';
+  const summary = `✈️ ${label}${route ? ` ${route}` : ''}`.trim();
+  const date = t.date!;
+
+  // Store the ticket file for reference.
+  let stored = false;
+  try {
+    const { adminBucket } = await import('@/lib/firebase/admin');
+    const ext = media.mime.includes('pdf') ? 'pdf' : media.mime.split('/')[1] || 'jpg';
+    await adminBucket()
+      .file(`travelDocuments/${date}-${(t.pnr || label).replace(/[^A-Za-z0-9]+/g, '_')}.${ext}`)
+      .save(media.buffer, { contentType: media.mime, resumable: false });
+    stored = true;
+  } catch {
+    /* best-effort */
+  }
+
+  // Already on the calendar? Look ±1 day for an event mentioning the flight
+  // number or the same route emoji-summary.
+  const lines: string[] = [];
+  try {
+    const { listEventsServer, insertEventServer } = await import('./gcal-server');
+    const dayStart = new Date(`${date}T00:00:00+05:30`);
+    const existing = await listEventsServer(
+      new Date(dayStart.getTime() - 86_400_000),
+      new Date(dayStart.getTime() + 2 * 86_400_000)
+    );
+    const numToken = (t.number ?? '').replace(/\s+/g, '').toLowerCase();
+    const dup = existing.find(e => {
+      const s = e.summary.replace(/\s+/g, '').toLowerCase();
+      return (numToken && s.includes(numToken)) || (route && e.summary.includes(route));
+    });
+    if (dup) {
+      lines.push(`Already on your calendar: "${dup.summary}" — didn't add it again.`);
+    } else {
+      const dep = t.depTime && /^\d{2}:\d{2}$/.test(t.depTime) ? t.depTime : '09:00';
+      const arr =
+        t.arrTime && /^\d{2}:\d{2}$/.test(t.arrTime) && t.arrTime > dep
+          ? t.arrTime
+          : `${pad2(Math.min(23, Number(dep.slice(0, 2)) + 2))}:${dep.slice(3)}`;
+      const ev = await insertEventServer({
+        summary,
+        description: [
+          t.pnr ? `PNR: ${t.pnr}` : null,
+          t.passenger ? `Passenger: ${t.passenger}` : null,
+          caption || null,
+          'Added by Rhai from a WhatsApp ticket.'
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        start: { dateTime: `${date}T${dep}:00`, timeZone: 'Asia/Kolkata' },
+        end: { dateTime: `${date}T${arr}:00`, timeZone: 'Asia/Kolkata' }
+      });
+      lines.push(
+        `Added to your calendar: ${summary} on ${date}${t.depTime ? ` at ${t.depTime}` : ''}. ${ev.htmlLink}`
+      );
+    }
+  } catch (e) {
+    lines.push(
+      `Couldn't check/update the calendar (${e instanceof Error ? e.message : 'error'}) — add it manually.`
+    );
+  }
+
+  // Mark a matching trip's flight as booked in the travel tracker.
+  try {
+    const trips = await db.collection('rhaiTravel').orderBy('updatedAt', 'desc').limit(30).get();
+    const hit = trips.docs.find(d => {
+      const trip = d.data() as { startDate?: string; endDate?: string; done?: boolean };
+      if (trip.done) return false;
+      const s = trip.startDate ?? '';
+      const e = trip.endDate ?? s;
+      return s && date >= addDays(s, -2) && date <= addDays(e || s, 2);
+    });
+    if (hit) {
+      const trip = hit.data() as {
+        client?: string;
+        items?: Array<{ kind: string; status: string; detail?: string; confirmation?: string }>;
+      };
+      const items = trip.items ?? [];
+      const idx = items.findIndex(i => i.kind === 'flight' && i.status !== 'booked');
+      if (idx >= 0) {
+        items[idx] = {
+          ...items[idx],
+          status: 'booked',
+          ...(route ? { detail: `${route} ${date}` } : {}),
+          ...(t.pnr ? { confirmation: t.pnr } : {})
+        };
+        await hit.ref.set({ items, updatedAt: Date.now() }, { merge: true });
+        lines.push(`Marked the flight booked on the ${trip.client ?? ''} trip in Accounting → Travel.`);
+      }
+    }
+  } catch {
+    /* tracker update is best-effort */
+  }
+
+  if (t.pnr) lines.push(`PNR ${t.pnr}${stored ? ' — ticket saved' : ''}.`);
+  return lines.join('\n');
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+function addDays(isoDate: string, days: number): string {
+  const t = new Date(`${isoDate}T00:00:00Z`).getTime();
+  return Number.isNaN(t) ? isoDate : new Date(t + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 /**
  * A receipt photo / PDF sent on WhatsApp → a cost in the accounting tracker.
  * Claude reads vendor/amount/date off it; the file is stored alongside.
@@ -155,14 +356,19 @@ export async function downloadWhatsAppMedia(
  */
 export async function logReceiptFromWhatsApp(
   media: { buffer: Buffer; mime: string },
-  caption?: string
+  caption?: string,
+  preExtracted?: { vendor?: string; amount?: number; date?: string }
 ): Promise<string> {
-  const { extractInvoiceFields } = await import('./invoice-extract');
-  let extracted: Awaited<ReturnType<typeof extractInvoiceFields>> = {};
-  try {
-    extracted = await extractInvoiceFields(media.buffer, media.mime);
-  } catch {
-    /* best-effort */
+  let extracted: { client?: string; amount?: number; issueDate?: string } = preExtracted
+    ? { client: preExtracted.vendor, amount: preExtracted.amount, issueDate: preExtracted.date }
+    : {};
+  if (!extracted.client && !extracted.amount) {
+    try {
+      const { extractInvoiceFields } = await import('./invoice-extract');
+      extracted = await extractInvoiceFields(media.buffer, media.mime);
+    } catch {
+      /* best-effort */
+    }
   }
 
   const { todayISO } = await import('./invoices');
@@ -237,7 +443,7 @@ You are talking to Rhea over WhatsApp — she's on her phone, capturing things o
 - A company legal name with an NDA ask ("NDA for Acme Widgets Private Limited") → call generate_nda; the PDF is sent to her chat by the tool. Relay the blanks she still has to fill and whether it was signature-stamped.
 - An invoice ask ("invoice Kothari 1 lakh for the workshop") → call create_invoice; amounts she gives are the taxable value (GST is added on top automatically). The PDF is sent to her chat. If she doesn't give the client's GSTIN, generate anyway and remind her to add it if the client is registered.
 - Travel for a client trip ("Dodla trip 14–15 Aug, they still owe me flights and hotel") → call log_travel. Client-booked travel: track what the client still has to book for her.
-- A business expense / receipt amount ("paid 4,500 to Cleartax for filings") → call log_cost.
+- A business expense / receipt amount ("paid 4,500 to Cleartax for filings") → call log_cost. (Receipt photos and ticket PDFs she sends are handled automatically before reaching you — receipts land in Costs, flight tickets go on her calendar.)
 - You can brainstorm and sketch a proposal inline; the full proposal document gets built in the app, so offer to file it via propose_action.
 - Briefly confirm what you saved. Warm, concrete, no filler.`;
 }

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { adminBucket } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { loadAllLeads } from '@/lib/rhai/fireflies';
 import { parseOne, leadLabel } from '@/lib/rhai/ndaParse';
 import type { TrackedDocKind } from '@/lib/rhai/docTracking';
@@ -38,7 +38,7 @@ function defaultKind(name: string): TrackedDocKind {
 }
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   const form = await req.formData().catch(() => null);

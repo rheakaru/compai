@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import {
   companyGaps,
   loadCompanySettings,
@@ -11,14 +11,14 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const settings = await loadCompanySettings();
   return Response.json({ settings, gaps: companyGaps(settings) });
 }
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as Partial<CompanySettings>;
   // Whitelist — never let a client patch arbitrary keys into the doc.

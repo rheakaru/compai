@@ -18,12 +18,14 @@ function sessionCookie(value: string, maxAgeSeconds: number): string {
   return `${SESSION_COOKIE}=${value}; Max-Age=${maxAgeSeconds}; Path=/; HttpOnly; Secure; SameSite=Lax`;
 }
 
-/** Mint the session cookie from a fresh bearer ID token. Operator only. */
+/** Mint the session cookie from a fresh bearer ID token. Operator or finance. */
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const user = await getUserFromAuthHeader(authHeader);
   if (!user) return new Response('unauthorized', { status: 401 });
-  if (!user.operator) return new Response('forbidden — operator only', { status: 403 });
+  if (!user.operator && !user.finance) {
+    return new Response('forbidden — operator only', { status: 403 });
+  }
 
   // getUserFromAuthHeader already validated the Bearer shape + token.
   const idToken = /^Bearer\s+(.+)$/.exec(authHeader ?? '')![1];
@@ -43,7 +45,9 @@ export async function GET(req: NextRequest) {
   if (!cookie) return new Response('unauthorized', { status: 401 });
   try {
     const user = await verifySessionCookie(cookie);
-    if (!user.operator) return new Response('forbidden — operator only', { status: 403 });
+    if (!user.operator && !user.finance) {
+      return new Response('forbidden — operator only', { status: 403 });
+    }
     return Response.json({ user: { uid: user.uid, email: user.email } });
   } catch {
     return new Response('unauthorized', { status: 401 });

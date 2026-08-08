@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { loadCompanySettings } from '@/lib/rhai/company';
 import { complianceCalendar } from '@/lib/rhai/compliance';
 
@@ -16,7 +16,7 @@ function currentFyStart(now = new Date()): number {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const fyParam = Number(req.nextUrl.searchParams.get('fy'));
   const fyStart = Number.isFinite(fyParam) && fyParam > 2000 ? fyParam : currentFyStart();
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as { id?: string; done?: boolean; note?: string };
   if (!body.id) return new Response('id required', { status: 400 });

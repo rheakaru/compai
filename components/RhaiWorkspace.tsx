@@ -101,6 +101,11 @@ function useAuthedFetch() {
   );
 }
 
+// Tabs the finance role (accounts team) can see. Everything else — plan,
+// tasks, people, interviews, discovery, hire, plumbing — is operator-only,
+// and lead creation/editing is blocked server-side for finance.
+const FINANCE_TABS: Tab[] = ['pipeline', 'docs', 'invoices', 'accounting', 'nda'];
+
 const TOUR_SEEN_KEY = 'rhai.tour.seen';
 const LAST_SEEN_KEY = (section: string) => `rhai.lastSeen.${section}`;
 
@@ -115,6 +120,27 @@ export function RhaiWorkspace() {
   const [fresh, setFresh] = useState<{ discovery: number; ontologies: number }>({ discovery: 0, ontologies: 0 });
   const { user, getToken } = useAuth();
   const authedFetch = useAuthedFetch();
+
+  // Role-scoped tab set. Finance users (accounts team) see the accounts
+  // surface only; server routes enforce the same boundary, this just keeps
+  // the UI honest. Until the role loads, show the finance-safe subset.
+  const [role, setRole] = useState<{ operator: boolean; finance: boolean } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const res = await authedFetch('/api/rhai/me');
+        if (res.ok) setRole((await res.json()) as { operator: boolean; finance: boolean });
+      } catch {
+        /* default stays */
+      }
+    })();
+  }, [user, authedFetch]);
+  const financeOnly = role !== null && !role.operator && role.finance;
+  const visibleTabs = financeOnly ? TABS.filter(t => FINANCE_TABS.includes(t.id)) : TABS;
+  useEffect(() => {
+    if (financeOnly && !FINANCE_TABS.includes(tab)) setTab('invoices');
+  }, [financeOnly, tab]);
 
   // Accepts old (pre-consolidation) tab ids and routes them to the new home.
   const openTab = useCallback((id: string) => {
@@ -223,7 +249,7 @@ export function RhaiWorkspace() {
 
       <div className="sticky top-14 z-30 border-b border-ink-200/70 bg-cream-50/95 backdrop-blur">
         <div className="no-scrollbar mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4 sm:px-6">
-          {TABS.map(t => (
+          {visibleTabs.map(t => (
             <button
               key={t.id}
               type="button"

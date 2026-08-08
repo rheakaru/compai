@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { classify, extractText } from '@/lib/rhai/extract';
 import { TRACKED_DOC_KINDS, isoToMs, type TrackedDocKind } from '@/lib/rhai/docTracking';
 import type { LeadDocument, WorkshopLead } from '@/lib/leads/types';
@@ -36,7 +36,7 @@ interface CommitResult {
 }
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   const body = (await req.json().catch(() => null)) as { items?: CommitItem[] } | null;

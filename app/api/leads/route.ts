@@ -23,8 +23,13 @@ async function requireOperator(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
-  if (error) return error;
+  // Finance users get a read-only pipeline view; all writes below stay
+  // operator-only ("no adding leads").
+  const user = await getUserFromRequest(req);
+  if (!user) return new Response('unauthorized', { status: 401 });
+  if (!user.operator && !user.finance) {
+    return new Response('forbidden — operator only', { status: 403 });
+  }
 
   const snap = await adminDb().collection(COLLECTION).orderBy('createdAt', 'desc').get();
   const leads = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<WorkshopLead, 'id'>) }));

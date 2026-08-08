@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { COL_INVOICES, syncLeadFromInvoice } from '@/lib/rhai/invoice-server';
 import {
   todayISO,
@@ -18,7 +18,7 @@ const STATUSES: InvoiceStatus[] = ['draft', 'sent', 'paid', 'cancelled'];
 // Only these fields are operator-editable. source/storagePath/timestamps stay
 // server-owned.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const { id } = await ctx.params;
   const ref = adminDb().collection(COL_INVOICES).doc(id);
@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 }
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const { id } = await ctx.params;
   const ref = adminDb().collection(COL_INVOICES).doc(id);

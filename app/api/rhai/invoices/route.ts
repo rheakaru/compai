@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { extractInvoiceFields } from '@/lib/rhai/invoice-extract';
 import { COL_INVOICES, syncLeadFromInvoice } from '@/lib/rhai/invoice-server';
 import {
@@ -21,7 +21,7 @@ const MAX_BYTES = 25 * 1024 * 1024;
 const STATUSES: InvoiceStatus[] = ['draft', 'sent', 'paid', 'cancelled'];
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const snap = await adminDb().collection(COL_INVOICES).orderBy('createdAt', 'desc').get();
   const invoices = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<RhaiInvoice, 'id'>) }));
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 //     extracts the fields and we create a draft the operator can correct.
 //   application/json → create a platform invoice (from a lead or from scratch).
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const now = Date.now();
 

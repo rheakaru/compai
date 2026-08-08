@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import type Anthropic from '@anthropic-ai/sdk';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
-import { anthropic, parseJsonLoose, requireOperator } from '@/lib/rhai/server';
+import { anthropic, parseJsonLoose, requireFinance } from '@/lib/rhai/server';
 import { modelFor } from '@/lib/rhai/models';
 import { extractText } from '@/lib/rhai/extract';
 import { COL_INVOICES } from '@/lib/rhai/invoice-server';
@@ -56,7 +56,7 @@ function sharesDistinctiveToken(a: string, b: string): boolean {
 // ---------------------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   const [leadsSnap, invoicesSnap, ndasSnap] = await Promise.all([
@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function PATCH(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   const body = (await req.json().catch(() => null)) as {
@@ -234,7 +234,7 @@ export async function PATCH(req: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   const form = await req.formData().catch(() => null);

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,7 +39,7 @@ function slugify(title: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const snap = await adminDb().collection(COL).orderBy('count', 'desc').limit(200).get();
   const requests = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<DocRequest, 'id'>) }));
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 // POST {title, requestedBy?, note?} — create, or +1 an existing request with
 // the same normalized title.
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as {
     title?: string;
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as Partial<DocRequest> & { id?: string };
   if (!body.id) return new Response('id required', { status: 400 });
@@ -109,7 +109,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as { id?: string };
   if (!body.id) return new Response('id required', { status: 400 });

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { extractInvoiceFields } from '@/lib/rhai/invoice-extract';
 import { todayISO } from '@/lib/rhai/invoices';
 
@@ -31,7 +31,7 @@ export interface RhaiCost {
 
 // GET → all costs, newest first.
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const snap = await adminDb().collection(COL_COSTS).orderBy('date', 'desc').limit(500).get();
   const costs = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<RhaiCost, 'id'>) }));
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 // POST multipart (file [+ fields]) → upload a receipt; Claude extracts vendor/
 // amount/date best-effort. POST JSON → record a cost without a file.
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const now = Date.now();
   const contentType = req.headers.get('content-type') ?? '';
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
 
 // PATCH {id, ...fields} / DELETE {id}
 export async function PATCH(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as Partial<RhaiCost> & { id?: string };
   if (!body.id) return new Response('id required', { status: 400 });
@@ -125,7 +125,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as { id?: string };
   if (!body.id) return new Response('id required', { status: 400 });

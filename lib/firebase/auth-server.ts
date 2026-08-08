@@ -16,6 +16,8 @@ export interface AuthedUser {
   uid: string;
   email: string | null;
   operator: boolean;
+  /** Accounts-only role: Invoices/Accounting/Docs/NDA + read-only pipeline. */
+  finance: boolean;
 }
 
 export async function verifyIdToken(token: string): Promise<AuthedUser> {
@@ -23,7 +25,8 @@ export async function verifyIdToken(token: string): Promise<AuthedUser> {
   return {
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
-    operator: decoded.operator === true
+    operator: decoded.operator === true,
+    finance: decoded.finance === true
   };
 }
 
@@ -44,7 +47,8 @@ export async function verifySessionCookie(cookie: string): Promise<AuthedUser> {
   return {
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
-    operator: decoded.operator === true
+    operator: decoded.operator === true,
+    finance: decoded.finance === true
   };
 }
 

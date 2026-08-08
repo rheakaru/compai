@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminBucket } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireFinance } from '@/lib/rhai/server';
 import { loadNdaSettings, saveNdaSettings } from '@/lib/rhai/nda';
 
 export const runtime = 'nodejs';
@@ -19,7 +19,7 @@ function jsonError(message: string, status: number) {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
   const settings = await loadNdaSettings();
   return Response.json({
@@ -44,7 +44,7 @@ function detectImage(buf: Buffer, mime: string): 'image/png' | 'image/jpeg' | nu
  * a clear JSON error at whichever step fails — never a silent 500.
  */
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireFinance(req);
   if (error) return error;
 
   let address: string | undefined;
