@@ -230,7 +230,8 @@ export async function runRhaiWithContext(params: {
 
     // Server-side tools (web_search) can pause the turn mid-loop — resume by
     // re-sending with the assistant content appended, no user message.
-    if (msg.stop_reason === 'pause_turn' && round < maxRounds) {
+    // (String cast: this SDK version's stop_reason union predates pause_turn.)
+    if ((msg.stop_reason as string) === 'pause_turn' && round < maxRounds) {
       messages.push({ role: 'assistant', content: msg.content });
       continue;
     }
