@@ -38,6 +38,20 @@ exports.rhaiFirefliesSync = onSchedule(
   () => hitCron('/api/rhai/cron/fireflies-sync', CRON_SECRET.value())
 );
 
+// Daily 8:00am IST — session reminders at T-5 (data/discovery), T-3
+// (participant reminder + setup), T-1 (day-before checks, car, packing).
+exports.rhaiSessionReminders = onSchedule(
+  {
+    schedule: '0 8 * * *',
+    timeZone: 'Asia/Kolkata',
+    region: 'asia-south1',
+    secrets: [CRON_SECRET],
+    timeoutSeconds: 300,
+    memory: '256MiB'
+  },
+  () => hitCron('/api/rhai/cron/session-reminders', CRON_SECRET.value())
+);
+
 // Every 15 min — WhatsApp pre-call briefings for calls ~1 hour out.
 exports.rhaiBriefings = onSchedule(
   {

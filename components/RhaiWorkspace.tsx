@@ -20,6 +20,7 @@ import { RhaiChat } from './RhaiChat';
 import { DiscoveryPanel } from './RhaiDiscovery';
 import { RhaiCalls } from './RhaiCalls';
 import { RhaiAccounting } from './RhaiAccounting';
+import { RhaiSessions } from './RhaiSessions';
 import { InterviewsPanel } from './RhaiInterviews';
 import { PlansPanel } from './PlansPanel';
 import RhaiDocs from '@/components/RhaiDocs';
@@ -48,6 +49,7 @@ type Tab =
   | 'interviews'
   | 'discovery'
   | 'docs'
+  | 'sessions'
   | 'invoices'
   | 'accounting'
   | 'nda'
@@ -62,6 +64,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'interviews', label: 'Interviews' },
   { id: 'discovery', label: 'Discovery' },
   { id: 'docs', label: 'Docs' },
+  { id: 'sessions', label: 'Sessions' },
   { id: 'invoices', label: 'Invoices' },
   { id: 'accounting', label: 'Accounting' },
   { id: 'nda', label: 'NDA' },
@@ -106,6 +109,9 @@ function useAuthedFetch() {
 // and lead creation/editing is blocked server-side for finance.
 const FINANCE_TABS: Tab[] = ['pipeline', 'docs', 'invoices', 'accounting', 'nda'];
 
+// Tabs the EA role (Divya) can see: session logistics only.
+const EA_TABS: Tab[] = ['sessions'];
+
 const TOUR_SEEN_KEY = 'rhai.tour.seen';
 const LAST_SEEN_KEY = (section: string) => `rhai.lastSeen.${section}`;
 
@@ -124,23 +130,29 @@ export function RhaiWorkspace() {
   // Role-scoped tab set. Finance users (accounts team) see the accounts
   // surface only; server routes enforce the same boundary, this just keeps
   // the UI honest. Until the role loads, show the finance-safe subset.
-  const [role, setRole] = useState<{ operator: boolean; finance: boolean } | null>(null);
+  const [role, setRole] = useState<{ operator: boolean; finance: boolean; ea: boolean } | null>(null);
   useEffect(() => {
     if (!user) return;
     void (async () => {
       try {
         const res = await authedFetch('/api/rhai/me');
-        if (res.ok) setRole((await res.json()) as { operator: boolean; finance: boolean });
+        if (res.ok) setRole((await res.json()) as { operator: boolean; finance: boolean; ea: boolean });
       } catch {
         /* default stays */
       }
     })();
   }, [user, authedFetch]);
   const financeOnly = role !== null && !role.operator && role.finance;
-  const visibleTabs = financeOnly ? TABS.filter(t => FINANCE_TABS.includes(t.id)) : TABS;
+  const eaOnly = role !== null && !role.operator && !role.finance && role.ea;
+  const visibleTabs = financeOnly
+    ? TABS.filter(t => FINANCE_TABS.includes(t.id))
+    : eaOnly
+      ? TABS.filter(t => EA_TABS.includes(t.id))
+      : TABS;
   useEffect(() => {
     if (financeOnly && !FINANCE_TABS.includes(tab)) setTab('invoices');
-  }, [financeOnly, tab]);
+    if (eaOnly && !EA_TABS.includes(tab)) setTab('sessions');
+  }, [financeOnly, eaOnly, tab]);
 
   // Accepts old (pre-consolidation) tab ids and routes them to the new home.
   const openTab = useCallback((id: string) => {
@@ -382,6 +394,14 @@ export function RhaiWorkspace() {
           sub="Money owed and money in. Create an invoice from a lead or from scratch, or upload one you made elsewhere — Rhai reads the details off the PDF. Linked leads stay in sync."
         >
           <InvoicesPanel />
+        </Panel>
+      )}
+      {tab === 'sessions' && (
+        <Panel
+          title="Sessions"
+          sub="Every in-person session — venue, timings, car bookings, travel status, the outfit, and the prep + packing checklists. Divya coordinates commute and on-site setup from here; auto-reminders fire 5, 3 and 1 days out."
+        >
+          <RhaiSessions />
         </Panel>
       )}
       {tab === 'accounting' && (

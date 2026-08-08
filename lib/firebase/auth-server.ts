@@ -18,6 +18,8 @@ export interface AuthedUser {
   operator: boolean;
   /** Accounts-only role: Invoices/Accounting/Docs/NDA + read-only pipeline. */
   finance: boolean;
+  /** EA role (Divya): session logistics only — venue, timings, cars, travel. */
+  ea: boolean;
 }
 
 export async function verifyIdToken(token: string): Promise<AuthedUser> {
@@ -26,7 +28,8 @@ export async function verifyIdToken(token: string): Promise<AuthedUser> {
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
-    finance: decoded.finance === true
+    finance: decoded.finance === true,
+    ea: decoded.ea === true
   };
 }
 
@@ -48,7 +51,8 @@ export async function verifySessionCookie(cookie: string): Promise<AuthedUser> {
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
-    finance: decoded.finance === true
+    finance: decoded.finance === true,
+    ea: decoded.ea === true
   };
 }
 

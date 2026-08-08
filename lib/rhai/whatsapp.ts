@@ -228,6 +228,11 @@ export async function handleWhatsAppAttachment(
   media: { buffer: Buffer; mime: string },
   caption?: string
 ): Promise<string> {
+  // Outfit photos are caption-routed ("this is what I'm wearing for the Dodla
+  // session") — they'd otherwise classify as 'other'.
+  if (media.mime.startsWith('image/') && caption && /\b(wear|outfit|dress)\b/i.test(caption)) {
+    return attachOutfitToSession(media, caption);
+  }
   const cls = await classifyAttachment(media);
   if (cls.type === 'travel-ticket' && cls.ticket?.date) {
     return handleTicket(cls.ticket, media, caption);
@@ -343,6 +348,61 @@ async function handleTicket(
   return lines.join('\n');
 }
 
+/** Find the best-matching upcoming session for a free-text mention. */
+async function findSessionByText(text: string): Promise<{
+  id: string;
+  client: string;
+  date: string;
+  ref: FirebaseFirestore.DocumentReference;
+} | null> {
+  const db = adminDb();
+  const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  const snap = await db
+    .collection('rhaiSessions')
+    .where('date', '>=', today)
+    .orderBy('date', 'asc')
+    .limit(20)
+    .get();
+  const low = text.toLowerCase();
+  const rows = snap.docs.map(d => ({
+    id: d.id,
+    ref: d.ref,
+    ...(d.data() as { client?: string; date?: string; status?: string })
+  }));
+  const active = rows.filter(r => r.status !== 'cancelled' && r.status !== 'done');
+  const byName = active.find(r =>
+    (r.client ?? '')
+      .toLowerCase()
+      .split(/\s+/)
+      .some(tok => tok.length >= 3 && low.includes(tok))
+  );
+  const hit = byName ?? active[0]; // no name → the next upcoming session
+  return hit ? { id: hit.id, client: hit.client ?? '', date: hit.date ?? '', ref: hit.ref } : null;
+}
+
+async function attachOutfitToSession(
+  media: { buffer: Buffer; mime: string },
+  caption: string
+): Promise<string> {
+  const hit = await findSessionByText(caption);
+  if (!hit) {
+    return "No upcoming session found to pin this outfit to — add the session first (dashboard → Sessions), then resend.";
+  }
+  try {
+    const { adminBucket } = await import('@/lib/firebase/admin');
+    const ext = media.mime.split('/')[1] || 'jpg';
+    const outfitPath = `sessionOutfits/${hit.id}/outfit-${Date.now()}.${ext}`;
+    await adminBucket().file(outfitPath).save(media.buffer, { contentType: media.mime, resumable: false });
+    await hit.ref.set(
+      { outfitPath, outfitNote: caption.slice(0, 300), updatedAt: Date.now() },
+      { merge: true }
+    );
+    return `Outfit saved for the ${hit.client} session on ${hit.date} — it's on the Sessions tab.`;
+  } catch (e) {
+    return `Couldn't save the outfit photo (${e instanceof Error ? e.message : 'error'}).`;
+  }
+}
+
 const pad2 = (n: number) => String(n).padStart(2, '0');
 function addDays(isoDate: string, days: number): string {
   const t = new Date(`${isoDate}T00:00:00Z`).getTime();
@@ -443,7 +503,9 @@ You are talking to Rhea over WhatsApp — she's on her phone, capturing things o
 - A company legal name with an NDA ask ("NDA for Acme Widgets Private Limited") → call generate_nda; the PDF is sent to her chat by the tool. Relay the blanks she still has to fill and whether it was signature-stamped.
 - An invoice ask ("invoice Kothari 1 lakh for the workshop") → call create_invoice; amounts she gives are the taxable value (GST is added on top automatically). The PDF is sent to her chat. If she doesn't give the client's GSTIN, generate anyway and remind her to add it if the client is registered.
 - Travel for a client trip ("Dodla trip 14–15 Aug, they still owe me flights and hotel") → call log_travel. Client-booked travel: track what the client still has to book for her.
-- A business expense / receipt amount ("paid 4,500 to Cleartax for filings") → call log_cost. (Receipt photos and ticket PDFs she sends are handled automatically before reaching you — receipts land in Costs, flight tickets go on her calendar.)
+- A business expense / receipt amount ("paid 4,500 to Cleartax for filings") → call log_cost. (Receipt photos and ticket PDFs she sends are handled automatically before reaching you — receipts land in Costs, flight tickets go on her calendar, outfit photos captioned "wearing this for X" pin to the session.)
+- An in-person session/workshop being scheduled ("Dodla workshop confirmed for the 21st, their Hyderabad office") → call create_session.
+- Session logistics ("car booked for Kothari, driver Ramesh 98x", "add printouts of the worksheet to the Dodla session", "pack the extension cord for this trip") → call update_session.
 - You can brainstorm and sketch a proposal inline; the full proposal document gets built in the app, so offer to file it via propose_action.
 - Briefly confirm what you saved. Warm, concrete, no filler.`;
 }
@@ -846,6 +908,112 @@ export async function buildWhatsappReply(params: {
           updatedAt: now
         });
         return `Logged ₹${i.amount.toLocaleString('en-IN')} to ${i.vendor} (${i.category ?? 'other'}) — it's in Accounting → Costs.`;
+      }
+    },
+    {
+      schema: {
+        name: 'create_session',
+        description:
+          'Create an in-person session (workshop / recce / build day) in the Sessions logistics tracker. Prep + packing checklists are seeded automatically; Divya (EA) coordinates cars and on-site setup from it, and auto-reminders fire 5/3/1 days before.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            client: { type: 'string' },
+            date: { type: 'string', description: 'YYYY-MM-DD' },
+            title: { type: 'string', description: 'e.g. "AI Workshop day 1"' },
+            startTime: { type: 'string', description: 'HH:MM IST' },
+            endTime: { type: 'string', description: 'HH:MM IST' },
+            venue: { type: 'string', description: 'Office address if she gives it' }
+          },
+          required: ['client', 'date']
+        }
+      },
+      execute: async input => {
+        const i = input as Record<string, string>;
+        if (!i.client?.trim() || !i.date) return 'tool error: client and date required';
+        const { DEFAULT_PREP_TEMPLATE, DEFAULT_PACKING_TEMPLATE, seedChecklist } = await import('./sessions');
+        const tSnap = await db.doc('rhaiConfig/sessionChecklists').get();
+        const tpl = (tSnap.data() ?? {}) as { prep?: string[]; packing?: string[] };
+        const now = Date.now();
+        await db.collection('rhaiSessions').add({
+          client: i.client.trim(),
+          date: i.date,
+          ...(i.title ? { title: i.title } : {}),
+          ...(i.startTime ? { startTime: i.startTime } : {}),
+          ...(i.endTime ? { endTime: i.endTime } : {}),
+          ...(i.venue ? { venue: i.venue } : {}),
+          status: 'confirmed',
+          car: { status: 'needed' },
+          prep: seedChecklist(tpl.prep?.length ? tpl.prep : DEFAULT_PREP_TEMPLATE),
+          packing: seedChecklist(tpl.packing?.length ? tpl.packing : DEFAULT_PACKING_TEMPLATE),
+          createdAt: now,
+          updatedAt: now
+        });
+        return `Session created: ${i.client} on ${i.date}${i.venue ? ` at ${i.venue}` : ''}. Checklists seeded — it's on the Sessions tab (Divya can see it too).`;
+      }
+    },
+    {
+      schema: {
+        name: 'update_session',
+        description:
+          'Update an upcoming session in the logistics tracker: add a note (packing extras, printouts, on-site contact), set the car status, set venue/times, or add a checklist item. Match the session by client name; with no name, the next upcoming session is used.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            sessionHint: { type: 'string', description: 'Client name or words identifying the session' },
+            note: { type: 'string', description: 'Appended to the session notes' },
+            carStatus: { type: 'string', enum: ['not-needed', 'needed', 'booked'] },
+            carNotes: { type: 'string', description: 'Driver / booking details' },
+            venue: { type: 'string' },
+            startTime: { type: 'string' },
+            endTime: { type: 'string' },
+            addChecklistItem: { type: 'string', description: 'One-off prep item for this session' },
+            addPackingItem: { type: 'string', description: 'One-off packing item for this trip' }
+          },
+          required: ['sessionHint']
+        }
+      },
+      execute: async input => {
+        const i = input as Record<string, string>;
+        const hit = await findSessionByText(i.sessionHint ?? '');
+        if (!hit) return 'No upcoming session matches — create it first with create_session.';
+        const snap = await hit.ref.get();
+        const cur = snap.data() as {
+          notes?: string;
+          car?: { status?: string; notes?: string };
+          prep?: Array<{ text: string; done: boolean; custom?: boolean }>;
+          packing?: Array<{ text: string; done: boolean; custom?: boolean }>;
+        };
+        const patch: Record<string, unknown> = { updatedAt: Date.now() };
+        const changed: string[] = [];
+        if (i.note?.trim()) {
+          patch.notes = [cur.notes, i.note.trim()].filter(Boolean).join('\n');
+          changed.push('note added');
+        }
+        if (i.carStatus || i.carNotes) {
+          patch.car = {
+            status: i.carStatus ?? cur.car?.status ?? 'needed',
+            ...(i.carNotes ? { notes: i.carNotes } : cur.car?.notes ? { notes: cur.car.notes } : {})
+          };
+          changed.push(`car ${i.carStatus ?? 'updated'}`);
+        }
+        for (const k of ['venue', 'startTime', 'endTime'] as const) {
+          if (i[k]?.trim()) {
+            patch[k] = i[k].trim();
+            changed.push(k);
+          }
+        }
+        if (i.addChecklistItem?.trim()) {
+          patch.prep = [...(cur.prep ?? []), { text: i.addChecklistItem.trim(), done: false, custom: true }];
+          changed.push('prep item added');
+        }
+        if (i.addPackingItem?.trim()) {
+          patch.packing = [...(cur.packing ?? []), { text: i.addPackingItem.trim(), done: false, custom: true }];
+          changed.push('packing item added');
+        }
+        if (changed.length === 0) return 'Nothing to update — tell me what to change.';
+        await hit.ref.set(patch, { merge: true });
+        return `Updated the ${hit.client} session (${hit.date}): ${changed.join(', ')}.`;
       }
     },
     {

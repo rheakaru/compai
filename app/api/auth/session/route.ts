@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const user = await getUserFromAuthHeader(authHeader);
   if (!user) return new Response('unauthorized', { status: 401 });
-  if (!user.operator && !user.finance) {
+  if (!user.operator && !user.finance && !user.ea) {
     return new Response('forbidden — operator only', { status: 403 });
   }
 
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   if (!cookie) return new Response('unauthorized', { status: 401 });
   try {
     const user = await verifySessionCookie(cookie);
-    if (!user.operator && !user.finance) {
+    if (!user.operator && !user.finance && !user.ea) {
       return new Response('forbidden — operator only', { status: 403 });
     }
     return Response.json({ user: { uid: user.uid, email: user.email } });

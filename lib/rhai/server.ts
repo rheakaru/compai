@@ -45,6 +45,20 @@ export async function requireFinance(req: NextRequest) {
   return { user };
 }
 
+/**
+ * Session-logistics scope — the operator, or the EA (`ea` custom claim,
+ * divya@). EAs see the Sessions tab only: confirmed sessions, venue/timings,
+ * car bookings, travel status, checklists. No pipeline, money, or hiring.
+ */
+export async function requireSessions(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return { error: new Response('unauthorized', { status: 401 }) };
+  if (!user.operator && !user.ea) {
+    return { error: new Response('forbidden', { status: 403 }) };
+  }
+  return { user };
+}
+
 let client: Anthropic | null = null;
 export function anthropic(): Anthropic {
   if (!client) {

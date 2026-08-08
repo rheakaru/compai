@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
     uid: user.uid,
     email: user.email,
     operator: user.operator,
-    finance: user.finance
+    finance: user.finance,
+    ea: user.ea
   });
 }
