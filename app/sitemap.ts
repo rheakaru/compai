@@ -12,6 +12,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages: MetadataRoute.Sitemap = [
     { url: SITE, lastModified: now, changeFrequency: 'weekly', priority: 1 },
     { url: `${SITE}/writing`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${SITE}/workshops`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE}/workshops/modules`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${SITE}/careers`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/hang-w-ai`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/hire`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },

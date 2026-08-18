@@ -1,8 +1,8 @@
 'use client';
 
-// Public voice-testimonial page. Someone lands here from the Hang w AI
-// WhatsApp group, records a short voice note about their experience, previews
-// it, signs it with name (+ optional "what you do"), and sends. Deliberately
+// Public voice-testimonial page. Someone lands here after a Rhai session —
+// workshop or community — records a short voice note about their experience,
+// previews it, signs it with name (+ optional "what you do"), and sends. Deliberately
 // tiny and warm — one screen, a few taps, done in two minutes.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -118,14 +118,14 @@ export function VoiceTestimonial() {
             <p className="text-4xl">🎙️</p>
             <p className="mt-3 font-display text-2xl text-ink-900">Thank you, {name.split(' ')[0]}!</p>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-600">
-              Rhea got your voice note. She might feature it on heyrhai.com — with your name on it. It meant a lot that you came to a Hang.
+              Rhea got your voice note. She might feature it on heyrhai.com — with your name on it. It meant a lot that you trusted us to learn with you.
             </p>
           </Card>
         ) : (
           <Card>
-            <p className="eyebrow text-center">Hang w AI · a quick favour</p>
+            <p className="eyebrow text-center">Rhai · a quick favour</p>
             <h1 className="mt-2 text-center font-display text-[26px] leading-tight tracking-tight text-ink-900 sm:text-3xl">
-              How was your Hang with AI session?
+              How was your Rhai session?
             </h1>
             <p className="mx-auto mt-3 max-w-sm text-center text-sm leading-relaxed text-ink-600">
               Tell me in your own voice — what you built, what clicked, or who you&apos;d send. Thirty seconds is plenty. No script.

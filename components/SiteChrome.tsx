@@ -17,6 +17,7 @@ export const CONTACT_EMAIL = 'rhea@rosebazaar.in';
 
 const NAV = [
   { href: '/#work', label: 'Work' },
+  { href: '/workshops', label: 'Workshops' },
   { href: '/writing', label: 'Writing' },
   { href: '/hang-w-ai', label: 'Hang w AI' },
   { href: '/careers', label: 'Careers' },
@@ -68,6 +69,8 @@ export function SiteFooter() {
 
           <nav className="grid grid-cols-2 gap-x-10 gap-y-1.5 text-[11px] sm:grid-cols-3">
             <Link href="/#work" className="text-ink-500 hover:text-ink-900">What we do</Link>
+            <Link href="/workshops" className="text-ink-500 hover:text-ink-900">Workshops</Link>
+            <Link href="/workshops/modules" className="text-ink-500 hover:text-ink-900">Module library</Link>
             <Link href="/writing" className="text-ink-500 hover:text-ink-900">Writing</Link>
             <Link href="/careers" className="text-ink-500 hover:text-ink-900">Careers</Link>
             <Link href="/hang-w-ai" className="text-ink-500 hover:text-ink-900">Hang w AI</Link>

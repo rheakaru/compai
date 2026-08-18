@@ -11,6 +11,7 @@
 import { INSTAGRAM_URL, InstagramGlyph, PERSONAL_SITE, SiteFooter, SiteHeader } from './SiteChrome';
 import { VoiceWall } from './VoiceWall';
 import { FAQS } from '@/lib/site/faq';
+import { MODULE_COUNT, TIERS } from '@/lib/site/workshops';
 
 const MARKETING_TOOL = 'https://compai-marketing.web.app';
 
@@ -62,8 +63,8 @@ export function RhaiHome() {
               <h3 className="mt-2 font-display text-2xl text-ink-900">Teach your team to build.</h3>
               <p className="mt-3 text-sm leading-relaxed text-ink-700">
                 A discovery call to understand your operation, then a day building with your team on their machines. By
-                the end you have three things: a working prototype for a real problem we scoped together, one person on
-                your team who can extend it, and a prioritised list of what to build next.
+                the end you have three things: hands-on work against a real problem we scoped together, people on your
+                team who know how to keep going, and a prioritised list of what to build next.
               </p>
               <p className="mt-4 text-xs leading-relaxed text-ink-500">
                 One senior person present throughout — non-negotiable. Runs on your Google or Microsoft tenant, your
@@ -288,7 +289,7 @@ export function RhaiHome() {
               <p className="eyebrow text-accent">The session</p>
               <p className="mt-2 text-sm leading-relaxed text-ink-700">
                 Six hours with your team, on your machines and accounts. A morning grounding in what&apos;s possible,
-                then a guided build. The prototype leaves the building with you.
+                then a guided build. Whatever gets made that day stays with you.
               </p>
             </div>
             <div>
@@ -300,30 +301,36 @@ export function RhaiHome() {
             </div>
           </div>
 
-          {/* Pricing — two clear tiers. */}
-          <div className="mt-12 grid gap-6 sm:grid-cols-2">
-            <div className="rounded-xl border border-ink-200 bg-white p-6">
-              <p className="eyebrow text-accent">Intro session</p>
-              <p className="mt-2 font-display text-3xl tracking-tight text-ink-900">₹1,00,000</p>
-              <p className="mt-1 text-xs text-ink-500">3 hours · general</p>
-              <p className="mt-3 text-sm leading-relaxed text-ink-700">
-                A hands-on introduction to building with AI for your team — the fastest way to see what&apos;s
-                possible. General, not yet customised to your company.
-              </p>
-            </div>
-            <div className="rounded-xl border border-accent/40 bg-white p-6 shadow-[0_1px_0_rgba(198,74,31,0.08)]">
-              <p className="eyebrow text-accent">Company session</p>
-              <p className="mt-2 font-display text-3xl tracking-tight text-ink-900">₹3,00,000</p>
-              <p className="mt-1 text-xs text-ink-500">One day (6 hours) · customised</p>
-              <p className="mt-3 text-sm leading-relaxed text-ink-700">
-                A discovery call beforehand, then a full day building against a real problem — fully customised to your
-                company and its needs. You leave with a working prototype and someone on your team who can extend it.
-              </p>
-            </div>
+          {/* Pricing — three tiers, from the shared workshop source of truth. */}
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {TIERS.map(tier => (
+              <div
+                key={tier.id}
+                className={`rounded-xl border bg-white p-6 ${
+                  tier.featured ? 'border-accent/40 shadow-[0_1px_0_rgba(198,74,31,0.08)]' : 'border-ink-200'
+                }`}
+              >
+                <p className="eyebrow text-accent">{tier.name}</p>
+                <p className="mt-2 font-display text-3xl tracking-tight text-ink-900">{tier.price}</p>
+                <p className="mt-1 text-xs text-ink-500">{tier.shape}</p>
+                <p className="mt-3 text-sm leading-relaxed text-ink-700">{tier.blurb}</p>
+              </div>
+            ))}
           </div>
           <p className="mt-6 max-w-3xl text-xs leading-relaxed text-ink-500">
-            <span className="font-medium text-ink-700">Terms.</span> Same-day payment, no retainers. Bangalore and San
-            Francisco only for now — travel billed at cost.
+            <span className="font-medium text-ink-700">Terms.</span> No retainers. An invoice for the discovery is
+            shared before the session as an advance — 30% is the standard — and the balance is payable within 7 days of
+            the workshop. Bangalore and San Francisco are home; anywhere else, travel and stay are covered by the
+            company.
+          </p>
+          <p className="mt-4 text-sm text-ink-700">
+            <a href="/workshops" className="text-accent underline-offset-4 hover:underline">
+              The full workshop page →
+            </a>{' '}
+            <span className="text-ink-400">·</span>{' '}
+            <a href="/workshops/modules" className="text-accent underline-offset-4 hover:underline">
+              All {MODULE_COUNT} modules →
+            </a>
           </p>
         </div>
       </section>
