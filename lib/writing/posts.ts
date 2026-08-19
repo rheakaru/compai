@@ -25,6 +25,7 @@ export interface WritingPost {
 // Curated ordering — the builds most relevant to what Rhai sells go first.
 // Anything not listed sorts after these, alphabetically.
 const FEATURED_ORDER = [
+  'dodla-dairy',
   'hoovu-dashboard',
   'hoovu-ai-agents',
   'ai-cmo',

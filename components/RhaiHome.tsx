@@ -89,21 +89,42 @@ export function RhaiHome() {
         </div>
       </section>
 
-      {/* Proof — a real line, a real case study, real numbers. */}
+      {/* Proof — two real engagements, then real numbers. */}
       <section className="border-b border-ink-200/60">
         <div className="mx-auto max-w-5xl px-6 py-20">
-          <p className="eyebrow">A recent build</p>
+          <p className="eyebrow">Recent engagements</p>
           <blockquote className="mt-4">
             <p className="font-display text-2xl leading-tight tracking-tight text-ink-900 sm:text-4xl">
-              &ldquo;Twenty thousand parts, no single screen to plan them on. We built that screen in an afternoon.&rdquo;
+              &ldquo;AI doesn&apos;t augment your company. It reveals what your company actually is.&rdquo;
             </p>
           </blockquote>
-          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-ink-600">
-            <span className="eyebrow mr-2 text-ink-500">Bliss Aerospace</span>Six hours inside their factory, then a
-            build day with their planning team on a Microsoft tenant they already owned. They walked out with a
-            working scheduler, one person who could extend it, and a punch-list of what to build next. Zero new
-            vendors, zero new contracts.
-          </p>
+          <p className="mt-4 text-xs text-ink-400">The line that anchored two days with a listed dairy major.</p>
+
+          <div className="mt-10 grid gap-8 md:grid-cols-2">
+            <article>
+              <p className="eyebrow text-accent">Dodla Dairy · 2-day leadership workshop</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-600">
+                Two months of discovery, a 70-page demo intelligence dashboard built for their operation, then two
+                days with the leadership team and department-by-department deep-dives. Every department left naming
+                what it doesn&apos;t measure yet — and the dashboard was the excuse, not the point.
+              </p>
+              <a
+                href="/writing/dodla-dairy"
+                className="mt-3 inline-block text-sm text-accent underline-offset-4 hover:underline"
+              >
+                Read the field notes →
+              </a>
+            </article>
+            <article>
+              <p className="eyebrow text-accent">Bliss Aerospace · build day</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-600">
+                Twenty thousand parts and no single screen to plan them on. Six hours inside their factory, then a
+                build day with their planning team on a Microsoft tenant they already owned. They walked out with a
+                working scheduler, one person who could extend it, and a punch-list of what to build next. Zero new
+                vendors, zero new contracts.
+              </p>
+            </article>
+          </div>
 
           <div className="mt-12 grid gap-8 sm:grid-cols-3">
             <div>
