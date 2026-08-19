@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import type Anthropic from '@anthropic-ai/sdk';
 import { adminDb } from '@/lib/firebase/admin';
 import {
+  anthropic,
   COL_IDEAS,
   COL_SUGGESTIONS,
   buildRhaiSystemPrompt,
@@ -28,20 +29,109 @@ const COL_TODOS = 'rhaiTodos';
 
 // ---- provider I/O -----------------------------------------------------------
 
-export async function sendWhatsAppText(to: string, body: string): Promise<void> {
+export async function sendWhatsAppText(to: string, body: string, isGroup = false): Promise<void> {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!token || !phoneId) return;
-  await fetch(`${GRAPH}/${phoneId}/messages`, {
+  const res = await fetch(`${GRAPH}/${phoneId}/messages`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
+      // Groups are addressed by group id with an explicit recipient_type;
+      // 1:1 chats keep the default ("individual").
+      ...(isGroup ? { recipient_type: 'group' } : {}),
       to,
       type: 'text',
       text: { body: body.slice(0, 4096), preview_url: false }
     })
   }).catch(() => undefined);
+  if (res && !res.ok) {
+    console.error('[whatsapp] send failed %s: %s', res.status, (await res.text().catch(() => '')).slice(0, 300));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Groups
+// ---------------------------------------------------------------------------
+// Rhai can sit in a group chat and mostly stay quiet. Two rules decide whether
+// it speaks (see shouldEngageInGroup):
+//   1. It was tagged → always answer.
+//   2. Rhea was named → read the message and decide whether it needs an answer.
+// Everything else is listened to and remembered, never replied to.
+//
+// Default-closed like the 1:1 allowlist: only groups whose id is in
+// WHATSAPP_ALLOWED_GROUPS are handled at all.
+
+/** Names that count as tagging the agent. */
+const AGENT_ALIASES = ['rhai', '@rhai'];
+/** Names that count as invoking Rhea. */
+const RHEA_ALIASES = ['rhea', '@rhea'];
+
+export function isAllowedGroup(groupId: string): boolean {
+  const raw = process.env.WHATSAPP_ALLOWED_GROUPS;
+  if (!raw || !groupId) return false;
+  return raw
+    .split(',')
+    .map(g => g.trim())
+    .filter(Boolean)
+    .some(g => g === groupId);
+}
+
+function mentions(text: string, aliases: string[]): boolean {
+  const t = text.toLowerCase();
+  // Word-boundary match so "Rhaikar" or an email doesn't trigger the agent.
+  return aliases.some(a => new RegExp(`(^|[^a-z0-9])${a.replace('@', '@?')}([^a-z0-9]|$)`, 'i').test(t));
+}
+
+export type GroupTrigger = 'tagged' | 'rhea-named' | 'listen';
+
+/**
+ * When Rhea is named but the agent wasn't tagged, decide whether the message
+ * actually wants something from Rhai. Deliberately biased towards silence: in
+ * a group, a wrong answer is noise everyone sees. Cheap model, tiny prompt.
+ */
+export async function groupMessageNeedsReply(
+  text: string,
+  recent: string[]
+): Promise<{ reply: boolean; why: string }> {
+  try {
+    const res = await anthropic().messages.create({
+      model: modelFor('draft'),
+      max_tokens: 200,
+      system:
+        'You decide whether an AI assistant should speak up in a WhatsApp group. ' +
+        'It sits in the group for Rhea and stays quiet by default. Someone just mentioned Rhea. ' +
+        'Answer YES only if the message asks for something concrete the assistant can supply right now — ' +
+        'a scheduling request, a time or availability question, a logistics detail (venue, car, travel), ' +
+        'a fact it would hold about a client or session, or a direct question addressed to Rhea that has a ' +
+        'factual answer. Answer NO for chit-chat, opinions, social talk, anything already answered by someone ' +
+        'in the thread, and anything only Rhea herself can decide. When genuinely unsure, answer NO. ' +
+        'Reply with strict JSON only: {"reply": true|false, "why": "<8 words max>"}',
+      messages: [
+        {
+          role: 'user',
+          content: `Recent messages in the group:\n${recent.slice(-6).join('\n') || '(none)'}\n\nThe new message:\n${text}`
+        }
+      ]
+    });
+    const raw = res.content.find(b => b.type === 'text');
+    const txt = raw && raw.type === 'text' ? raw.text : '';
+    const m = /\{[\s\S]*\}/.exec(txt);
+    if (!m) return { reply: false, why: 'no verdict' };
+    const parsed = JSON.parse(m[0]) as { reply?: unknown; why?: unknown };
+    return { reply: parsed.reply === true, why: String(parsed.why ?? '').slice(0, 60) };
+  } catch {
+    // Triage is best-effort; failing closed keeps the agent quiet.
+    return { reply: false, why: 'triage failed' };
+  }
+}
+
+/** Which of the three group behaviours applies to this message. */
+export function groupTrigger(text: string): GroupTrigger {
+  if (mentions(text, AGENT_ALIASES)) return 'tagged';
+  if (mentions(text, RHEA_ALIASES)) return 'rhea-named';
+  return 'listen';
 }
 
 /** Send a document (e.g. a generated NDA PDF) by link — Meta fetches the URL,
@@ -516,6 +606,22 @@ function istToday(): string {
   }).format(new Date());
 }
 
+/**
+ * Extra rules that only apply inside a group chat. The default there is
+ * silence, so when Rhai does speak it should be short, useful and safe to be
+ * read by everyone present.
+ */
+function groupAddendum(speaker?: string): string {
+  return `
+
+YOU ARE IN A GROUP CHAT${speaker ? ` — the person who just wrote is ${speaker}` : ''}. Different rules apply:
+- Everyone in the group sees your reply. Never disclose Rhea's pricing, invoices, costs, margins, pipeline, lead status, or private notes about people. If something is only Rhea's to share, say you'll flag it to her instead of answering.
+- Be brief. One to three lines. No preamble, no sign-off, no restating the question.
+- Answer only what was actually asked. If you can't help concretely, say so in a line rather than guessing.
+- You are not the host of this conversation. Don't greet people, don't summarise the thread, don't offer follow-ups nobody asked for.
+- Capturing something (a to-do, a session detail, travel) is fine and useful — confirm it in one short line.`;
+}
+
 function whatsappAddendum(): string {
   // Today's date in Asia/Kolkata so relative dates ("tomorrow at 3") resolve
   // correctly regardless of the server's locale/timezone.
@@ -545,13 +651,54 @@ You are talking to Rhea over WhatsApp — she's on her phone, capturing things o
 - Briefly confirm what you saved. Warm, concrete, no filler.`;
 }
 
+/**
+ * Tools Rhai may use when it is speaking in a group. Everything to do with
+ * money, legal documents and private intel is withheld — a group reply is
+ * visible to everyone in it, and those tools either expose Rhea's commercials
+ * or act on her behalf in ways only she should trigger.
+ */
+const GROUP_SAFE_TOOLS = new Set([
+  'read_calendar',
+  'add_todo',
+  'add_idea',
+  'propose_action',
+  'create_session',
+  'update_session',
+  'log_travel'
+]);
+
+/**
+ * Remember a group message without replying to it. This is what "listens but
+ * doesn't react to every message" means in practice: the transcript stays warm
+ * so that when Rhai is finally tagged, it already knows what was being
+ * discussed. Cheap — one Firestore write, no model call.
+ */
+export async function recordGroupMessage(groupId: string, speaker: string, text: string): Promise<void> {
+  if (!groupId || !text.trim()) return;
+  const ref = adminDb().collection(COL_SESSIONS).doc(groupId);
+  const snap = await ref.get();
+  const stored = (snap.data()?.messages ?? []) as StoredTurn[];
+  const next = [...stored, { role: 'user' as const, text: `${speaker || 'someone'}: ${text}`, at: Date.now() }].slice(-40);
+  await ref.set({ messages: next, isGroup: true, updatedAt: Date.now() }, { merge: true });
+}
+
+/** The last few lines of a group's transcript, for triage context. */
+export async function recentGroupMessages(groupId: string, n = 6): Promise<string[]> {
+  const snap = await adminDb().collection(COL_SESSIONS).doc(groupId).get();
+  const stored = (snap.data()?.messages ?? []) as StoredTurn[];
+  return stored.slice(-n).map(m => (m.role === 'rhai' ? `Rhai: ${m.text}` : m.text));
+}
+
 export async function buildWhatsappReply(params: {
   from: string;
   name?: string;
   text: string;
+  /** Set when the message came from a group — changes memory key, tools and tone. */
+  groupId?: string;
 }): Promise<string> {
   const db = adminDb();
-  const sessRef = db.collection(COL_SESSIONS).doc(params.from);
+  const isGroup = !!params.groupId;
+  const sessRef = db.collection(COL_SESSIONS).doc(params.groupId || params.from);
   const snap = await sessRef.get();
   const stored = (snap.data()?.messages ?? []) as StoredTurn[];
   const prior: Anthropic.Messages.MessageParam[] = stored
@@ -1107,23 +1254,24 @@ export async function buildWhatsappReply(params: {
   ];
 
   const sections = await loadContextSections();
+  const tools = isGroup ? clientTools.filter(t => GROUP_SAFE_TOOLS.has(t.schema.name)) : clientTools;
   const reply = await runRhaiWithContext({
     model: modelFor('suggest'),
     // Generous budget: Sonnet 5 thinks by default and thinking counts against
     // max_tokens — 1500 used to truncate long multi-action voice notes into
     // empty replies with no tools run.
     maxTokens: 6000,
-    system: buildRhaiSystemPrompt(sections) + whatsappAddendum(),
+    system: buildRhaiSystemPrompt(sections) + whatsappAddendum() + (isGroup ? groupAddendum(params.name) : ''),
     priorMessages: prior,
     userContent: params.text,
-    clientTools,
+    clientTools: tools,
     extraTools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 } as unknown as Anthropic.Messages.Tool]
   });
 
   const now = Date.now();
   const next: StoredTurn[] = [
     ...stored,
-    { role: 'user' as const, text: params.text, at: now },
+    { role: 'user' as const, text: isGroup && params.name ? `${params.name}: ${params.text}` : params.text, at: now },
     { role: 'rhai' as const, text: reply || '(no reply)', at: now }
   ].slice(-40);
   await sessRef.set(
