@@ -12,7 +12,7 @@ import {
   type RhaiToolDef
 } from './server';
 import { upsertPersonIntel } from './people';
-import { insertEventServer } from './gcal-server';
+import { insertEventServer, listEventsServer } from './gcal-server';
 import { modelFor } from './models';
 import { normalizeLead, type WorkshopLead } from '@/lib/leads/types';
 import { SUGGESTION_KIND_LABELS, type SuggestionKind } from './types';
@@ -285,10 +285,16 @@ async function handleTicket(
       lines.push(`Already on your calendar: "${dup.summary}" — didn't add it again.`);
     } else {
       const dep = t.depTime && /^\d{2}:\d{2}$/.test(t.depTime) ? t.depTime : '09:00';
-      const arr =
-        t.arrTime && /^\d{2}:\d{2}$/.test(t.arrTime) && t.arrTime > dep
-          ? t.arrTime
-          : `${pad2(Math.min(23, Number(dep.slice(0, 2)) + 2))}:${dep.slice(3)}`;
+      // End must be strictly after start or the API 400s — the old
+      // `min(23, dep+2)` produced end == start for any 22:00+ departure, so
+      // late-evening flights never made it onto the calendar. A red-eye whose
+      // arrival reads earlier than departure lands on the next day.
+      const arrValid = !!t.arrTime && /^\d{2}:\d{2}$/.test(t.arrTime);
+      const endParts = arrValid
+        ? t.arrTime! > dep
+          ? { date, time: t.arrTime! }
+          : { date: addIstMinutes(date, '00:00', 24 * 60).date, time: t.arrTime! }
+        : addIstMinutes(date, dep, 120);
       const ev = await insertEventServer({
         summary,
         description: [
@@ -300,7 +306,7 @@ async function handleTicket(
           .filter(Boolean)
           .join('\n'),
         start: { dateTime: `${date}T${dep}:00`, timeZone: 'Asia/Kolkata' },
-        end: { dateTime: `${date}T${arr}:00`, timeZone: 'Asia/Kolkata' }
+        end: { dateTime: `${endParts.date}T${endParts.time}:00`, timeZone: 'Asia/Kolkata' }
       });
       lines.push(
         `Added to your calendar: ${summary} on ${date}${t.depTime ? ` at ${t.depTime}` : ''}. ${ev.htmlLink}`
@@ -403,7 +409,6 @@ async function attachOutfitToSession(
   }
 }
 
-const pad2 = (n: number) => String(n).padStart(2, '0');
 function addDays(isoDate: string, days: number): string {
   const t = new Date(`${isoDate}T00:00:00Z`).getTime();
   return Number.isNaN(t) ? isoDate : new Date(t + days * 86_400_000).toISOString().slice(0, 10);
@@ -482,6 +487,35 @@ interface StoredTurn {
   at: number;
 }
 
+/**
+ * Add minutes to an IST wall-clock date+time, rolling the date over midnight.
+ * Calendar's API applies the timezone, so we only ever do wall-clock math here
+ * — never Date arithmetic in the server's own locale.
+ */
+function addIstMinutes(date: string, time: string, mins: number): { date: string; time: string } {
+  const [h, m] = time.split(':').map(Number);
+  let total = h * 60 + m + mins;
+  let out = date;
+  while (total >= 24 * 60) {
+    total -= 24 * 60;
+    const d = new Date(`${out}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    out = d.toISOString().slice(0, 10);
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return { date: out, time: `${pad(Math.floor(total / 60))}:${pad(total % 60)}` };
+}
+
+/** Today's date as YYYY-MM-DD in Asia/Kolkata, regardless of server locale. */
+function istToday(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
 function whatsappAddendum(): string {
   // Today's date in Asia/Kolkata so relative dates ("tomorrow at 3") resolve
   // correctly regardless of the server's locale/timezone.
@@ -499,6 +533,7 @@ You are talking to Rhea over WhatsApp — she's on her phone, capturing things o
 - Something to draft/prep for a client, or any actionable that shouldn't be lost → call propose_action so it lands on Today.
 - Intel about a person → call update_person.
 - Use get_pipeline before answering pipeline questions.
+- A calendar question ("what's on tomorrow", "am I free Thursday", "when do I fly to Hyderabad") → call read_calendar. Also call it BEFORE schedule_meeting when she gives a vague time or you suspect a clash, so you don't double-book her — and before adding anything that might already be there.
 - A scheduling request ("set up a call with X tomorrow at 3, invite a@b.com") → call schedule_meeting; resolve relative dates from today's date above, times are Asia/Kolkata. Include the event + Meet links from the tool result in your confirmation.
 - A company legal name with an NDA ask ("NDA for Acme Widgets Private Limited") → call generate_nda; the PDF is sent to her chat by the tool. Relay the blanks she still has to fill and whether it was signature-stamped.
 - An invoice ask ("invoice Kothari 1 lakh for the workshop") → call create_invoice; amounts she gives are the taxable value (GST is added on top automatically). The PDF is sent to her chat. If she doesn't give the client's GSTIN, generate anyway and remind her to add it if the client is registered.
@@ -660,24 +695,13 @@ export async function buildWhatsappReply(params: {
 
         // Build start/end wall-clock strings and let the Calendar API apply the
         // timezone — never trust the server's locale for IST math.
-        const [h, m] = time.split(':').map(Number);
-        const endTotal = h * 60 + m + durationMins;
-        let endDate = date;
-        let endMins = endTotal;
-        if (endTotal >= 24 * 60) {
-          // Rolls past midnight — bump the date (UTC math on the date string is safe).
-          endMins = endTotal - 24 * 60;
-          const dNext = new Date(`${date}T00:00:00Z`);
-          dNext.setUTCDate(dNext.getUTCDate() + 1);
-          endDate = dNext.toISOString().slice(0, 10);
-        }
-        const pad = (n: number) => String(n).padStart(2, '0');
+        const end = addIstMinutes(date, time, durationMins);
         const tz = 'Asia/Kolkata';
         const ev = await insertEventServer({
           summary: title,
           ...(i.description ? { description: String(i.description).slice(0, 2000) } : {}),
           start: { dateTime: `${date}T${time}:00`, timeZone: tz },
-          end: { dateTime: `${endDate}T${pad(Math.floor(endMins / 60))}:${pad(endMins % 60)}:00`, timeZone: tz },
+          end: { dateTime: `${end.date}T${end.time}:00`, timeZone: tz },
           ...(attendeeEmails.length ? { attendeeEmails } : {}),
           withMeet
         });
@@ -1014,6 +1038,56 @@ export async function buildWhatsappReply(params: {
         if (changed.length === 0) return 'Nothing to update — tell me what to change.';
         await hit.ref.set(patch, { merge: true });
         return `Updated the ${hit.client} session (${hit.date}): ${changed.join(', ')}.`;
+      }
+    },
+    {
+      schema: {
+        name: 'read_calendar',
+        description:
+          'Read Rhea’s Google Calendar — what’s already scheduled. Use before answering "what’s on tomorrow / this week", before proposing a meeting time (so you don’t double-book), and to check whether something is already on the calendar before adding it. Times come back in Asia/Kolkata.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            from: { type: 'string', description: 'Start date YYYY-MM-DD (Asia/Kolkata). Defaults to today.' },
+            days: { type: 'number', description: 'How many days to read from `from`. Default 7, max 60.' },
+            query: {
+              type: 'string',
+              description: 'Optional case-insensitive filter on the event title, e.g. a flight number or client name.'
+            }
+          }
+        }
+      },
+      execute: async input => {
+        const i = input as { from?: string; days?: number; query?: string };
+        const from = /^\d{4}-\d{2}-\d{2}$/.test(String(i.from ?? '')) ? String(i.from) : istToday();
+        const days = Math.min(Math.max(Math.round(Number(i.days) || 7), 1), 60);
+        // IST is UTC+5:30 — anchor the window on IST midnight, not server local.
+        const startUtc = new Date(`${from}T00:00:00+05:30`);
+        const endUtc = new Date(startUtc.getTime() + days * 864e5);
+        const events = await listEventsServer(startUtc, endUtc);
+        const q = String(i.query ?? '').trim().toLowerCase();
+        const shown = q ? events.filter(e => e.summary.toLowerCase().includes(q)) : events;
+        if (!shown.length) {
+          return q
+            ? `Nothing on the calendar matching "${i.query}" between ${from} and +${days}d.`
+            : `Nothing on the calendar between ${from} and +${days}d.`;
+        }
+        const lines = shown.slice(0, 40).map(e => {
+          const when = e.allDay
+            ? `${e.start} (all day)`
+            : new Date(e.start).toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              });
+          const who = e.attendees.length ? ` · ${e.attendees.length} attendee${e.attendees.length > 1 ? 's' : ''}` : '';
+          return `- ${when} — ${e.summary}${e.location ? ` @ ${e.location}` : ''}${who}`;
+        });
+        return `Calendar ${from} → +${days}d (${shown.length} event${shown.length > 1 ? 's' : ''}):\n${lines.join('\n')}`;
       }
     },
     {

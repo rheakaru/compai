@@ -49,6 +49,20 @@ async function getAccessToken(): Promise<string> {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
+    // invalid_grant is overwhelmingly the cause of "calendar suddenly stopped
+    // working": the refresh token was revoked, the password changed, or — most
+    // commonly — the OAuth consent screen is still in "Testing", where Google
+    // expires refresh tokens after 7 days. Say so, rather than leaking raw JSON
+    // into a WhatsApp reply.
+    if (detail.includes('invalid_grant')) {
+      cached = null;
+      throw new Error(
+        'Google refresh token is no longer valid (invalid_grant). Re-mint it with ' +
+          '`npx tsx scripts/get-google-refresh-token.ts` and update the ' +
+          'GOOGLE_OAUTH_REFRESH_TOKEN secret. If this keeps recurring every ~7 days, ' +
+          'the OAuth consent screen is still in Testing — publish it to Production.'
+      );
+    }
     throw new Error(`Google token refresh failed (${res.status}): ${detail.slice(0, 300)}`);
   }
   const j = (await res.json()) as { access_token?: string; expires_in?: number };
@@ -71,14 +85,23 @@ async function gcalFetch(path: string, init?: RequestInit): Promise<Record<strin
     }
   });
   if (!res.ok) {
-    let detail = `Calendar API ${res.status}`;
+    let reason = '';
+    let raw = '';
     try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      if (body?.error?.message) detail = body.error.message;
+      raw = await res.text();
+      const body = JSON.parse(raw) as { error?: { message?: string; errors?: Array<{ reason?: string }> } };
+      reason = body?.error?.message ?? '';
+      const code = body?.error?.errors?.[0]?.reason;
+      if (code) reason = `${reason} [${code}]`;
     } catch {
-      /* ignore */
+      reason = raw.slice(0, 200);
     }
-    throw new Error(detail);
+    // Without this, a failed write reaches Rhea as a shrug. Log the real cause.
+    console.error('[gcal] %s %s failed: %s %s', init?.method ?? 'GET', path, res.status, reason);
+    if (res.status === 401 || res.status === 403) {
+      cached = null; // force a fresh token on the next call
+    }
+    throw new Error(`Calendar API ${res.status}: ${reason || 'no detail'}`);
   }
   return (await res.json()) as Record<string, unknown>;
 }
