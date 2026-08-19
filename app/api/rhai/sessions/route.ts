@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
 import { requireSessions } from '@/lib/rhai/server';
 import {
-  DEFAULT_PACKING_TEMPLATE,
-  DEFAULT_PREP_TEMPLATE,
+  CHECKLIST_KEYS,
+  CHECKLIST_META,
   seedChecklist,
   type ChecklistItem,
+  type ChecklistKey,
   type RhaiSession,
   type SessionStatus
 } from '@/lib/rhai/sessions';
@@ -17,13 +18,14 @@ export const maxDuration = 120;
 const COL_SESSIONS_LOGISTICS = 'rhaiSessions';
 const TEMPLATES_DOC = 'rhaiConfig/sessionChecklists';
 
-async function loadTemplates(): Promise<{ prep: string[]; packing: string[] }> {
+type Templates = Record<ChecklistKey, string[]>;
+
+async function loadTemplates(): Promise<Templates> {
   const snap = await adminDb().doc(TEMPLATES_DOC).get();
-  const d = (snap.data() ?? {}) as { prep?: string[]; packing?: string[] };
-  return {
-    prep: d.prep?.length ? d.prep : DEFAULT_PREP_TEMPLATE,
-    packing: d.packing?.length ? d.packing : DEFAULT_PACKING_TEMPLATE
-  };
+  const d = (snap.data() ?? {}) as Partial<Record<ChecklistKey, string[]>>;
+  return Object.fromEntries(
+    CHECKLIST_KEYS.map(k => [k, d[k]?.length ? d[k]! : CHECKLIST_META[k].template])
+  ) as Templates;
 }
 
 function cleanChecklist(raw: unknown): ChecklistItem[] | undefined {
@@ -151,6 +153,7 @@ export async function POST(req: NextRequest) {
     ...(body.notes?.trim() ? { notes: body.notes.trim() } : {}),
     prep: cleanChecklist(body.prep) ?? seedChecklist(templates.prep),
     packing: cleanChecklist(body.packing) ?? seedChecklist(templates.packing),
+    followUp: cleanChecklist(body.followUp) ?? seedChecklist(templates.followUp),
     createdAt: now,
     updatedAt: now
   };
@@ -159,22 +162,22 @@ export async function POST(req: NextRequest) {
 }
 
 // PATCH {id, ...fields} — field updates incl. checklist state.
-// PATCH {templates: {prep?, packing?}} — edit the permanent templates.
+// PATCH {templates: {prep?, packing?, followUp?}} — edit the permanent templates.
 export async function PATCH(req: NextRequest) {
   const { error } = await requireSessions(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as Partial<RhaiSession> & {
     id?: string;
-    templates?: { prep?: string[]; packing?: string[] };
+    templates?: Partial<Templates>;
   };
 
   if (body.templates) {
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (Array.isArray(body.templates.prep)) {
-      patch.prep = body.templates.prep.map(t => String(t).slice(0, 300)).filter(Boolean).slice(0, 60);
-    }
-    if (Array.isArray(body.templates.packing)) {
-      patch.packing = body.templates.packing.map(t => String(t).slice(0, 300)).filter(Boolean).slice(0, 60);
+    for (const key of CHECKLIST_KEYS) {
+      const list = body.templates[key];
+      if (Array.isArray(list)) {
+        patch[key] = list.map(t => String(t).slice(0, 300)).filter(Boolean).slice(0, 60);
+      }
     }
     await adminDb().doc(TEMPLATES_DOC).set(patch, { merge: true });
     return Response.json({ ok: true });
@@ -192,10 +195,10 @@ export async function PATCH(req: NextRequest) {
       ...(body.car.notes ? { notes: String(body.car.notes).slice(0, 500) } : {})
     };
   }
-  const prep = cleanChecklist(body.prep);
-  if (prep) patch.prep = prep;
-  const packing = cleanChecklist(body.packing);
-  if (packing) patch.packing = packing;
+  for (const key of CHECKLIST_KEYS) {
+    const list = cleanChecklist(body[key]);
+    if (list) patch[key] = list;
+  }
   await adminDb().collection(COL_SESSIONS_LOGISTICS).doc(body.id).set(patch, { merge: true });
   return Response.json({ ok: true });
 }

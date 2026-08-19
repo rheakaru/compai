@@ -35,6 +35,9 @@ export interface RhaiSession {
   notes?: string;
   prep: ChecklistItem[];
   packing: ChecklistItem[];
+  /** Day-of and after-the-session SOP. Absent on sessions created before this
+   *  list existed — always read through `sessionList(s, 'followUp')`. */
+  followUp?: ChecklistItem[];
   createdAt: number;
   updatedAt: number;
 }
@@ -46,6 +49,9 @@ export interface RhaiSession {
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_PREP_TEMPLATE: string[] = [
+  'Prep email sent to the team — what the day looks like, prereqs, what to bring',
+  'Advance invoice sent (30% standard) — before the session',
+  'Their marketing team looped in so they can capture the day (helps us both)',
   'USB-C to HDMI adapter packed',
   'HDMI to USB-C cable packed',
   'Venue has a screen to present on — confirm with host (projectors not preferred)',
@@ -55,7 +61,10 @@ export const DEFAULT_PREP_TEMPLATE: string[] = [
   'Reminder message sent 3 days before',
   'Reminder message sent the day before',
   'Data connection / additional discovery checked',
-  'Slides for the session ready'
+  'Slides for the session ready',
+  'Demo dashboard ready (if this tier includes one)',
+  'Agenda shared with the team on the morning of the session — so everyone starts on the same page',
+  'Lunch sorted — carried with me or ordered ahead so I actually eat'
 ];
 
 export const DEFAULT_PACKING_TEMPLATE: string[] = [
@@ -64,8 +73,42 @@ export const DEFAULT_PACKING_TEMPLATE: string[] = [
   'Glasses',
   'Kit',
   'Night clothes',
-  'Comb'
+  'Comb',
+  'Gift for the room — Rhai bag / Hoovu agarbathis'
 ];
+
+/** The after-the-day SOP: capture, close out, get paid, publish, wind down. */
+export const DEFAULT_FOLLOWUP_TEMPLATE: string[] = [
+  'Team picture taken — at lunch or at the start of the session',
+  'Video testimonial recorded right after the session',
+  'Voice testimonials from the participants at the close — heyrhai.com/testimonial',
+  'EA / accountants who made the bookings thanked — in person or by email',
+  'Closing email sent with all the docs',
+  'Final invoice sent after the session',
+  'Blog drafted — reflections + the proposal + the slides + the dashboard we built for them',
+  'Blog shared with them for approval',
+  'Reel cut — the blog material + any footage I took',
+  'Reel approved internally, then shared with them for approval',
+  'Calendar: disable the demo dashboard 1 week after the session',
+  'Courtesy email sent before the demo dashboard is disabled',
+  'Calendar: check in on how their progress is going, one month after the session'
+];
+
+/** The three lists, in the order they are shown and edited. */
+export const CHECKLIST_KEYS = ['prep', 'packing', 'followUp'] as const;
+export type ChecklistKey = (typeof CHECKLIST_KEYS)[number];
+
+export const CHECKLIST_META: Record<ChecklistKey, { label: string; template: string[] }> = {
+  prep: { label: 'Session prep', template: DEFAULT_PREP_TEMPLATE },
+  packing: { label: 'Packing', template: DEFAULT_PACKING_TEMPLATE },
+  followUp: { label: 'Follow-up', template: DEFAULT_FOLLOWUP_TEMPLATE }
+};
+
+/** Reads a checklist off a session, tolerating sessions saved before the list
+ *  existed (older docs have no `followUp` field). */
+export function sessionList(s: Partial<RhaiSession>, key: ChecklistKey): ChecklistItem[] {
+  return s[key] ?? [];
+}
 
 export function seedChecklist(template: string[]): ChecklistItem[] {
   return template.map(text => ({ text, done: false }));

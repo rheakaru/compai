@@ -5,14 +5,18 @@ import { useAuth } from './AuthProvider';
 import { useAuthedFetch } from './useAuthedFetch';
 import {
   CAR_STATUS_META,
+  CHECKLIST_KEYS,
+  CHECKLIST_META,
   SESSION_STATUS_META,
+  sessionList,
   type ChecklistItem,
+  type ChecklistKey,
   type RhaiSession
 } from '@/lib/rhai/sessions';
 
 // Session logistics — the screen Rhea and Divya (EA) coordinate off:
 // venue + timings for commute planning, car bookings, client-booked travel
-// status, the outfit, notes, and the prep + packing checklists.
+// status, the outfit, notes, and the prep / packing / follow-up checklists.
 
 interface TravelInfo {
   tripId: string;
@@ -24,10 +28,7 @@ interface SessionRow extends RhaiSession {
   travel?: TravelInfo;
 }
 
-interface Templates {
-  prep: string[];
-  packing: string[];
-}
+type Templates = Record<ChecklistKey, string[]>;
 
 export function RhaiSessions() {
   const authedFetch = useAuthedFetch();
@@ -177,14 +178,11 @@ function SessionCard({
   busy: boolean;
 }) {
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
-  const [newItem, setNewItem] = useState<{ list: 'prep' | 'packing'; text: string } | null>(null);
+  const [newItem, setNewItem] = useState<{ list: ChecklistKey; text: string } | null>(null);
   const statusMeta = SESSION_STATUS_META[s.status];
   const carMeta = CAR_STATUS_META[s.car?.status ?? 'needed'];
-  const prepDone = s.prep.filter(i => i.done).length;
-  const packDone = s.packing.filter(i => i.done).length;
-
-  const toggleItem = (list: 'prep' | 'packing', idx: number) => {
-    const items = [...s[list]];
+  const toggleItem = (list: ChecklistKey, idx: number) => {
+    const items = [...sessionList(s, list)];
     items[idx] = { ...items[idx], done: !items[idx].done };
     void onPatch(s.id, { [list]: items });
   };
@@ -308,45 +306,55 @@ function SessionCard({
 
         {/* Checklists */}
         <div className="space-y-2">
-          {(['prep', 'packing'] as const).map(list => (
-            <div key={list} className="rounded-md border border-ink-100 p-2.5">
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-                {list === 'prep' ? `Session prep ${prepDone}/${s.prep.length}` : `Packing ${packDone}/${s.packing.length}`}
-              </p>
-              <div className="max-h-40 space-y-0.5 overflow-y-auto">
-                {s[list].map((item: ChecklistItem, idx: number) => (
-                  <label key={idx} className="flex cursor-pointer items-start gap-1.5 text-xs text-ink-700">
-                    <input type="checkbox" className="mt-0.5" checked={item.done} onChange={() => toggleItem(list, idx)} />
-                    <span className={item.done ? 'line-through opacity-50' : ''}>{item.text}</span>
-                  </label>
-                ))}
-              </div>
-              {newItem?.list === list ? (
-                <div className="mt-1 flex gap-1">
-                  <input
-                    autoFocus
-                    className="flex-1 rounded-md border border-ink-200 px-1.5 py-0.5 text-xs"
-                    value={newItem.text}
-                    onChange={e => setNewItem({ list, text: e.target.value })}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && newItem.text.trim()) {
-                        void onPatch(s.id, {
-                          [list]: [...s[list], { text: newItem.text.trim(), done: false, custom: true }]
-                        });
-                        setNewItem(null);
-                      }
-                      if (e.key === 'Escape') setNewItem(null);
-                    }}
-                    placeholder="Add item, Enter to save"
-                  />
+          {CHECKLIST_KEYS.map(list => {
+            const items = sessionList(s, list);
+            const done = items.filter(i => i.done).length;
+            return (
+              <div key={list} className="rounded-md border border-ink-100 p-2.5">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                  {CHECKLIST_META[list].label} {done}/{items.length}
+                </p>
+                {items.length === 0 && (
+                  <p className="text-[11px] italic text-ink-400">
+                    Nothing here yet — this session predates the list. Add items below, or recreate it to pull the
+                    current template.
+                  </p>
+                )}
+                <div className="max-h-40 space-y-0.5 overflow-y-auto">
+                  {items.map((item: ChecklistItem, idx: number) => (
+                    <label key={idx} className="flex cursor-pointer items-start gap-1.5 text-xs text-ink-700">
+                      <input type="checkbox" className="mt-0.5" checked={item.done} onChange={() => toggleItem(list, idx)} />
+                      <span className={item.done ? 'line-through opacity-50' : ''}>{item.text}</span>
+                    </label>
+                  ))}
                 </div>
-              ) : (
-                <button type="button" onClick={() => setNewItem({ list, text: '' })} className="mt-1 text-[11px] text-ink-400 hover:text-ink-600">
-                  + add item for this trip
-                </button>
-              )}
-            </div>
-          ))}
+                {newItem?.list === list ? (
+                  <div className="mt-1 flex gap-1">
+                    <input
+                      autoFocus
+                      className="flex-1 rounded-md border border-ink-200 px-1.5 py-0.5 text-xs"
+                      value={newItem.text}
+                      onChange={e => setNewItem({ list, text: e.target.value })}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && newItem.text.trim()) {
+                          void onPatch(s.id, {
+                            [list]: [...items, { text: newItem.text.trim(), done: false, custom: true }]
+                          });
+                          setNewItem(null);
+                        }
+                        if (e.key === 'Escape') setNewItem(null);
+                      }}
+                      placeholder="Add item, Enter to save"
+                    />
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setNewItem({ list, text: '' })} className="mt-1 text-[11px] text-ink-400 hover:text-ink-600">
+                    + add item for this trip
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -360,8 +368,9 @@ function TemplateEditor({
   templates: Templates;
   onSave: (t: Templates) => Promise<void>;
 }) {
-  const [prep, setPrep] = useState(templates.prep.join('\n'));
-  const [packing, setPacking] = useState(templates.packing.join('\n'));
+  const [draft, setDraft] = useState<Record<ChecklistKey, string>>(
+    () => Object.fromEntries(CHECKLIST_KEYS.map(k => [k, (templates[k] ?? []).join('\n')])) as Record<ChecklistKey, string>
+  );
   const [saving, setSaving] = useState(false);
   return (
     <div className="rounded-md border border-ink-200 bg-white p-3">
@@ -369,25 +378,29 @@ function TemplateEditor({
         One item per line. These are the permanent lists — new sessions copy them; existing
         sessions keep their own copies.
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-ink-500">
-          Session prep
-          <textarea className="mt-0.5 w-full rounded-md border border-ink-200 px-2 py-1.5 font-mono text-xs" rows={10} value={prep} onChange={e => setPrep(e.target.value)} />
-        </label>
-        <label className="block text-xs text-ink-500">
-          Packing
-          <textarea className="mt-0.5 w-full rounded-md border border-ink-200 px-2 py-1.5 font-mono text-xs" rows={10} value={packing} onChange={e => setPacking(e.target.value)} />
-        </label>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {CHECKLIST_KEYS.map(key => (
+          <label key={key} className="block text-xs text-ink-500">
+            {CHECKLIST_META[key].label}
+            <textarea
+              className="mt-0.5 w-full rounded-md border border-ink-200 px-2 py-1.5 font-mono text-xs"
+              rows={14}
+              value={draft[key]}
+              onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
+            />
+          </label>
+        ))}
       </div>
       <button
         type="button"
         disabled={saving}
         onClick={async () => {
           setSaving(true);
-          await onSave({
-            prep: prep.split('\n').map(l => l.trim()).filter(Boolean),
-            packing: packing.split('\n').map(l => l.trim()).filter(Boolean)
-          });
+          await onSave(
+            Object.fromEntries(
+              CHECKLIST_KEYS.map(k => [k, draft[k].split('\n').map(l => l.trim()).filter(Boolean)])
+            ) as Templates
+          );
           setSaving(false);
         }}
         className="mt-2 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-600 disabled:opacity-50"
