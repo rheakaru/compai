@@ -7,8 +7,16 @@ import { EDITORIAL_PROSE_CLASS, excerpt, renderMarkdown } from '@/lib/markdown';
 
 const SITE = 'https://heyrhai.com';
 
+// Posts that have their own hand-designed route under app/writing/<slug>/.
+// A static segment already wins over this dynamic one at request time; keeping
+// them out of the params list stops the build from prerendering a second,
+// unreachable copy from the markdown body.
+const CUSTOM_ROUTES = new Set(['dodla-dairy']);
+
 export function generateStaticParams() {
-  return allPosts().map(p => ({ slug: p.slug }));
+  return allPosts()
+    .filter(p => !CUSTOM_ROUTES.has(p.slug))
+    .map(p => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

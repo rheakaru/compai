@@ -4,6 +4,13 @@ dek: Field notes from a real engagement with Dodla Dairy — a demo intelligence
 tags: advisory, workshop, dashboard, agents, dairy, case-study
 ---
 
+<!--
+  NOTE: this file supplies the archive listing (title, dek, tags, reading time)
+  only. The page itself is hand-designed and rendered by
+  app/writing/dodla-dairy/page.tsx + components/DodlaCaseStudy.tsx — edit the
+  copy there, not here.
+-->
+
 In August 2026 I got to work with **Dodla Dairy** — one of India's largest listed dairy companies — on an engagement I'd been dreaming about. Not "let's automate something," but *let's sit with the whole leadership team and rethink what this company is, now that AI exists.*
 
 Here's what we did, and what it taught me.
