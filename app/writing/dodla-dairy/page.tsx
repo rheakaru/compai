@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Fraunces, Inter_Tight, JetBrains_Mono } from 'next/font/google';
 import { DodlaCaseStudy } from '@/components/DodlaCaseStudy';
 
 // A dedicated route so this one post keeps its own design instead of being
@@ -7,34 +6,14 @@ import { DodlaCaseStudy } from '@/components/DodlaCaseStudy';
 // over /writing/[slug], so the markdown file stays as the archive's source of
 // title/dek/tags and this renders the page itself.
 //
-// The three faces the design depends on are loaded through next/font, which
-// self-hosts them at build time — the rest of the site stays on system fonts
-// and makes no external font request.
+// The three faces the design depends on are vendored into public/fonts and
+// declared with @font-face in the component. They are deliberately NOT loaded
+// via next/font: that downloads from Google at build time, which makes the
+// deploy depend on network egress from the build sandbox. Serving our own
+// files keeps the build hermetic. The rest of the site stays on system fonts,
+// and this page still makes no external font request at runtime.
 
 const SITE = 'https://heyrhai.com';
-
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  weight: ['400', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--dodla-serif',
-  display: 'swap',
-  fallback: ['Georgia', 'Times New Roman', 'serif']
-});
-const interTight = Inter_Tight({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--dodla-sans',
-  display: 'swap',
-  fallback: ['Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif']
-});
-const jetbrains = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--dodla-mono',
-  display: 'swap',
-  fallback: ['Menlo', 'Courier New', 'monospace']
-});
 
 const title = 'Two days inside a dairy company, rethinking it with AI';
 const description =
@@ -75,9 +54,9 @@ const jsonLd = {
 
 export default function Page() {
   return (
-    <div className={`${fraunces.variable} ${interTight.variable} ${jetbrains.variable}`}>
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <DodlaCaseStudy />
-    </div>
+    </>
   );
 }

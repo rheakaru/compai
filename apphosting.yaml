@@ -103,17 +103,14 @@ env:
   - variable: GOOGLE_OAUTH_REFRESH_TOKEN
     secret: GOOGLE_OAUTH_REFRESH_TOKEN
     availability: [RUNTIME]
-  # Group chat. WHATSAPP_ALLOWED_GROUPS is a comma-separated allowlist of group
-  # ids Rhai will engage in at all (default-closed — an unlisted group is
-  # ignored entirely). WHATSAPP_TEAM_GROUP_ID is the group that gets the
-  # day-before "car needed" call-out. Groups need an Official Business Account
-  # and are created via Meta's Groups API — max 8 participants.
-  - variable: WHATSAPP_ALLOWED_GROUPS
-    value: ''
-    availability: [RUNTIME]
-  - variable: WHATSAPP_TEAM_GROUP_ID
-    value: ''
-    availability: [RUNTIME]
+  # Group chat (optional — omit entirely to keep groups off). Add these two
+  # back with real values when the Groups API is set up:
+  #   WHATSAPP_ALLOWED_GROUPS   comma-separated allowlist of group ids Rhai will
+  #     engage in at all. Unset or empty = every group is ignored (default-closed).
+  #   WHATSAPP_TEAM_GROUP_ID    the group that gets the day-before "car needed"
+  #     call-out. Unset = no call-out is sent.
+  # Groups need an Official Business Account, are created via Meta's Groups API,
+  # and cap at 8 participants.
   # Where pre-call briefings are sent (falls back to WHATSAPP_ALLOWED_NUMBERS).
   - variable: WHATSAPP_BRIEFING_TO
     value: '919886750009'
