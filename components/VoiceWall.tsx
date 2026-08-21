@@ -11,6 +11,7 @@ import type { PublicTestimonial } from '@/lib/rhai/testimonials';
 export function VoiceWall() {
   const [items, setItems] = useState<PublicTestimonial[] | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -28,32 +29,65 @@ export function VoiceWall() {
       setPlaying(null);
       return;
     }
+    setFailed(null);
+    // iOS Safari will not start a new source unless the element is reloaded,
+    // and it only honours play() inside the user gesture that triggered it —
+    // so pause, swap, load and play synchronously here. Anything awaited
+    // before play() loses the gesture and the promise rejects.
+    el.pause();
     el.src = t.audioUrl;
-    el.play().then(() => setPlaying(t.id)).catch(() => setPlaying(null));
+    el.load();
+    const started = el.play();
+    // Older WebKit returns undefined rather than a promise.
+    if (started && typeof started.then === 'function') {
+      started.then(() => setPlaying(t.id)).catch(() => {
+        setPlaying(null);
+        setFailed(t.id);
+      });
+    } else {
+      setPlaying(t.id);
+    }
   };
 
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
     const onEnd = () => setPlaying(null);
+    // A silent pause (headphones out, a call, the OS interrupting) would
+    // otherwise leave the card stuck showing as playing.
+    const onPause = () => setPlaying(p => (el.ended || el.paused ? null : p));
+    const onError = () => setPlaying(null);
     el.addEventListener('ended', onEnd);
-    return () => el.removeEventListener('ended', onEnd);
+    el.addEventListener('pause', onPause);
+    el.addEventListener('error', onError);
+    return () => {
+      el.removeEventListener('ended', onEnd);
+      el.removeEventListener('pause', onPause);
+      el.removeEventListener('error', onError);
+    };
   }, []);
 
   if (!items || items.length === 0) return null;
 
   return (
     <section className="border-b border-ink-200/60 bg-cream-100">
-      <div className="mx-auto max-w-5xl px-6 py-20">
+      <div className="relative mx-auto max-w-5xl px-6 py-20">
         <p className="eyebrow">In their own voice</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl tracking-tight text-ink-900 sm:text-4xl">
-          What people say after a Hang.
+          What people say after a session.
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-700">
-          Real voices from the community — tap to listen.
+          Real voices from the room — tap to listen.
         </p>
 
-        <audio ref={audioRef} className="hidden" />
+        {/* Not `hidden`: a display:none media element is not reliably playable
+            on iOS, so it stays in the render tree but out of sight. */}
+        <audio
+          ref={audioRef}
+          preload="none"
+          playsInline
+          className="pointer-events-none absolute h-px w-px opacity-0"
+        />
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {items.map(t => {
             const on = playing === t.id;
@@ -77,6 +111,15 @@ export function VoiceWall() {
                   </div>
                   <Bars active={on} />
                 </div>
+                {failed === t.id && (
+                  <p className="mt-3 text-[12px] text-accent">
+                    Couldn&apos;t play that one here —{' '}
+                    <a href={t.audioUrl} target="_blank" rel="noreferrer" className="underline">
+                      open the audio
+                    </a>
+                    .
+                  </p>
+                )}
                 {t.transcript && (
                   <p className="mt-3 text-[13px] italic leading-relaxed text-ink-600">&ldquo;{t.transcript}&rdquo;</p>
                 )}

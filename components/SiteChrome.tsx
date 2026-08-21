@@ -6,7 +6,9 @@
 // internal linking (which is also what makes the site legible to search and
 // answer engines).
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 
 export const INSTAGRAM_URL = 'https://www.instagram.com/heyrhai/';
@@ -26,13 +28,21 @@ const NAV = [
 
 export function SiteHeader() {
   const { user } = useAuth();
+  const pathname = usePathname();
+  // Below `sm` the nav links used to be `hidden sm:inline` with no way to
+  // reach them — the whole site was unnavigable on a phone. They now live
+  // behind a disclosure button.
+  const [open, setOpen] = useState(false);
+  const cta = { href: user ? '/leads' : '/#contact', label: user ? 'Dashboard →' : 'Start a conversation' };
+
   return (
-    <header className="border-b border-ink-200/60">
+    <header className="relative border-b border-ink-200/60">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-        <Link href="/" className="flex items-baseline gap-2 text-ink-900">
+        <Link href="/" className="flex items-baseline gap-2 text-ink-900" onClick={() => setOpen(false)}>
           <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
           <span className="font-display text-[17px] font-medium tracking-tight">Rhai</span>
         </Link>
+
         <div className="flex items-center gap-4 text-xs">
           {NAV.map(item => (
             <Link key={item.href} href={item.href} className="hidden text-ink-500 hover:text-ink-900 sm:inline">
@@ -40,13 +50,47 @@ export function SiteHeader() {
             </Link>
           ))}
           <Link
-            href={user ? '/leads' : '/#contact'}
+            href={cta.href}
             className="whitespace-nowrap rounded-md border border-ink-300 bg-white/70 px-3 py-1.5 font-medium text-ink-800 hover:bg-white"
           >
-            {user ? 'Dashboard →' : 'Start a conversation'}
+            {cta.label}
           </Link>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            aria-expanded={open}
+            aria-controls="site-mobile-nav"
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            className="-mr-1 flex h-8 w-8 items-center justify-center rounded-md text-ink-700 hover:bg-white/70 sm:hidden"
+          >
+            <span aria-hidden className="text-base leading-none">{open ? '✕' : '☰'}</span>
+          </button>
         </div>
       </div>
+
+      {open && (
+        <nav
+          id="site-mobile-nav"
+          className="absolute inset-x-0 top-full z-40 border-b border-ink-200/60 bg-cream shadow-sm sm:hidden"
+        >
+          <ul className="mx-auto max-w-5xl px-6 py-2">
+            {NAV.map(item => {
+              const active = pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href.split('#')[0]) && item.href.split('#')[0] !== '/');
+              return (
+                <li key={item.href} className="border-b border-ink-200/50 last:border-0">
+                  <Link
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={`block py-3 text-sm ${active ? 'text-ink-900' : 'text-ink-600'} hover:text-ink-900`}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      )}
     </header>
   );
 }

@@ -11,7 +11,12 @@ type Phase = 'intro' | 'recording' | 'recorded' | 'sending' | 'done';
 const MAX_SECONDS = 150;
 
 function pickMime(): string | undefined {
-  const c = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  // MP4/AAC first: it is the only container every browser can also PLAY.
+  // WebM/Opus records fine in Chrome but iOS Safari has no decoder for it, so
+  // preferring WebM produced testimonials that were silently unplayable on
+  // iPhones. Chrome will still fall back to WebM (it can't record MP4), which
+  // is why scripts/transcode-testimonials.ts exists.
+  const c = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
   const MR = typeof window !== 'undefined' ? (window.MediaRecorder as typeof MediaRecorder & { isTypeSupported?: (t: string) => boolean }) : undefined;
   if (!MR?.isTypeSupported) return undefined;
   return c.find(t => MR.isTypeSupported!(t));
@@ -92,7 +97,7 @@ export function VoiceTestimonial() {
     setPhase('sending');
     try {
       const fd = new FormData();
-      fd.append('audio', blob, 'testimonial.webm');
+      fd.append('audio', blob, `testimonial.${blob.type.includes('mp4') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : 'webm'}`);
       fd.append('name', name.trim());
       if (role.trim()) fd.append('role', role.trim());
       fd.append('durationSec', String(seconds));
