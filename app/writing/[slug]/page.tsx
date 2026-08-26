@@ -11,7 +11,7 @@ const SITE = 'https://heyrhai.com';
 // A static segment already wins over this dynamic one at request time; keeping
 // them out of the params list stops the build from prerendering a second,
 // unreachable copy from the markdown body.
-const CUSTOM_ROUTES = new Set(['dodla-dairy']);
+const CUSTOM_ROUTES = new Set(['dodla-dairy', 'hester-biosciences']);
 
 export function generateStaticParams() {
   return allPosts()

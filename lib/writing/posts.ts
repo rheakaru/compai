@@ -25,6 +25,7 @@ export interface WritingPost {
 // Curated ordering — the builds most relevant to what Rhai sells go first.
 // Anything not listed sorts after these, alphabetically.
 const FEATURED_ORDER = [
+  'hester-biosciences',
   'dodla-dairy',
   'hoovu-dashboard',
   'hoovu-ai-agents',
@@ -87,7 +88,13 @@ export function allPosts(): WritingPost[] {
         .filter(Boolean),
       source: meta.source || undefined,
       body,
-      readingMinutes: Math.max(1, Math.round(words / 220))
+      // Hand-designed posts (app/writing/<slug>/) render from a component, not
+      // this body, so their markdown is only a listing stub. An optional
+      // `readingMinutes` in frontmatter lets them state the real length rather
+      // than the stub's; everything else is computed from the prose.
+      readingMinutes: Number.isFinite(Number(meta.readingMinutes))
+        ? Math.max(1, Math.round(Number(meta.readingMinutes)))
+        : Math.max(1, Math.round(words / 220))
     } satisfies WritingPost;
   });
 
