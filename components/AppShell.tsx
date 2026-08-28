@@ -55,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/hire') ||
     pathname.startsWith('/apply') ||
     pathname.startsWith('/testimonial') ||
+    pathname.startsWith('/orient') ||
     pathname.startsWith('/party') ||
     pathname.startsWith('/join')
   ) {

@@ -91,6 +91,43 @@ function leadLine(l: WorkshopLead): string {
 // Tools
 // ---------------------------------------------------------------------------
 
+async function toolSetProjectPrice(args: {
+  client?: string;
+  total_price_inr?: number;
+  estimated_days?: number;
+}): Promise<string> {
+  if (!args.client) return 'Error: pass { client, total_price_inr }';
+  const total = Number(args.total_price_inr);
+  if (!Number.isFinite(total) || total <= 0) {
+    return 'Error: total_price_inr must be a positive rupee amount (e.g. 500000 for a ₹5,00,000 project).';
+  }
+  const { lead, candidates } = await resolveLead(args.client);
+  if (!lead) {
+    const names = (candidates ?? []).slice(0, 8).map(l => `${l.company} (id: ${l.id})`);
+    return `Error: couldn't resolve "${args.client}". Did you mean one of:\n${names.join('\n') || '(no leads)'}`;
+  }
+  // The dashboard models value as estimatedDays × dayRate. Keep that shape so
+  // the pipeline totals, proposals and invoices all stay consistent: hold the
+  // days (given, else the lead's own, else 1) and back out the day rate so the
+  // computed value equals the price asked for.
+  const days = Math.max(1, Math.round(Number(args.estimated_days) || lead.estimatedDays || 1));
+  const dayRate = Math.round(total / days);
+  const before = (lead.estimatedDays || 0) * (lead.dayRate || 0);
+  await adminDb().collection('workshopLeads').doc(lead.id).set(
+    { estimatedDays: days, dayRate, updatedAt: Date.now() },
+    { merge: true }
+  );
+  return [
+    `Updated the price on **${lead.company}** (id: \`${lead.id}\`).`,
+    `Was ${inr(before)} → now ${inr(days * dayRate)} (${days}d @ ${inr(dayRate)}/day).`,
+    days === 1
+      ? 'Recorded as a single-day engagement. Pass estimated_days if this should be spread over more days.'
+      : ''
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 async function toolPipelineOverview(): Promise<string> {
   const leads = await loadLeads();
   const sorted = [...leads].sort(
@@ -408,6 +445,27 @@ const TOOLS: ToolDef[] = [
       properties: { section_id: { type: 'string', description: 'Optional — a section id from the digest listing' } }
     },
     run: a => toolBusinessContext(a)
+  },
+  {
+    name: 'set_project_price',
+    description:
+      "Change the price/value of a client's project (lead) in the Rhai dashboard. Use when Rhea says to reprice a deal — e.g. \"set Halol to 5 lakhs\", \"the Dodla workshop is now ₹3,00,000\", \"quote them for 3 days\". Give total_price_inr as the whole rupee amount (500000 = ₹5,00,000). The dashboard stores value as days × day-rate, so it keeps the lead's existing day count (or estimated_days if you pass it) and adjusts the rate to match. This moves pipeline totals and flows into proposals/invoices, so confirm the amount with Rhea before calling.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        client: { type: 'string', description: 'Lead id, or company/person name (substring ok)' },
+        total_price_inr: {
+          type: 'number',
+          description: 'The whole project price in rupees. 500000 = ₹5,00,000. This becomes the lead value.'
+        },
+        estimated_days: {
+          type: 'number',
+          description: 'Optional. Number of engagement days to spread the price across. Defaults to the lead\'s current day count, or 1.'
+        }
+      },
+      required: ['client', 'total_price_inr']
+    },
+    run: a => toolSetProjectPrice(a)
   },
   {
     name: 'sync_client_context',
