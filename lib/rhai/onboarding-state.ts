@@ -34,6 +34,7 @@ export interface OnboardingState {
   pitchTranscripts: PitchTranscript[];
   transcriptsPulledAt: number | null;
   resources: RenderedResource[];
+  checkins: Record<string, { morning?: { text: string; at: number }; evening?: { text: string; at: number } }>;
 }
 
 export async function loadOnboardingState(): Promise<OnboardingState> {
@@ -63,6 +64,7 @@ export async function loadOnboardingState(): Promise<OnboardingState> {
     ),
     pitchTranscripts: Array.isArray(t.calls) ? t.calls : [],
     transcriptsPulledAt: typeof t.pulledAt === 'number' ? t.pulledAt : null,
-    resources: renderedResources()
+    resources: renderedResources(),
+    checkins: (d.checkins ?? {}) as OnboardingState['checkins']
   };
 }

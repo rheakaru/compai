@@ -292,6 +292,71 @@ export const REQUIRED_DOCS: { id: string; label: string; note?: string }[] = [
 // Prior-employment is optional ("if you have worked before"), so it's excluded.
 export const MANDATORY_DOC_IDS = ['aadhaar', 'pan', 'bank', 'edu'];
 
+
+// ---------------------------------------------------------------------------
+// The first week — the ten workstreams, and a day-by-day plan that spreads
+// learning, research and admin across each day so no day is all one thing.
+// ---------------------------------------------------------------------------
+export interface Workstream {
+  n: number;
+  title: string;
+  owner: string; // who helps / owns the handoff
+  detail: string;
+}
+
+export const WORKSTREAMS: Workstream[] = [
+  { n: 1, title: 'Complete the onboarding learning modules', owner: 'Rhai', detail: 'Everything above — read, watch, and record your takeaways.' },
+  { n: 2, title: 'Join all the WhatsApp groups', owner: 'Yeshoda', detail: 'Ask Yeshoda to add you to every group — the main group, the content group, client groups as relevant.' },
+  { n: 3, title: 'Learn all the clients', owner: 'Rhai + Yeshoda', detail: 'Work through the active-clients page; ask Yeshoda for context where you need it.' },
+  { n: 4, title: 'Get Instagram & socials access', owner: 'Shriya + Content group', detail: 'Shriya sets you up with access; the content calendar lives on the dashboard (Rhai) and coordination happens in the content group.' },
+  { n: 5, title: "Schedule Rhea's LinkedIn posts", owner: 'You', detail: "Take Rhea's posts and schedule them out. Keep a steady, predictable cadence." },
+  { n: 6, title: 'Schedule Substacks on our projects', owner: 'You', detail: 'Turn the project write-ups into Substack posts and schedule them.' },
+  { n: 7, title: 'Cross-post IG reels as YouTube Shorts', owner: 'You', detail: "Yes, these can be scheduled — YouTube has native scheduled uploads: upload the Short, set visibility to Scheduled with a date/time. Mirror the reel calendar." },
+  { n: 8, title: 'Research companies worth reaching out to', owner: 'You → Rhai review', detail: 'Using the projects write-up, find companies our existing work maps to. For each: who to reach inside the org, how you would reach them, and what the outreach message looks like. Match a product/offering to a real use case, then find a way to contact them.' },
+  { n: 9, title: 'Get approval, then start reaching out', owner: 'Rhai approves', detail: 'Share your outreach plans, get sign-off, then begin the outreach.' },
+  { n: 10, title: 'Daily check-ins', owner: 'You', detail: 'A morning message on what you are planning, and an end-of-day message on what you did. Do both on this page — they reach Rhea on WhatsApp.' }
+];
+
+export interface DayPlan {
+  day: string;
+  learning: string;
+  research: string;
+  admin: string;
+}
+
+export const FIRST_WEEK: DayPlan[] = [
+  {
+    day: 'Monday',
+    learning: 'Start the onboarding modules — vocabulary of what Rhai does, the case studies, how we write.',
+    research: 'Skim the projects write-up so you know what we have already built (fuel for outreach later).',
+    admin: 'Ask Yeshoda to add you to all the WhatsApp groups; ask Shriya to start your socials access.'
+  },
+  {
+    day: 'Tuesday',
+    learning: 'Finish the readings and the sales playbook. Record your takeaways.',
+    research: 'Begin the outreach research — pick 2–3 of our past projects and list companies they map to.',
+    admin: "Get set up to schedule Rhea's LinkedIn posts; queue the first couple."
+  },
+  {
+    day: 'Wednesday',
+    learning: 'Work through the active-clients page — learn every current client, ask Yeshoda where you need context.',
+    research: 'For each target company, draft who to reach and a first outreach message.',
+    admin: 'Schedule the Substack posts from the project write-ups.'
+  },
+  {
+    day: 'Thursday',
+    learning: 'The Watch & Read list — the enterprise-sales talk and the India brief.',
+    research: 'Tighten the outreach plans: match a specific offering to each company’s use case, and find a real contact.',
+    admin: 'Set up the YouTube Shorts cross-posts (scheduled), and tidy the content calendar.'
+  },
+  {
+    day: 'Friday',
+    learning: 'Revisit anything that did not land the first time; re-record a takeaway if you want.',
+    research: 'Finalise the outreach plans and share them for approval.',
+    admin: 'Review the content calendar for next week; plan your own week two.'
+  }
+];
+
 // ---------------------------------------------------------------------------
 // The milestone list that drives the progress rail. Order = the flow.
 // ---------------------------------------------------------------------------
@@ -304,5 +369,6 @@ export const MILESTONES: { id: string; label: string }[] = [
   { id: 'status', label: 'Where the company is right now' },
   { id: 'focus', label: 'Your focus areas & rhythm' },
   { id: 'docs', label: 'Upload your documents' },
-  { id: 'letters', label: 'Your offer & joining letters' }
+  { id: 'letters', label: 'Your offer & joining letters' },
+  { id: 'first-week', label: 'Your first week & daily check-ins' }
 ];

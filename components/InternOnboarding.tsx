@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVoice } from './useVoice';
 import {
   EXERCISE,
+  FIRST_WEEK,
   FOCUS_AREAS,
   INTERN,
   LOGISTICS,
@@ -20,6 +21,7 @@ import {
   PROJECT_STATUS,
   READINGS,
   REQUIRED_DOCS,
+  WORKSTREAMS,
   TONE_INTRO,
   TONE_PRACTICE,
   TONE_RULES
@@ -46,6 +48,7 @@ interface State {
   docs: Record<string, DocRec>;
   pitchTranscripts?: PitchCall[];
   resources?: RenderedResource[];
+  checkins?: Record<string, { morning?: { text: string; at: number }; evening?: { text: string; at: number } }>;
 }
 
 export function InternOnboarding() {
@@ -449,6 +452,52 @@ export function InternOnboarding() {
             )}
           </Section>
 
+          {/* First week + daily check-ins */}
+          <Section id="first-week" done={done.has('first-week')}>
+            <p className="eyebrow">Your first week</p>
+            <h2 className="mt-2 font-display text-2xl tracking-tight text-ink-900">A plan to settle in.</h2>
+            <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-700">
+              Ten things make up your first week. Spread them out — a bit of learning, a bit of research, and a bit of
+              admin every day, so no day is all one thing.
+            </p>
+
+            <div className="mt-5 space-y-2">
+              {WORKSTREAMS.map(w => (
+                <div key={w.n} className="flex gap-3 rounded-xl border border-ink-200 bg-white p-3.5">
+                  <span className="font-display text-accent">{String(w.n).padStart(2, '0')}</span>
+                  <div>
+                    <p className="text-sm font-medium text-ink-900">
+                      {w.title} <span className="ml-1 text-[11px] font-normal text-ink-400">· {w.owner}</span>
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-ink-600">{w.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Day by day</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {FIRST_WEEK.map(d => (
+                  <div key={d.day} className="rounded-xl border border-ink-200 bg-white p-4">
+                    <p className="font-display text-lg text-ink-900">{d.day}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-ink-700">
+                      <span className="font-medium text-accent">Learn</span> · {d.learning}
+                    </p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-ink-700">
+                      <span className="font-medium text-accent">Research</span> · {d.research}
+                    </p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-ink-700">
+                      <span className="font-medium text-accent">Admin</span> · {d.admin}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <DailyCheckins token={token} existing={state.checkins ?? {}} onDone={() => markDone('first-week')} />
+          </Section>
+
           <div className="rounded-xl border border-ink-200 bg-white p-6 text-center">
             <p className="font-display text-xl text-ink-900">
               {completed === MILESTONES.length ? "That's everything — welcome aboard." : "Take your time."}
@@ -648,6 +697,109 @@ function ExerciseStepCard({
           <p className="mt-1.5 text-sm leading-relaxed text-ink-700">{step.whatHappened}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function DailyCheckins({
+  token,
+  existing,
+  onDone
+}: {
+  token: string;
+  existing: Record<string, { morning?: { text: string; at: number }; evening?: { text: string; at: number } }>;
+  onDone: () => void;
+}) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const todays = existing[today] ?? {};
+  return (
+    <div className="mt-8 rounded-xl border border-accent/30 bg-cream-50 p-5">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Daily check-ins</p>
+      <p className="mt-1.5 text-sm text-ink-700">
+        Every day: a quick note in the morning on what you&apos;re planning, and one at the end of the day on what you
+        did. These go straight to Rhea on WhatsApp — it&apos;s how we stay in sync while she travels.
+      </p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <CheckinBox token={token} kind="morning" label="🌅 Morning — what are you planning today?" saved={todays.morning?.text} onSaved={onDone} />
+        <CheckinBox token={token} kind="evening" label="🌙 End of day — what did you get done?" saved={todays.evening?.text} onSaved={onDone} />
+      </div>
+    </div>
+  );
+}
+
+function CheckinBox({
+  token,
+  kind,
+  label,
+  saved,
+  onSaved
+}: {
+  token: string;
+  kind: 'morning' | 'evening';
+  label: string;
+  saved?: string;
+  onSaved: () => void;
+}) {
+  const [text, setText] = useState(saved ?? '');
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState(!!saved);
+  const onText = useCallback((t: string) => setText(d => (d ? `${d} ${t}` : t)), []);
+  const { listening, supported, toggle } = useVoice(onText, { kind: 'discovery', sessionId: token });
+
+  const send = async () => {
+    if (!text.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/rhai/onboarding/checkin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token, kind, text: text.trim() })
+      });
+      if (res.ok) {
+        setOk(true);
+        onSaved();
+      }
+    } catch {
+      /* ignore */
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="rounded-lg border border-ink-200 bg-white p-3">
+      <p className="text-sm font-medium text-ink-800">{label}</p>
+      <div className="mt-2 flex items-center gap-2">
+        {supported && (
+          <button
+            type="button"
+            onClick={toggle}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${listening ? 'bg-rose-500 text-white' : 'bg-accent text-white hover:bg-accent-600'}`}
+          >
+            {listening ? 'Stop' : '🎙 Speak'}
+          </button>
+        )}
+      </div>
+      <textarea
+        value={text}
+        onChange={e => {
+          setText(e.target.value);
+          setOk(false);
+        }}
+        rows={3}
+        placeholder="Speak or type…"
+        className="mt-2 w-full rounded-md border border-ink-200 px-2.5 py-2 text-sm text-ink-800"
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={send}
+          disabled={busy || !text.trim()}
+          className="rounded-md bg-ink-900 px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink-800 disabled:opacity-40"
+        >
+          {busy ? 'Sending…' : ok ? 'Sent — send update' : 'Send to Rhea'}
+        </button>
+        {ok && <span className="text-xs text-emerald-700">Sent ✓</span>}
+      </div>
     </div>
   );
 }

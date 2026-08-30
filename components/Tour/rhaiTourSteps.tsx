@@ -25,7 +25,7 @@ export const RHAI_TOUR_STEPS: TourStep[] = [
           Draft-only autonomy is the rule.
         </p>
         <p className="mt-2 text-[11px] text-ink-500">
-          You&apos;ll click through 7 quick steps. Use ← → to navigate, Esc to skip.
+          You&apos;ll click through a few quick steps. Use ← → to navigate, Esc to skip.
         </p>
       </>
     )
@@ -161,6 +161,52 @@ export const RHAI_TOUR_STEPS: TourStep[] = [
       </>
     ),
     placement: 'left'
+  },
+  {
+    selector: '[data-tour="nav-clients"]',
+    title: 'Clients — get up to speed fast',
+    body: (
+      <>
+        <p>
+          <strong>Clients</strong> is a focused walkthrough of the companies we&apos;re actually working with right
+          now — not the whole noisy leads list. Each one shows where it stands, recent calls and documents, and a link
+          to the full page.
+        </p>
+        <p className="mt-2">Built for getting someone new up to speed.</p>
+      </>
+    ),
+    placement: 'bottom'
+  },
+  {
+    selector: '[data-tour="nav-content"]',
+    title: 'Content — the social calendar',
+    body: (
+      <>
+        <p>
+          <strong>Content</strong> is a drag-and-drop calendar. Drag pieces from the bank onto dates or between dates,
+          mark them posted, write the caption, and set who&apos;s giving the idea and who&apos;s posting.
+        </p>
+        <p className="mt-2">It autosaves, so the whole team sees the same plan.</p>
+      </>
+    ),
+    placement: 'bottom'
+  },
+  {
+    selector: '[data-tour="nav-resources"]',
+    title: 'Resources — how we write & sell',
+    body: (
+      <>
+        <p>
+          <strong>Resources</strong> holds the team learning library — the communication standards, the sales
+          playbook, the sales motion, and a curated watch &amp; read list. Read these before writing to a client or
+          taking a call.
+        </p>
+        <p className="mt-2 text-[11px] text-ink-500">
+          New teammates get all of this, plus a guided orientation, at their own onboarding link.
+        </p>
+      </>
+    ),
+    placement: 'bottom'
   },
   {
     selector: '',

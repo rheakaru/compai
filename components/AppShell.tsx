@@ -15,13 +15,15 @@ interface NavItem {
   label: string;
   /** Match by exact pathname or by prefix. */
   match: (path: string) => boolean;
+  /** data-tour anchor id, for the onboarding tour. */
+  tour?: string;
 }
 
 const NAV: NavItem[] = [
   { href: '/leads', label: 'Rhai', match: p => p.startsWith('/leads') },
-  { href: '/admin/active-clients', label: 'Clients', match: p => p.startsWith('/admin/active-clients') },
-  { href: '/admin/content-calendar', label: 'Content', match: p => p.startsWith('/admin/content-calendar') },
-  { href: '/admin/resources', label: 'Resources', match: p => p.startsWith('/admin/resources') },
+  { href: '/admin/active-clients', label: 'Clients', match: p => p.startsWith('/admin/active-clients'), tour: 'nav-clients' },
+  { href: '/admin/content-calendar', label: 'Content', match: p => p.startsWith('/admin/content-calendar'), tour: 'nav-content' },
+  { href: '/admin/resources', label: 'Resources', match: p => p.startsWith('/admin/resources'), tour: 'nav-resources' },
   { href: '/admin/funnel', label: 'Funnel', match: p => p.startsWith('/admin/funnel') }
 ];
 
@@ -89,6 +91,7 @@ function TopNav({ pathname }: { pathname: string }) {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.tour}
                 className={`rounded-md px-2 py-1.5 transition-colors sm:px-3 ${
                   active
                     ? 'bg-white text-ink-900 shadow-[0_1px_0_rgba(0,0,0,0.04)]'
