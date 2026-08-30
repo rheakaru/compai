@@ -300,6 +300,7 @@ export const MILESTONES: { id: string; label: string }[] = [
   ...READINGS.map(r => ({ id: `read-${r.id}`, label: r.title })),
   { id: 'exercise', label: 'What would you do? (a real call)' },
   { id: 'tone', label: 'Learn our voice' },
+  { id: 'resources', label: 'How we write & how we sell' },
   { id: 'status', label: 'Where the company is right now' },
   { id: 'focus', label: 'Your focus areas & rhythm' },
   { id: 'docs', label: 'Upload your documents' },

@@ -38,12 +38,14 @@ interface DocRec {
 }
 interface Sentence { speaker: string; text: string }
 interface PitchCall { id: string; title: string; dateLabel: string; overview?: string; sentences: Sentence[] }
+interface RenderedResource { slug: string; title: string; dek: string; audience: string; readingMinutes: number; html: string }
 interface State {
   progress: string[];
   exercise: Record<string, string>;
   takeaways: Record<string, Takeaway>;
   docs: Record<string, DocRec>;
   pitchTranscripts?: PitchCall[];
+  resources?: RenderedResource[];
 }
 
 export function InternOnboarding() {
@@ -223,6 +225,13 @@ export function InternOnboarding() {
                 to her early and often.
               </p>
             </div>
+            <div className="mt-5 rounded-xl border border-ink-200 bg-cream-50 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Team tools (once you have your @heyrhai.com login)</p>
+              <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                <a href="/admin/active-clients" className="text-accent underline-offset-4 hover:underline">Our active clients →</a>
+                <a href="/admin/resources" className="text-accent underline-offset-4 hover:underline">Learning resources →</a>
+              </div>
+            </div>
             <CompleteButton done={done.has('welcome')} onClick={() => markDone('welcome')} label="Got it, let's start" />
           </Section>
 
@@ -318,6 +327,27 @@ export function InternOnboarding() {
               onSaved={async (transcript, blobUrl) => {
                 await saveTakeaway('tone-practice', transcript, blobUrl);
                 markDone('tone');
+              }}
+            />
+          </Section>
+
+          {/* Learning resources */}
+          <Section id="resources" done={done.has('resources')}>
+            <p className="eyebrow">Read before you write or pitch</p>
+            <h2 className="mt-2 font-display text-2xl tracking-tight text-ink-900">How we write &amp; how we sell.</h2>
+            <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-700">
+              These are the standards for every message you send and every call you take. The bar: every message should
+              be one you&apos;d be comfortable with a client reading. Read all three.
+            </p>
+            <ResourceViewer resources={state.resources ?? []} />
+            <VoiceTakeaway
+              promptId="resources-takeaway"
+              prompt="What is the single habit from these you most want to build? And what is one thing from the sales playbook you would use on your first call?"
+              token={token}
+              existing={state.takeaways['resources-takeaway']}
+              onSaved={async (transcript, audioBlob) => {
+                await saveTakeaway('resources-takeaway', transcript, audioBlob);
+                markDone('resources');
               }}
             />
           </Section>
@@ -618,6 +648,39 @@ function ExerciseStepCard({
           <p className="mt-1.5 text-sm leading-relaxed text-ink-700">{step.whatHappened}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function ResourceViewer({ resources }: { resources: RenderedResource[] }) {
+  const [open, setOpen] = useState<string | null>(resources[0]?.slug ?? null);
+  if (!resources.length) return null;
+  return (
+    <div className="mt-5 space-y-2">
+      {resources.map(r => {
+        const isOpen = open === r.slug;
+        return (
+          <div key={r.slug} className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setOpen(isOpen ? null : r.slug)}
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-cream-50"
+            >
+              <span>
+                <span className="text-sm font-medium text-ink-900">{r.title}</span>
+                <span className="ml-2 text-xs text-ink-400">{r.readingMinutes} min</span>
+              </span>
+              <span className="text-ink-400">{isOpen ? '−' : '+'}</span>
+            </button>
+            {isOpen && (
+              <div
+                className="max-h-[32rem] overflow-y-auto border-t border-ink-100 px-4 py-4 text-[13.5px] leading-relaxed text-ink-700 [&_h2]:mt-5 [&_h2]:font-display [&_h2]:text-lg [&_h2]:text-ink-900 [&_h3]:mt-4 [&_h3]:font-semibold [&_h3]:text-ink-900 [&_p]:my-2.5 [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_strong]:font-semibold [&_strong]:text-ink-900 [&_em]:italic [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-accent/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-ink-600 [&_table]:my-3 [&_table]:w-full [&_table]:text-xs [&_td]:border [&_td]:border-ink-100 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-ink-200 [&_th]:bg-cream-50 [&_th]:px-2 [&_th]:py-1 [&_a]:text-accent [&_a]:underline [&_hr]:my-4 [&_hr]:border-ink-200 [&_code]:rounded [&_code]:bg-ink-100 [&_code]:px-1"
+                dangerouslySetInnerHTML={{ __html: r.html }}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

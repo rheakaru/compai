@@ -1,6 +1,7 @@
 import 'server-only';
 import { adminDb } from '@/lib/firebase/admin';
 import { ONBOARDING_TOKEN } from './onboarding';
+import { renderedResources, type RenderedResource } from './resources';
 
 // Shared loader for the intern's saved onboarding state, used by both the
 // token-gated intern page and the operator-gated review page. Also carries the
@@ -32,6 +33,7 @@ export interface OnboardingState {
   docs: Record<string, { label: string; filename: string; url: string | null; at: number }>;
   pitchTranscripts: PitchTranscript[];
   transcriptsPulledAt: number | null;
+  resources: RenderedResource[];
 }
 
 export async function loadOnboardingState(): Promise<OnboardingState> {
@@ -60,6 +62,7 @@ export async function loadOnboardingState(): Promise<OnboardingState> {
       ])
     ),
     pitchTranscripts: Array.isArray(t.calls) ? t.calls : [],
-    transcriptsPulledAt: typeof t.pulledAt === 'number' ? t.pulledAt : null
+    transcriptsPulledAt: typeof t.pulledAt === 'number' ? t.pulledAt : null,
+    resources: renderedResources()
   };
 }

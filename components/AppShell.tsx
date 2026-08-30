@@ -19,8 +19,10 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/leads', label: 'Rhai', match: p => p.startsWith('/leads') },
-  { href: '/diagnosis', label: 'Diagnosis', match: p => p.startsWith('/diagnosis') || p.startsWith('/c/') },
-  { href: '/admin/funnel', label: 'Funnel', match: p => p.startsWith('/admin') }
+  { href: '/admin/active-clients', label: 'Clients', match: p => p.startsWith('/admin/active-clients') },
+  { href: '/admin/content-calendar', label: 'Content', match: p => p.startsWith('/admin/content-calendar') },
+  { href: '/admin/resources', label: 'Resources', match: p => p.startsWith('/admin/resources') },
+  { href: '/admin/funnel', label: 'Funnel', match: p => p.startsWith('/admin/funnel') }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

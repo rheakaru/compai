@@ -15,7 +15,10 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/writing': ['./content/writing/**'],
     '/writing/[slug]': ['./content/writing/**'],
-    '/sitemap.xml': ['./content/writing/**']
+    '/sitemap.xml': ['./content/writing/**'],
+    '/admin/resources': ['./content/resources/**'],
+    '/orient/[token]': ['./content/resources/**'],
+    '/api/rhai/onboarding': ['./content/resources/**']
   },
   experimental: {
     serverActions: {
