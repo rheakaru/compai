@@ -30,7 +30,7 @@ export const INTERN: InternConfig = {
   title: 'Forward Deployed Anthropologist (Intern)',
   stipendLabel: '', // ← fill, or leave blank and the letter shows a fill-in line
   startDateLabel: '1 September 2026',
-  termLabel: 'a 6-month internship',
+  termLabel: 'a 3-month internship',
   pointPerson: 'Yeshoda'
 };
 
@@ -287,6 +287,10 @@ export const REQUIRED_DOCS: { id: string; label: string; note?: string }[] = [
     note: 'Offer / employment letter, relieving letter, or experience letter — if you have worked before'
   }
 ];
+
+// The documents that must be on file before the offer/joining letters unlock.
+// Prior-employment is optional ("if you have worked before"), so it's excluded.
+export const MANDATORY_DOC_IDS = ['aadhaar', 'pan', 'bank', 'edu'];
 
 // ---------------------------------------------------------------------------
 // The milestone list that drives the progress rail. Order = the flow.

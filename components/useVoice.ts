@@ -53,6 +53,7 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
   const [supported, setSupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAudioUrl, setLastAudioUrl] = useState<string | null>(null);
+  const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
   const backendRef = useRef<Backend>('none');
   const onTextRef = useRef(onText);
   onTextRef.current = onText;
@@ -172,6 +173,10 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
     const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
     chunksRef.current = [];
     if (blob.size === 0) return;
+    // Keep the real recorded audio locally so a consumer can upload/play it
+    // even if the transcription backend doesn't hand back a server URL.
+    setLastAudioBlob(blob);
+    setLastAudioUrl(URL.createObjectURL(blob));
 
     uploadingRef.current = true;
     try {
@@ -192,7 +197,6 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
       const j = (await res.json()) as { text?: string; audioUrl?: string };
       const text = (j.text ?? '').trim();
       if (text) onTextRef.current(text);
-      if (j.audioUrl) setLastAudioUrl(j.audioUrl);
     } catch {
       setError('Transcription failed — please type instead.');
     } finally {
@@ -253,9 +257,12 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
     }
   }, [listening, startServer, stopServer]);
 
-  const clearAudio = useCallback(() => setLastAudioUrl(null), []);
+  const clearAudio = useCallback(() => {
+    setLastAudioUrl(null);
+    setLastAudioBlob(null);
+  }, []);
 
-  return { listening, supported, toggle, error, lastAudioUrl, clearAudio };
+  return { listening, supported, toggle, error, lastAudioUrl, lastAudioBlob, clearAudio };
 }
 
 function pickMime(): string | undefined {

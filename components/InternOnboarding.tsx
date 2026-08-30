@@ -13,6 +13,7 @@ import {
   FOCUS_AREAS,
   INTERN,
   LOGISTICS,
+  MANDATORY_DOC_IDS,
   MILESTONES,
   ONBOARDING_TOKEN,
   OUTCOME,
@@ -79,29 +80,28 @@ export function InternOnboarding() {
   );
 
   const saveTakeaway = useCallback(
-    async (promptId: string, transcript: string, blobUrl: string | null) => {
+    async (promptId: string, transcript: string, audioBlob: Blob | null) => {
       const form = new FormData();
       form.append('token', token);
       form.append('kind', 'takeaway');
       form.append('promptId', promptId);
       form.append('transcript', transcript);
-      if (blobUrl) {
-        try {
-          const blob = await (await fetch(blobUrl)).blob();
-          form.append('file', blob, `${promptId}.webm`);
-        } catch {
-          /* audio best-effort; transcript still saves */
-        }
+      // Upload the real recording when we have one. A transcript with no audio
+      // still saves — we never fabricate an empty audio file.
+      if (audioBlob && audioBlob.size > 0) {
+        const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
+        form.append('file', audioBlob, `${promptId}.${ext}`);
       }
-      // A transcript with no audio is still worth saving.
-      if (!form.has('file')) form.append('file', new Blob([''], { type: 'text/plain' }), 'empty.txt');
       const res = await fetch('/api/rhai/onboarding', { method: 'POST', body: form });
-      const j = (await res.json().catch(() => ({}))) as { url?: string };
+      const j = (await res.json().catch(() => ({}))) as { url?: string; audioUrl?: string };
       setState(prev =>
         prev
           ? {
               ...prev,
-              takeaways: { ...prev.takeaways, [promptId]: { transcript, audioUrl: j.url ?? null, at: Date.now() } }
+              takeaways: {
+                ...prev.takeaways,
+                [promptId]: { transcript, audioUrl: j.url ?? j.audioUrl ?? prev.takeaways[promptId]?.audioUrl ?? null, at: Date.now() }
+              }
             }
           : prev
       );
@@ -150,6 +150,7 @@ export function InternOnboarding() {
   }
 
   const completed = MILESTONES.filter(m => done.has(m.id)).length;
+  const docsReady = MANDATORY_DOC_IDS.every(id => !!state.docs[id]);
 
   return (
     <main className="min-h-screen bg-cream text-ink-900">
@@ -386,29 +387,36 @@ export function InternOnboarding() {
             <p className="eyebrow">The paperwork</p>
             <h2 className="mt-2 font-display text-2xl tracking-tight text-ink-900">Your offer & joining letters.</h2>
             <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-700">
-              Generated from Rhai. These open as drafts — HR will confirm the final details and Rhea will sign before
-              they&apos;re issued.
+              Generated from Rhai, signed by Rhea. They carry the internship terms — a 3-month term, a two-week
+              mutual-fit window, confidentiality and non-compete. Review, sign, and return one copy.
             </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={`/api/rhai/onboarding/letter?token=${encodeURIComponent(token)}&type=offer`}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => markDone('letters')}
-                className="rounded-md bg-ink-900 px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink-800"
-              >
-                Offer letter (PDF) ↗
-              </a>
-              <a
-                href={`/api/rhai/onboarding/letter?token=${encodeURIComponent(token)}&type=joining`}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => markDone('letters')}
-                className="rounded-md border border-ink-300 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
-              >
-                Joining letter (PDF) ↗
-              </a>
-            </div>
+            {docsReady ? (
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a
+                  href={`/api/rhai/onboarding/letter?token=${encodeURIComponent(token)}&type=offer`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => markDone('letters')}
+                  className="rounded-md bg-ink-900 px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink-800"
+                >
+                  Offer letter (PDF) ↗
+                </a>
+                <a
+                  href={`/api/rhai/onboarding/letter?token=${encodeURIComponent(token)}&type=joining`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => markDone('letters')}
+                  className="rounded-md border border-ink-300 bg-white/70 px-4 py-2.5 text-sm font-medium text-ink-800 hover:bg-white"
+                >
+                  Joining letter (PDF) ↗
+                </a>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-xl border border-dashed border-ink-300 bg-cream-50 p-4 text-sm text-ink-600">
+                🔒 Your letters unlock once your documents are uploaded above (Aadhaar, PAN, bank, and education
+                certificates). Upload them, and this will open.
+              </div>
+            )}
           </Section>
 
           <div className="rounded-xl border border-ink-200 bg-white p-6 text-center">
@@ -463,23 +471,28 @@ function VoiceTakeaway({
   prompt: string;
   token: string;
   existing?: Takeaway;
-  onSaved: (transcript: string, blobUrl: string | null) => Promise<void>;
+  onSaved: (transcript: string, audioBlob: Blob | null) => Promise<void>;
 }) {
   const [draft, setDraft] = useState(existing?.transcript ?? '');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(!!existing);
   const onText = useCallback((t: string) => setDraft(d => (d ? `${d} ${t}` : t)), []);
-  const { listening, supported, toggle, error, lastAudioUrl } = useVoice(onText, { kind: 'discovery', sessionId: token });
+  const { listening, supported, toggle, error, lastAudioUrl, lastAudioBlob } = useVoice(onText, {
+    kind: 'discovery',
+    sessionId: token
+  });
 
   useEffect(() => {
     if (lastAudioUrl) setAudioUrl(lastAudioUrl);
-  }, [lastAudioUrl]);
+    if (lastAudioBlob) setAudioBlob(lastAudioBlob);
+  }, [lastAudioUrl, lastAudioBlob]);
 
   const save = async () => {
     if (!draft.trim()) return;
     setSaving(true);
-    await onSaved(draft.trim(), audioUrl);
+    await onSaved(draft.trim(), audioBlob);
     setSaving(false);
     setSaved(true);
   };

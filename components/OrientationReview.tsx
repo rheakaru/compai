@@ -12,6 +12,14 @@ import { EXERCISE, MILESTONES, ONBOARDING_TOKEN, READINGS, REQUIRED_DOCS } from 
 
 interface Takeaway { transcript: string; audioUrl: string | null; at: number }
 interface DocRec { label: string; filename: string; url: string | null; at: number }
+interface InternCfg {
+  name: string;
+  title: string;
+  stipendLabel: string;
+  startDateLabel: string;
+  termLabel: string;
+  pointPerson: string;
+}
 interface State {
   progress: string[];
   exercise: Record<string, string>;
@@ -19,6 +27,7 @@ interface State {
   docs: Record<string, DocRec>;
   transcriptsPulledAt: number | null;
   pitchTranscripts: { title: string }[];
+  config: InternCfg;
 }
 
 // Human labels for the takeaway prompts, keyed by their promptId.
@@ -133,6 +142,9 @@ export function OrientationReview() {
         </ul>
       </div>
 
+      {/* Editable details for the letters */}
+      <LetterDetails initial={state.config} onSaved={load} authedFetch={authedFetch} />
+
       {/* Pull transcripts */}
       <div className="mt-6 rounded-xl border border-ink-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -209,5 +221,80 @@ export function OrientationReview() {
         ))}
       </div>
     </main>
+  );
+}
+
+function LetterDetails({
+  initial,
+  onSaved,
+  authedFetch
+}: {
+  initial: InternCfg;
+  onSaved: () => Promise<void>;
+  authedFetch: (path: string, init?: RequestInit) => Promise<Response>;
+}) {
+  const [cfg, setCfg] = useState<InternCfg>(initial);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const field = (key: keyof InternCfg, label: string, placeholder: string) => (
+    <label className="block text-xs text-ink-500">
+      {label}
+      <input
+        value={cfg[key]}
+        onChange={e => setCfg({ ...cfg, [key]: e.target.value })}
+        placeholder={placeholder}
+        className="mt-1 w-full rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-sm text-ink-900"
+      />
+    </label>
+  );
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await authedFetch('/api/admin/orientation', {
+        method: 'PATCH',
+        body: JSON.stringify({ config: cfg })
+      });
+      if (res.ok) {
+        setMsg('Saved. The offer and joining letters now use these details.');
+        await onSaved();
+      } else {
+        setMsg('Could not save.');
+      }
+    } catch {
+      setMsg('Could not save.');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="mt-6 rounded-xl border border-ink-200 bg-white p-5">
+      <p className="font-medium text-ink-900">Offer &amp; joining letter details</p>
+      <p className="mt-1 text-xs text-ink-500">
+        These fill the letters. Rhea&apos;s signature is the one on file in the NDA card, stamped automatically. The
+        letters unlock for her once her documents are uploaded.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {field('name', 'Full name', 'e.g. Ananya Rao')}
+        {field('title', 'Title', 'Forward Deployed Anthropologist (Intern)')}
+        {field('stipendLabel', 'Stipend / compensation', 'e.g. ₹25,000 per month')}
+        {field('startDateLabel', 'Start date', 'e.g. 1 September 2026')}
+        {field('termLabel', 'Term', 'a 3-month internship')}
+        {field('pointPerson', 'Point person', 'Yeshoda')}
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-cream hover:bg-ink-800 disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save details'}
+        </button>
+        {msg && <span className="text-xs text-ink-600">{msg}</span>}
+      </div>
+    </div>
   );
 }

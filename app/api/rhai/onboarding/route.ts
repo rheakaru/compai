@@ -62,28 +62,32 @@ export async function POST(req: NextRequest) {
 
   const kind = String(form.get('kind') || '');
   const file = form.get('file');
-  if (!(file instanceof Blob)) return new Response('no file', { status: 400 });
-  if (file.size > MAX_BYTES) return new Response('file too large', { status: 413 });
-  const buf = Buffer.from(await file.arrayBuffer());
-  const mime = file.type || 'application/octet-stream';
+  const hasFile = file instanceof Blob && file.size > 0;
+  if (hasFile && file.size > MAX_BYTES) return new Response('file too large', { status: 413 });
 
   if (kind === 'takeaway') {
     const promptId = String(form.get('promptId') || '').replace(/[^a-z0-9-]/gi, '');
     if (!promptId) return new Response('no promptId', { status: 400 });
-    const ext = mime.includes('mp4') ? 'mp4' : mime.includes('mpeg') ? 'mp3' : mime.includes('ogg') ? 'ogg' : 'webm';
-    const path = `onboarding/${ONBOARDING_TOKEN}/takeaways/${promptId}-${randomUUID()}.${ext}`;
-    await adminBucket().file(path).save(buf, { contentType: mime, resumable: false });
-    await ref.set(
-      {
-        takeaways: {
-          [promptId]: { transcript: String(form.get('transcript') || '').slice(0, 5000), audioPath: path, mime, at: now }
-        },
-        updatedAt: now
-      },
-      { merge: true }
-    );
-    return Response.json({ ok: true, url: onboardingFileUrl(path) });
+    // Audio is optional — a transcript-only takeaway is still saved. Only when
+    // a real recording is attached do we store it and repoint audioPath.
+    const rec: Record<string, unknown> = { transcript: String(form.get('transcript') || '').slice(0, 5000), at: now };
+    let url: string | null = null;
+    if (hasFile) {
+      const mime = file.type || 'audio/webm';
+      const ext = mime.includes('mp4') ? 'mp4' : mime.includes('mpeg') ? 'mp3' : mime.includes('ogg') ? 'ogg' : 'webm';
+      const path = `onboarding/${ONBOARDING_TOKEN}/takeaways/${promptId}-${randomUUID()}.${ext}`;
+      await adminBucket().file(path).save(Buffer.from(await file.arrayBuffer()), { contentType: mime, resumable: false });
+      rec.audioPath = path;
+      rec.mime = mime;
+      url = onboardingFileUrl(path);
+    }
+    await ref.set({ takeaways: { [promptId]: rec }, updatedAt: now }, { merge: true });
+    return Response.json({ ok: true, url });
   }
+
+  if (!hasFile) return new Response('no file', { status: 400 });
+  const buf = Buffer.from(await (file as Blob).arrayBuffer());
+  const mime = (file as Blob).type || 'application/octet-stream';
 
   if (kind === 'doc') {
     const docId = String(form.get('docId') || '').replace(/[^a-z0-9-]/gi, '');
