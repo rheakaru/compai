@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'crypto';
 import { adminBucket, adminDb } from '@/lib/firebase/admin';
 import { ONBOARDING_TOKEN } from '@/lib/rhai/onboarding';
+import { loadOnboardingState, onboardingFileUrl } from '@/lib/rhai/onboarding-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,36 +20,9 @@ function ok(token: string | null): boolean {
   return !!token && token === ONBOARDING_TOKEN;
 }
 
-function fileUrl(path: string): string {
-  return `/api/rhai/onboarding/file?token=${encodeURIComponent(ONBOARDING_TOKEN)}&path=${encodeURIComponent(path)}`;
-}
-
-async function loadState() {
-  const snap = await adminDb().collection(COL).doc(ONBOARDING_TOKEN).get();
-  const d = (snap.data() ?? {}) as Record<string, unknown>;
-  const takeaways = (d.takeaways ?? {}) as Record<string, { transcript?: string; audioPath?: string; at?: number }>;
-  const docs = (d.docs ?? {}) as Record<string, { label?: string; filename?: string; path?: string; at?: number }>;
-  return {
-    progress: (d.progress ?? []) as string[],
-    exercise: (d.exercise ?? {}) as Record<string, string>,
-    takeaways: Object.fromEntries(
-      Object.entries(takeaways).map(([k, v]) => [
-        k,
-        { transcript: v.transcript ?? '', audioUrl: v.audioPath ? fileUrl(v.audioPath) : null, at: v.at ?? 0 }
-      ])
-    ),
-    docs: Object.fromEntries(
-      Object.entries(docs).map(([k, v]) => [
-        k,
-        { label: v.label ?? '', filename: v.filename ?? '', url: v.path ? fileUrl(v.path) : null, at: v.at ?? 0 }
-      ])
-    )
-  };
-}
-
 export async function GET(req: NextRequest) {
   if (!ok(req.nextUrl.searchParams.get('token'))) return new Response('forbidden', { status: 403 });
-  return Response.json(await loadState());
+  return Response.json(await loadOnboardingState());
 }
 
 export async function POST(req: NextRequest) {
@@ -108,7 +82,7 @@ export async function POST(req: NextRequest) {
       },
       { merge: true }
     );
-    return Response.json({ ok: true, url: fileUrl(path) });
+    return Response.json({ ok: true, url: onboardingFileUrl(path) });
   }
 
   if (kind === 'doc') {
@@ -126,7 +100,7 @@ export async function POST(req: NextRequest) {
       },
       { merge: true }
     );
-    return Response.json({ ok: true, url: fileUrl(path) });
+    return Response.json({ ok: true, url: onboardingFileUrl(path) });
   }
 
   return new Response('bad kind', { status: 400 });

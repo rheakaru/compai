@@ -12,6 +12,33 @@ import { adminAuth } from './admin';
  */
 export const SESSION_COOKIE = '__rhai_session';
 
+// ---------------------------------------------------------------------------
+// Login domain restriction. Only @heyrhai.com accounts (plus an explicit
+// exception list) may hold operator/finance/ea access — even if they carry the
+// custom claim. Rhea's operator account is rhea@rosebazaar.in, so it is
+// allow-listed here (and via OPERATOR_EMAIL_EXCEPTIONS) to avoid locking her
+// out; drop it once every operator has a heyrhai.com account.
+// ---------------------------------------------------------------------------
+const ALLOWED_DOMAIN = '@heyrhai.com';
+const BUILTIN_EXCEPTIONS = ['rhea@rosebazaar.in'];
+
+export function isAllowedOperatorEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  if (e.endsWith(ALLOWED_DOMAIN)) return true;
+  const extra = (process.env.OPERATOR_EMAIL_EXCEPTIONS ?? '')
+    .split(',')
+    .map(x => x.trim().toLowerCase())
+    .filter(Boolean);
+  return [...BUILTIN_EXCEPTIONS, ...extra].includes(e);
+}
+
+/** Zero out privileged roles when the email's domain isn't allowed to log in. */
+function gateByDomain(u: AuthedUser): AuthedUser {
+  if (isAllowedOperatorEmail(u.email)) return u;
+  return { ...u, operator: false, finance: false, ea: false };
+}
+
 export interface AuthedUser {
   uid: string;
   email: string | null;
@@ -24,13 +51,13 @@ export interface AuthedUser {
 
 export async function verifyIdToken(token: string): Promise<AuthedUser> {
   const decoded = await adminAuth().verifyIdToken(token, true);
-  return {
+  return gateByDomain({
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
     finance: decoded.finance === true,
     ea: decoded.ea === true
-  };
+  });
 }
 
 export async function getUserFromAuthHeader(authHeader: string | null): Promise<AuthedUser | null> {
@@ -47,13 +74,13 @@ export async function getUserFromAuthHeader(authHeader: string | null): Promise<
 /** Verify the operator session cookie. Throws when invalid/expired/revoked. */
 export async function verifySessionCookie(cookie: string): Promise<AuthedUser> {
   const decoded = await adminAuth().verifySessionCookie(cookie, true);
-  return {
+  return gateByDomain({
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
     finance: decoded.finance === true,
     ea: decoded.ea === true
-  };
+  });
 }
 
 /**

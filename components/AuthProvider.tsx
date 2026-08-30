@@ -116,9 +116,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (): Promise<User> => {
     const u = await signInWithGoogle();
-    // Mint immediately (bypassing the throttle) so a fresh sign-in always
-    // leaves a durable cookie behind.
-    void mintSessionCookie(u, true);
+    // Domain restriction: only @heyrhai.com accounts (plus allow-listed
+    // exceptions) may use the dashboard. Reject others immediately with a clear
+    // message and sign them straight back out, rather than leaving them in a
+    // half-signed-in state with no access.
+    const token = await u.getIdToken();
+    const res = await fetch('/api/auth/session', { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+    if (res.status === 403) {
+      const msg = (await res.text().catch(() => '')) || 'This account cannot sign in to the Rhai dashboard.';
+      await fbSignOut().catch(() => undefined);
+      setUser(null);
+      throw new Error(msg);
+    }
+    try {
+      localStorage.setItem(MINT_TS_KEY, String(Date.now()));
+    } catch {
+      /* ignore */
+    }
     return u;
   };
 

@@ -35,11 +35,14 @@ interface DocRec {
   url: string | null;
   at: number;
 }
+interface Sentence { speaker: string; text: string }
+interface PitchCall { id: string; title: string; dateLabel: string; overview?: string; sentences: Sentence[] }
 interface State {
   progress: string[];
   exercise: Record<string, string>;
   takeaways: Record<string, Takeaway>;
   docs: Record<string, DocRec>;
+  pitchTranscripts?: PitchCall[];
 }
 
 export function InternOnboarding() {
@@ -51,9 +54,9 @@ export function InternOnboarding() {
     fetch(`/api/rhai/onboarding?token=${encodeURIComponent(token)}`)
       .then(r => (r.ok ? r.json() : null))
       .then((d: State | null) =>
-        setState(d ?? { progress: [], exercise: {}, takeaways: {}, docs: {} })
+        setState(d ?? { progress: [], exercise: {}, takeaways: {}, docs: {}, pitchTranscripts: [] })
       )
-      .catch(() => setState({ progress: [], exercise: {}, takeaways: {}, docs: {} }));
+      .catch(() => setState({ progress: [], exercise: {}, takeaways: {}, docs: {}, pitchTranscripts: [] }));
   }, [token]);
 
   const done = useMemo(() => new Set(state?.progress ?? []), [state]);
@@ -241,6 +244,7 @@ export function InternOnboarding() {
                     {r.hrefLabel} ↗
                   </a>
                 )}
+                {r.id === 'how-we-pitch' && <PitchTranscripts calls={state.pitchTranscripts ?? []} />}
                 <VoiceTakeaway
                   promptId={r.id}
                   prompt={r.takeawayPrompt}
@@ -601,6 +605,57 @@ function ExerciseStepCard({
           <p className="mt-1.5 text-sm leading-relaxed text-ink-700">{step.whatHappened}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function PitchTranscripts({ calls }: { calls: PitchCall[] }) {
+  const [open, setOpen] = useState<string | null>(calls[0]?.id ?? null);
+  if (!calls.length) {
+    return (
+      <div className="mt-4 rounded-xl border border-dashed border-ink-300 bg-cream-50 p-4 text-sm text-ink-500">
+        The real call recordings will appear here once they&apos;ve been pulled in. For now, work through the call in
+        the next section.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4 space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Real calls — read one all the way through</p>
+      {calls.map(c => {
+        const isOpen = open === c.id;
+        return (
+          <div key={c.id} className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setOpen(isOpen ? null : c.id)}
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-cream-50"
+            >
+              <span>
+                <span className="text-sm font-medium text-ink-900">{c.title}</span>
+                {c.dateLabel && <span className="ml-2 text-xs text-ink-400">{c.dateLabel}</span>}
+              </span>
+              <span className="text-ink-400">{isOpen ? '−' : '+'}</span>
+            </button>
+            {isOpen && (
+              <div className="border-t border-ink-100 px-4 py-3">
+                {c.overview && (
+                  <p className="mb-3 rounded-lg bg-cream-50 p-3 text-xs italic leading-relaxed text-ink-600">
+                    {c.overview}
+                  </p>
+                )}
+                <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+                  {c.sentences.map((sent, i) => (
+                    <p key={i} className="text-[13px] leading-relaxed text-ink-700">
+                      <span className="font-medium text-ink-900">{sent.speaker}:</span> {sent.text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

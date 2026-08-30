@@ -3,6 +3,7 @@ import { adminAuth } from '@/lib/firebase/admin';
 import {
   SESSION_COOKIE,
   getUserFromAuthHeader,
+  isAllowedOperatorEmail,
   verifySessionCookie
 } from '@/lib/firebase/auth-server';
 
@@ -23,6 +24,11 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const user = await getUserFromAuthHeader(authHeader);
   if (!user) return new Response('unauthorized', { status: 401 });
+  if (!isAllowedOperatorEmail(user.email)) {
+    // Domain-restricted: only @heyrhai.com accounts (plus allow-listed
+    // exceptions) may sign in to the dashboard.
+    return new Response('Only @heyrhai.com accounts can sign in to the Rhai dashboard.', { status: 403 });
+  }
   if (!user.operator && !user.finance && !user.ea) {
     return new Response('forbidden — operator only', { status: 403 });
   }

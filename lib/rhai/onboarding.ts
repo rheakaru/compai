@@ -61,14 +61,34 @@ export const READINGS: ReadingItem[] = [
       'In your own words: what does Rhai actually sell, and who is it for? What surprised you?'
   },
   {
-    id: 'the-dashboard-thesis',
-    kicker: 'Read · 15 min',
-    title: 'The intelligence-dashboard thesis',
-    body: 'Read the two case studies — the Dodla Dairy engagement and the Hester "twenty champions" write-up. Notice the shape that repeats: understand the company, build a thinking tool, get the room to argue with it.',
+    id: 'case-dodla',
+    kicker: 'Case study · 10 min',
+    title: 'Dodla Dairy — the two-day leadership workshop',
+    body: 'One of India\'s largest listed dairy companies. Two months of discovery, a 70-page demo intelligence dashboard, then two days rethinking the company with its leadership. Notice the reframe: the dashboard was the excuse, not the point.',
     href: 'https://heyrhai.com/writing/dodla-dairy',
-    hrefLabel: 'The Dodla & Hester case studies',
+    hrefLabel: 'Read the Dodla field notes',
     takeawayPrompt:
-      'What is the difference between a report and an operator, in your own words? Which moment in either story stuck with you?'
+      'What is the difference between a report and an operator, in your own words? What would you have paid most attention to in that room?'
+  },
+  {
+    id: 'case-hester',
+    kicker: 'Case study · 10 min',
+    title: 'Hester Biosciences — how to make twenty champions',
+    body: 'A 40-year-old animal-health company that already had the will but a deployment problem. The move: give twenty people a page already drafted from their own words, and let them argue with it. Read how one champion becomes twenty.',
+    href: 'https://heyrhai.com/writing/hester-biosciences',
+    hrefLabel: 'Read the Hester write-up',
+    takeawayPrompt:
+      'Why does giving someone a draft of their own job beat asking them "what do you want?" How would you use that idea in your own outreach?'
+  },
+  {
+    id: 'case-bliss',
+    kicker: 'Case study · 5 min',
+    title: 'Bliss Aerospace — the build day',
+    body: 'Twenty thousand parts and no single screen to plan them on. Six hours inside their factory, then a build day with their planning team on a Microsoft tenant they already owned — they walked out with a working scheduler, someone who could extend it, and a punch-list. Zero new vendors. (No written case study yet — it is described on the homepage under "Recent engagements".)',
+    href: 'https://heyrhai.com/#work',
+    hrefLabel: 'See it on the homepage',
+    takeawayPrompt:
+      'Bliss got a working tool in an afternoon on systems they already owned. Why does "no new vendor, no lock-in" matter so much to a client? How would you say it to one?'
   },
   {
     id: 'the-community',
