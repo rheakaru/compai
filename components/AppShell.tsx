@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { href: '/admin/active-clients', label: 'Clients', match: p => p.startsWith('/admin/active-clients'), tour: 'nav-clients' },
   { href: '/admin/content-calendar', label: 'Content', match: p => p.startsWith('/admin/content-calendar'), tour: 'nav-content' },
   { href: '/admin/resources', label: 'Resources', match: p => p.startsWith('/admin/resources'), tour: 'nav-resources' },
+  { href: '/admin/presentations', label: 'Decks', match: p => p.startsWith('/admin/presentations'), tour: 'nav-decks' },
   { href: '/admin/funnel', label: 'Funnel', match: p => p.startsWith('/admin/funnel') }
 ];
 

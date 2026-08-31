@@ -233,6 +233,7 @@ export function InternOnboarding() {
               <div className="mt-2 flex flex-wrap gap-3 text-sm">
                 <a href="/admin/active-clients" className="text-accent underline-offset-4 hover:underline">Our active clients →</a>
                 <a href="/admin/resources" className="text-accent underline-offset-4 hover:underline">Learning resources →</a>
+                <a href="/admin/presentations" className="text-accent underline-offset-4 hover:underline">Our presentations →</a>
               </div>
             </div>
             <CompleteButton done={done.has('welcome')} onClick={() => markDone('welcome')} label="Got it, let's start" />

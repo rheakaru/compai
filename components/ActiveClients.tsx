@@ -19,6 +19,7 @@ interface Client {
   smartNotes: string;
   calls: { title: string; dateLabel: string }[];
   docs: { name: string; kind: string; dateLabel: string }[];
+  decks: { id: string; title: string; slideCount: number; format: string }[];
 }
 
 const inr = (n: number) => `₹${(n || 0).toLocaleString('en-IN')}`;
@@ -114,12 +115,33 @@ export function ActiveClients() {
               </div>
             </div>
 
-            <a
-              href={`/leads/${c.id}`}
-              className="mt-4 inline-block text-sm text-accent underline-offset-4 hover:underline"
-            >
-              Open the full client page →
-            </a>
+            {c.decks.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Our decks for them</p>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {c.decks.map(d => (
+                    <a
+                      key={d.id}
+                      href={`/api/rhai/presentations/file?id=${encodeURIComponent(d.id)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md border border-ink-200 bg-cream-50 px-2.5 py-1 text-xs text-ink-700 hover:bg-white"
+                    >
+                      {d.title} <span className="text-ink-400">· {d.slideCount} slides</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-4">
+              <a href={`/leads/${c.id}`} className="text-sm text-accent underline-offset-4 hover:underline">
+                Open the full client page →
+              </a>
+              <a href="/admin/presentations" className="text-sm text-ink-500 underline-offset-4 hover:underline">
+                All presentations →
+              </a>
+            </div>
           </article>
         ))}
       </div>

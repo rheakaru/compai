@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { requireTeam } from '@/lib/rhai/server';
 import { STAGE_LABELS, leadValue, type LeadStage, type WorkshopLead } from '@/lib/leads/types';
+import { loadPresentations } from '@/lib/rhai/presentations';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,10 +31,16 @@ export async function GET(req: NextRequest) {
   if (error) return error;
   const db = adminDb();
 
-  const [leadsSnap, ffSnap] = await Promise.all([
+  const [leadsSnap, ffSnap, presentations] = await Promise.all([
     db.collection('workshopLeads').get(),
-    db.collection('firefliesIngested').get()
+    db.collection('firefliesIngested').get(),
+    loadPresentations()
   ]);
+  const decksByLead: Record<string, { id: string; title: string; slideCount: number; format: string }[]> = {};
+  for (const p of presentations) {
+    if (!p.clientLeadId) continue;
+    (decksByLead[p.clientLeadId] ??= []).push({ id: p.id, title: p.title, slideCount: p.slideCount, format: p.format });
+  }
 
   const leads = leadsSnap.docs
     .map(d => ({ ...(d.data() as Omit<WorkshopLead, 'id'>), id: d.id }))
@@ -71,7 +78,8 @@ export async function GET(req: NextRequest) {
         smartNotes: (l as WorkshopLead & { smartNotes?: string }).smartNotes || '',
         updatedAt: l.updatedAt || 0,
         calls: (callsByLead[l.id] || []).slice(0, 4).map(c => ({ title: c.title, dateLabel: fmtDate(c.date) })),
-        docs: docs.map(d => ({ name: d.name, kind: d.kind, dateLabel: fmtDate(d.date) }))
+        docs: docs.map(d => ({ name: d.name, kind: d.kind, dateLabel: fmtDate(d.date) })),
+        decks: decksByLead[l.id] || []
       };
     })
   );
