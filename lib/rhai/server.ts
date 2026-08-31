@@ -2,7 +2,7 @@ import 'server-only';
 import type { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { adminDb } from '@/lib/firebase/admin';
-import { getUserFromRequest } from '@/lib/firebase/auth-server';
+import { getUserFromRequest, isAllowedOperatorEmail } from '@/lib/firebase/auth-server';
 import {
   DEFAULT_CONTEXT_SECTIONS,
   SECTION_MODE,
@@ -21,6 +21,21 @@ export const COL_PEOPLE = 'rhaiPeople';
 export const COL_CHAT = 'rhaiChat';
 export const DOC_SKILLS = 'rhaiConfig/skills';
 export const DOC_PREFERENCES_DOC = 'rhaiConfig/docPreferences';
+
+/**
+ * Team scope — anyone signed in with an allowed (@heyrhai.com) account, even
+ * without an operator/finance/ea claim. This is what the intern and the wider
+ * team hold: the shared pages (active clients, content calendar, learning
+ * resources). Money, the pipeline, hiring and config stay operator-only.
+ */
+export async function requireTeam(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return { error: new Response('unauthorized', { status: 401 }) };
+  if (!isAllowedOperatorEmail(user.email)) {
+    return { error: new Response('forbidden — @heyrhai.com only', { status: 403 }) };
+  }
+  return { user };
+}
 
 export async function requireOperator(req: NextRequest) {
   // Bearer token first; falls back to the __rhai_session cookie when client

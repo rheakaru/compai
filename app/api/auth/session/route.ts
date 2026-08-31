@@ -26,11 +26,9 @@ export async function POST(req: NextRequest) {
   if (!user) return new Response('unauthorized', { status: 401 });
   if (!isAllowedOperatorEmail(user.email)) {
     // Domain-restricted: only @heyrhai.com accounts (plus allow-listed
-    // exceptions) may sign in to the dashboard.
+    // exceptions) may sign in. Any allowed account gets a session — page-level
+    // guards (requireOperator / requireTeam) then decide what they can see.
     return new Response('Only @heyrhai.com accounts can sign in to the Rhai dashboard.', { status: 403 });
-  }
-  if (!user.operator && !user.finance && !user.ea) {
-    return new Response('forbidden — operator only', { status: 403 });
   }
 
   // getUserFromAuthHeader already validated the Bearer shape + token.
@@ -51,8 +49,8 @@ export async function GET(req: NextRequest) {
   if (!cookie) return new Response('unauthorized', { status: 401 });
   try {
     const user = await verifySessionCookie(cookie);
-    if (!user.operator && !user.finance && !user.ea) {
-      return new Response('forbidden — operator only', { status: 403 });
+    if (!isAllowedOperatorEmail(user.email)) {
+      return new Response('forbidden', { status: 403 });
     }
     return Response.json({ user: { uid: user.uid, email: user.email } });
   } catch {

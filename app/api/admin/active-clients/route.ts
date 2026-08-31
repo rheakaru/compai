@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireTeam } from '@/lib/rhai/server';
 import { STAGE_LABELS, leadValue, type LeadStage, type WorkshopLead } from '@/lib/leads/types';
 
 export const runtime = 'nodejs';
@@ -26,7 +26,7 @@ function fmtDate(ms?: number): string {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireTeam(req);
   if (error) return error;
   const db = adminDb();
 
