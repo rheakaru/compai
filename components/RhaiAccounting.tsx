@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { InvoicesPanel } from './InvoicesPanel';
 import { useAuth } from './AuthProvider';
 import { useAuthedFetch } from './useAuthedFetch';
 import {
@@ -23,7 +24,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'compliance', label: 'Compliance' },
   { id: 'costs', label: 'Costs' },
   { id: 'travel', label: 'Travel' },
-  { id: 'invoice', label: 'New invoice' },
+  { id: 'invoice', label: 'Invoices' },
   { id: 'documents', label: 'Documents' },
   { id: 'company', label: 'Company' }
 ];
@@ -79,7 +80,15 @@ export function RhaiAccounting() {
       {section === 'compliance' && <ComplianceSection />}
       {section === 'costs' && <CostsSection />}
       {section === 'travel' && <TravelSection />}
-      {section === 'invoice' && <InvoiceGenerator blocked={gaps.length > 0} />}
+      {section === 'invoice' && (
+        <div className="space-y-8">
+          <InvoicesPanel />
+          <div className="border-t border-ink-200 pt-6">
+            <p className="text-sm font-semibold text-ink-900">Generate a GST tax invoice</p>
+            <InvoiceGenerator blocked={gaps.length > 0} />
+          </div>
+        </div>
+      )}
       {section === 'documents' && <CompanyDocumentsSection />}
       {section === 'company' && <CompanySection onSaved={loadGaps} />}
     </div>
@@ -563,6 +572,42 @@ function InvoiceGenerator({ blocked }: { blocked: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ invoiceNumber: string; url: string; warnings: string[] } | null>(null);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+
+  async function fetchByGstin() {
+    const g = form.clientGstin.trim().toUpperCase();
+    if (!g) {
+      setLookupMsg('Enter a GSTIN first.');
+      return;
+    }
+    setLookupBusy(true);
+    setLookupMsg(null);
+    try {
+      const res = await authedFetch(`/api/rhai/gstin?gstin=${encodeURIComponent(g)}`);
+      const d = (await res.json()) as {
+        valid: boolean; state?: string; legalName?: string; address?: string; note?: string; source: string;
+      };
+      if (!d.valid) {
+        setLookupMsg(d.note || 'Invalid GSTIN.');
+      } else {
+        setForm(f => ({
+          ...f,
+          clientGstin: g,
+          ...(d.legalName ? { client: d.legalName } : {}),
+          ...(d.address ? { clientAddress: d.address } : {})
+        }));
+        setLookupMsg(
+          d.source === 'provider'
+            ? `Pulled ${d.legalName ?? 'details'}${d.state ? ` · ${d.state}` : ''}. Check and edit before generating.`
+            : `${d.state ? d.state + '. ' : ''}${d.note ?? ''}`
+        );
+      }
+    } catch {
+      setLookupMsg('Lookup failed.');
+    }
+    setLookupBusy(false);
+  }
 
   async function generate() {
     if (!form.client.trim() || !Number(form.amount) || !form.description.trim()) return;
@@ -594,16 +639,22 @@ function InvoiceGenerator({ blocked }: { blocked: boolean }) {
       <p className="text-sm text-ink-500">
         Generates a GST tax invoice PDF under {`RHAI CONSULTING GROUP PRIVATE LIMITED`} — amounts
         are taxable value; CGST+SGST or IGST is added automatically from the client&apos;s GSTIN
-        state. It lands in the Invoices tab as a draft. You can also ask for one on WhatsApp.
+        state. It lands in the invoices list above as a draft. You can also ask for one on WhatsApp.
       </p>
       {blocked && (
         <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Fill in the Company section first — invoice generation needs the GSTIN and bank details.
         </p>
       )}
-      <input className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm" placeholder="Client legal name (e.g. Kothari Metsol Private Limited)" value={form.client} onChange={e => setForm(f => ({ ...f, client: e.target.value }))} />
+      <div className="flex gap-2">
+        <input className="flex-1 rounded-md border border-ink-200 px-2 py-1.5 text-sm" placeholder="Client GSTIN — the dashboard pulls their details" value={form.clientGstin} onChange={e => setForm(f => ({ ...f, clientGstin: e.target.value }))} />
+        <button type="button" onClick={fetchByGstin} disabled={lookupBusy} className="whitespace-nowrap rounded-md bg-ink-900 px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink-800 disabled:opacity-50">
+          {lookupBusy ? 'Fetching…' : 'Fetch details'}
+        </button>
+      </div>
+      {lookupMsg && <p className="text-[11px] text-ink-500">{lookupMsg}</p>}
+      <input className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm" placeholder="Client legal name (auto-filled from GSTIN, or type it)" value={form.client} onChange={e => setForm(f => ({ ...f, client: e.target.value }))} />
       <div className="grid gap-2 sm:grid-cols-2">
-        <input className="rounded-md border border-ink-200 px-2 py-1.5 text-sm" placeholder="Client GSTIN (blank = unregistered)" value={form.clientGstin} onChange={e => setForm(f => ({ ...f, clientGstin: e.target.value }))} />
         <input className="rounded-md border border-ink-200 px-2 py-1.5 text-sm" placeholder="Taxable amount ₹ (before GST)" inputMode="numeric" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
       </div>
       <textarea className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm" rows={3} placeholder={'Line item — first line bold title, rest description.\ne.g. AI Workshop and Build Session\nOne-day workshop with the leadership team…'} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />

@@ -11,7 +11,6 @@ import { useAuth } from './AuthProvider';
 import { BriefingStrip } from './BriefingStrip';
 import { AdminOntologiesClient } from './AdminOntologiesClient';
 import { HireAdminPanel } from './HireAdminPanel';
-import { InvoicesPanel } from './InvoicesPanel';
 import { NdaGenerator } from './NdaGenerator';
 import { TestimonialsPanel } from './TestimonialsPanel';
 import { RsvpPanel } from './RsvpPanel';
@@ -50,7 +49,6 @@ type Tab =
   | 'discovery'
   | 'docs'
   | 'sessions'
-  | 'invoices'
   | 'accounting'
   | 'nda'
   | 'hire'
@@ -65,7 +63,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'discovery', label: 'Discovery' },
   { id: 'docs', label: 'Docs' },
   { id: 'sessions', label: 'Sessions' },
-  { id: 'invoices', label: 'Invoices' },
   { id: 'accounting', label: 'Accounting' },
   { id: 'nda', label: 'NDA' },
   { id: 'hire', label: 'Hire' },
@@ -107,7 +104,7 @@ function useAuthedFetch() {
 // Tabs the finance role (accounts team) can see. Everything else — plan,
 // tasks, people, interviews, discovery, hire, plumbing — is operator-only,
 // and lead creation/editing is blocked server-side for finance.
-const FINANCE_TABS: Tab[] = ['pipeline', 'docs', 'invoices', 'accounting', 'nda'];
+const FINANCE_TABS: Tab[] = ['pipeline', 'docs', 'accounting', 'nda'];
 
 // Tabs the EA role (Divya) can see: session logistics only.
 const EA_TABS: Tab[] = ['sessions'];
@@ -150,7 +147,7 @@ export function RhaiWorkspace() {
       ? TABS.filter(t => EA_TABS.includes(t.id))
       : TABS;
   useEffect(() => {
-    if (financeOnly && !FINANCE_TABS.includes(tab)) setTab('invoices');
+    if (financeOnly && !FINANCE_TABS.includes(tab)) setTab('accounting');
     if (eaOnly && !EA_TABS.includes(tab)) setTab('sessions');
   }, [financeOnly, eaOnly, tab]);
 
@@ -388,14 +385,6 @@ export function RhaiWorkspace() {
         </>
       )}
       {tab === 'docs' && <RhaiDocs />}
-      {tab === 'invoices' && (
-        <Panel
-          title="Invoices"
-          sub="Money owed and money in. Create an invoice from a lead or from scratch, or upload one you made elsewhere — Rhai reads the details off the PDF. Linked leads stay in sync."
-        >
-          <InvoicesPanel />
-        </Panel>
-      )}
       {tab === 'sessions' && (
         <Panel
           title="Sessions"
