@@ -22,6 +22,20 @@ export const SESSION_COOKIE = '__rhai_session';
 const ALLOWED_DOMAIN = '@heyrhai.com';
 const BUILTIN_EXCEPTIONS = ['rhea@rosebazaar.in'];
 
+// Accounts that get the finance role (accounting module only) by email — no
+// custom claim needed. Extendable via FINANCE_EMAILS (comma-separated).
+const FINANCE_EMAILS = ['finance@heyrhai.com', 'account@heyrhai.com'];
+
+export function isFinanceEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  const extra = (process.env.FINANCE_EMAILS ?? '')
+    .split(',')
+    .map(x => x.trim().toLowerCase())
+    .filter(Boolean);
+  return [...FINANCE_EMAILS, ...extra].includes(e);
+}
+
 export function isAllowedOperatorEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const e = email.trim().toLowerCase();
@@ -55,7 +69,7 @@ export async function verifyIdToken(token: string): Promise<AuthedUser> {
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
-    finance: decoded.finance === true,
+    finance: decoded.finance === true || isFinanceEmail(typeof decoded.email === 'string' ? decoded.email : null),
     ea: decoded.ea === true
   });
 }
@@ -78,7 +92,7 @@ export async function verifySessionCookie(cookie: string): Promise<AuthedUser> {
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
-    finance: decoded.finance === true,
+    finance: decoded.finance === true || isFinanceEmail(typeof decoded.email === 'string' ? decoded.email : null),
     ea: decoded.ea === true
   });
 }

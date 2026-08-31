@@ -101,10 +101,11 @@ function useAuthedFetch() {
   );
 }
 
-// Tabs the finance role (accounts team) can see. Everything else — plan,
-// tasks, people, interviews, discovery, hire, plumbing — is operator-only,
-// and lead creation/editing is blocked server-side for finance.
-const FINANCE_TABS: Tab[] = ['pipeline', 'docs', 'accounting', 'nda'];
+// Tabs the finance role (accounts team — finance@ / account@heyrhai.com) can
+// see: the Accounting module only (compliance, costs, travel, invoices, company
+// documents, company setup). Everything else is operator-only, and lead
+// creation/editing is blocked server-side for finance.
+const FINANCE_TABS: Tab[] = ['accounting'];
 
 // Tabs the EA role (Divya) can see: session logistics only.
 const EA_TABS: Tab[] = ['sessions'];
