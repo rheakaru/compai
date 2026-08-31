@@ -13,16 +13,18 @@ import { formatMoney } from '@/lib/rhai/invoices';
 // ---------------------------------------------------------------------------
 // Accounting tab — RHAI CONSULTING GROUP PRIVATE LIMITED.
 // Sections: Compliance (statutory calendar) · Costs · Travel · New invoice ·
+// Documents (GST cert / incorporation / statutory-document repository) ·
 // Company (one-time statutory setup).
 // ---------------------------------------------------------------------------
 
-type Section = 'compliance' | 'costs' | 'travel' | 'invoice' | 'company';
+type Section = 'compliance' | 'costs' | 'travel' | 'invoice' | 'company' | 'documents';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'compliance', label: 'Compliance' },
   { id: 'costs', label: 'Costs' },
   { id: 'travel', label: 'Travel' },
   { id: 'invoice', label: 'New invoice' },
+  { id: 'documents', label: 'Documents' },
   { id: 'company', label: 'Company' }
 ];
 
@@ -78,6 +80,7 @@ export function RhaiAccounting() {
       {section === 'costs' && <CostsSection />}
       {section === 'travel' && <TravelSection />}
       {section === 'invoice' && <InvoiceGenerator blocked={gaps.length > 0} />}
+      {section === 'documents' && <CompanyDocumentsSection />}
       {section === 'company' && <CompanySection onSaved={loadGaps} />}
     </div>
   );
@@ -779,3 +782,159 @@ function CompanySection({ onSaved }: { onSaved: () => void }) {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Company documents — a repository for GST certificate, incorporation,
+// PAN, bank letters and other statutory documents. Upload, view, delete.
+// ---------------------------------------------------------------------------
+interface CompanyDoc {
+  id: string;
+  label: string;
+  kind: string;
+  fileName: string;
+  mime: string;
+  note: string;
+  createdAt: number;
+  url: string;
+}
+
+function CompanyDocumentsSection() {
+  const authedFetch = useAuthedFetch();
+  const [docs, setDocs] = useState<CompanyDoc[] | null>(null);
+  const [kinds, setKinds] = useState<string[]>([]);
+  const [kind, setKind] = useState('GST certificate');
+  const [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await authedFetch('/api/rhai/company-documents');
+      if (!res.ok) {
+        setError('Sign in with your operator or finance account.');
+        return;
+      }
+      const d = (await res.json()) as { documents: CompanyDoc[]; kinds: string[] };
+      setDocs(d.documents);
+      setKinds(d.kinds);
+      setError(null);
+    } catch {
+      setError('Could not load documents.');
+    }
+  }, [authedFetch]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const upload = async (file: File) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('kind', kind);
+      if (label.trim()) form.append('label', label.trim());
+      const res = await authedFetch('/api/rhai/company-documents', { method: 'POST', body: form });
+      if (!res.ok) {
+        setError(await res.text());
+      } else {
+        setLabel('');
+        await load();
+      }
+    } catch {
+      setError('Upload failed.');
+    }
+    setBusy(false);
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm('Delete this document permanently?')) return;
+    await authedFetch('/api/rhai/company-documents', { method: 'DELETE', body: JSON.stringify({ id }) });
+    await load();
+  };
+
+  return (
+    <div>
+      <p className="text-sm text-ink-600">
+        One place for the company&apos;s statutory documents — GST certificate, incorporation, PAN, bank letters and
+        anything else you reach for when a client asks or a form needs it.
+      </p>
+
+      {/* Upload */}
+      <div className="mt-4 rounded-xl border border-ink-200 bg-white p-4">
+        <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+          <label className="block text-xs text-ink-500">
+            Type
+            <select
+              value={kind}
+              onChange={e => setKind(e.target.value)}
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-2 py-1.5 text-sm text-ink-900"
+            >
+              {(kinds.length ? kinds : ['GST certificate', 'Other']).map(k => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs text-ink-500">
+            Label (optional)
+            <input
+              value={label}
+              onChange={e => setLabel(e.target.value)}
+              placeholder="e.g. GST certificate — RHAI Consulting Group"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-sm text-ink-900"
+            />
+          </label>
+        </div>
+        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-cream hover:bg-ink-800">
+          {busy ? 'Uploading…' : 'Upload a document'}
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            disabled={busy}
+            onChange={e => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void upload(f);
+            }}
+          />
+        </label>
+        {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
+      </div>
+
+      {/* Repository */}
+      <div className="mt-5">
+        {!docs ? (
+          <p className="text-sm text-ink-400">Loading…</p>
+        ) : docs.length === 0 ? (
+          <p className="text-sm text-ink-400">No documents yet. Upload your GST certificate to start.</p>
+        ) : (
+          <div className="space-y-2">
+            {docs.map(d => (
+              <div key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white p-3.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink-900">{d.label}</p>
+                  <p className="text-xs text-ink-500">
+                    <span className="rounded bg-cream-100 px-1.5 py-0.5">{d.kind}</span>
+                    <span className="ml-2">{d.fileName}</span>
+                    {d.createdAt ? <span className="ml-2 text-ink-400">{new Date(d.createdAt).toLocaleDateString('en-IN')}</span> : null}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <a href={d.url} target="_blank" rel="noreferrer" className="text-accent underline-offset-4 hover:underline">
+                    View
+                  </a>
+                  <button type="button" onClick={() => remove(d.id)} className="text-rose-500 hover:text-rose-700">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
