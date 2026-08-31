@@ -52,7 +52,7 @@ export function allResources(): Resource[] {
       title: meta.title || file,
       dek: meta.dek || '',
       audience: meta.audience || 'Everyone',
-      order: Number(meta.order) || 99,
+      order: Number.isFinite(Number(meta.order)) && meta.order !== undefined && meta.order !== '' ? Number(meta.order) : 99,
       body,
       readingMinutes: Math.max(1, Math.round(words / 220))
     } satisfies Resource;
