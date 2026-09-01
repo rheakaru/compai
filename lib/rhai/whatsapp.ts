@@ -51,6 +51,46 @@ export async function sendWhatsAppText(to: string, body: string, isGroup = false
   }
 }
 
+/**
+ * Send an approved WhatsApp TEMPLATE message. Unlike sendWhatsAppText (a
+ * free-form/session message), a template delivers OUTSIDE the 24-hour window —
+ * which is the only reliable way to push a proactive message (a daily briefing,
+ * a check-in ping) to someone who hasn't just messaged the business number.
+ * Template variables cannot contain newlines or long space runs, so pass short
+ * single-line params and keep the full content behind a link. Returns true only
+ * on a 2xx from Meta.
+ */
+export async function sendWhatsAppTemplate(
+  to: string,
+  template: string,
+  params: string[],
+  lang = 'en'
+): Promise<boolean> {
+  const token = process.env.WHATSAPP_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneId || !template) return false;
+  const res = await fetch(`${GRAPH}/${phoneId}/messages`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'template',
+      template: {
+        name: template,
+        language: { code: lang },
+        ...(params.length
+          ? { components: [{ type: 'body', parameters: params.map(t => ({ type: 'text', text: t.replace(/\s+/g, ' ').slice(0, 400) })) }] }
+          : {})
+      }
+    })
+  }).catch(() => undefined);
+  if (res && !res.ok) {
+    console.error('[whatsapp] template send failed %s: %s', res.status, (await res.text().catch(() => '')).slice(0, 300));
+  }
+  return !!res && res.ok;
+}
+
 // ---------------------------------------------------------------------------
 // Groups
 // ---------------------------------------------------------------------------

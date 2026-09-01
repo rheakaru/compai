@@ -28,6 +28,7 @@ interface State {
   transcriptsPulledAt: number | null;
   pitchTranscripts: { title: string }[];
   config: InternCfg;
+  checkins: Record<string, { morning?: { text: string; at: number }; evening?: { text: string; at: number } }>;
 }
 
 // Human labels for the takeaway prompts, keyed by their promptId.
@@ -140,6 +141,40 @@ export function OrientationReview() {
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* Daily check-ins */}
+      <div className="mt-6">
+        <h2 className="font-display text-xl text-ink-900">Daily check-ins</h2>
+        {(() => {
+          const dates = Object.keys(state.checkins || {})
+            .filter(d => state.checkins[d]?.morning || state.checkins[d]?.evening)
+            .sort((a, b) => b.localeCompare(a));
+          if (dates.length === 0) {
+            return <p className="mt-2 text-sm text-ink-500">No check-ins yet.</p>;
+          }
+          return (
+            <div className="mt-3 space-y-3">
+              {dates.map(d => (
+                <div key={d} className="rounded-xl border border-ink-200 bg-white p-4">
+                  <p className="text-sm font-medium text-ink-900">{d}</p>
+                  {state.checkins[d].morning && (
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">
+                      <span className="mr-1">🌅</span>
+                      {state.checkins[d].morning!.text}
+                    </p>
+                  )}
+                  {state.checkins[d].evening && (
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">
+                      <span className="mr-1">🌙</span>
+                      {state.checkins[d].evening!.text}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Editable details for the letters */}

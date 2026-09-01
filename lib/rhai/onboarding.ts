@@ -26,7 +26,7 @@ export interface InternConfig {
 }
 
 export const INTERN: InternConfig = {
-  name: '',
+  name: 'Disha',
   title: 'Forward Deployed Anthropologist (Intern)',
   stipendLabel: '', // ← fill, or leave blank and the letter shows a fill-in line
   startDateLabel: '1 September 2026',

@@ -115,6 +115,14 @@ env:
   - variable: WHATSAPP_BRIEFING_TO
     value: '919886750009'
     availability: [RUNTIME]
+  # Optional: a pre-approved WhatsApp template (WhatsApp Manager → Message
+  # Templates, category UTILITY) that pings Rhea when a check-in comes in — this
+  # is the ONLY reliable way to deliver outside the 24h session window. Suggested
+  # body with 3 variables: "New {{1}} check-in from {{2}} ({{3}}). Open the
+  # dashboard to read it." Set the approved template's name here to switch it on.
+  - variable: WHATSAPP_CHECKIN_TEMPLATE
+    value: ''
+    availability: [RUNTIME]
 
   # Rhai MCP server (/api/mcp/<token>) — claude.ai custom connector into the
   # dashboard. The token IS the credential (capability URL); mint with
