@@ -4,6 +4,9 @@ import type { MetadataRoute } from 'next';
 // including to AI answer engines, which is deliberate: we want Rhai quoted
 // when someone asks an assistant about AI consulting in India. Everything
 // operator-only or candidate-private is closed.
+//
+// /llms.txt (llmstxt.org) gives agents a curated plain-markdown map of the
+// site; it's advertised in the robots body so crawlers can discover it.
 
 const PRIVATE = [
   '/api/',

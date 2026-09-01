@@ -7,6 +7,8 @@ export type Tier = {
   id: string;
   name: string;
   price: string;
+  /** Numeric rupee value — used for structured data (schema.org Offer). */
+  priceInr: number;
   shape: string;
   blurb: string;
   includes: string[];
@@ -18,6 +20,7 @@ export const TIERS: Tier[] = [
     id: 'intro',
     name: 'Intro session',
     price: '₹1,00,000',
+    priceInr: 100000,
     shape: '3 hours · general',
     blurb:
       'A hands-on introduction to building with AI for your team — the fastest way to see what is actually possible. General, not yet customised to your company.',
@@ -31,6 +34,7 @@ export const TIERS: Tier[] = [
     id: 'company',
     name: 'Company session',
     price: '₹3,00,000',
+    priceInr: 300000,
     shape: 'One day (6 hours) · customised',
     blurb:
       'A discovery call beforehand to pick the real problem, then a full day building against it — customised to your company, your workflows, your data.',
@@ -45,6 +49,7 @@ export const TIERS: Tier[] = [
     id: 'dashboard',
     name: 'Session + demo dashboard',
     price: '₹5,00,000',
+    priceInr: 500000,
     shape: 'One day (6 hours) · customised · dashboard built for you',
     blurb:
       'Everything in the company session, plus a demo intelligence dashboard I build for your company beforehand — your operation, your numbers — so the room sees exactly what this would look like here.',

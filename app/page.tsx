@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { TIERS } from '@/lib/site/workshops';
 import { RhaiHome } from '@/components/RhaiHome';
 import { FAQS } from '@/lib/site/faq';
 
@@ -57,24 +58,24 @@ export default function HomePage() {
     hasOfferCatalog: {
       '@type': 'OfferCatalog',
       name: 'Rhai services',
+      // Generated from the single source of truth in lib/site/workshops.ts, so
+      // the structured data can never drift from the prices on the page.
       itemListElement: [
-        {
+        ...TIERS.map(t => ({
           '@type': 'Offer',
-          name: 'Intro AI session',
-          description: 'A three-hour hands-on introduction to building with AI for your team.',
+          name: t.name,
+          description: t.blurb,
           priceCurrency: 'INR',
-          price: 100000,
-          itemOffered: { '@type': 'Service', name: 'Intro AI session', serviceType: 'AI workshop' }
-        },
-        {
-          '@type': 'Offer',
-          name: 'Company AI session',
-          description:
-            'A full day building against a real problem, customised to your company after a discovery call. You leave with a working prototype.',
-          priceCurrency: 'INR',
-          price: 300000,
-          itemOffered: { '@type': 'Service', name: 'Company AI session', serviceType: 'AI workshop' }
-        },
+          price: t.priceInr,
+          priceSpecification: {
+            '@type': 'PriceSpecification',
+            priceCurrency: 'INR',
+            price: t.priceInr,
+            valueAddedTaxIncluded: false
+          },
+          itemOffered: { '@type': 'Service', name: t.name, serviceType: 'AI workshop' },
+          url: `${SITE}/workshops#pricing`
+        })),
         {
           '@type': 'Offer',
           name: 'Commissioned intelligence dashboard',
