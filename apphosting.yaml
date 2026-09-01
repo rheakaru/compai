@@ -120,9 +120,9 @@ env:
   # is the ONLY reliable way to deliver outside the 24h session window. Suggested
   # body with 3 variables: "New {{1}} check-in from {{2}} ({{3}}). Open the
   # dashboard to read it." Set the approved template's name here to switch it on.
-  - variable: WHATSAPP_CHECKIN_TEMPLATE
-    value: ''
-    availability: [RUNTIME]
+  #   WHATSAPP_CHECKIN_TEMPLATE  (add as a real variable once the template is
+  #     approved — do NOT declare it with an empty value; App Hosting rejects
+  #     empty-valued env vars and the rollout silently fails.)
 
   # Rhai MCP server (/api/mcp/<token>) — claude.ai custom connector into the
   # dashboard. The token IS the credential (capability URL); mint with
