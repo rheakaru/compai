@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { requireOperator } from '@/lib/rhai/server';
+import { requireHire } from '@/lib/rhai/server';
 import { loadHirePricing } from '@/lib/hire/server';
 import {
   COL_HIRE_COMPANIES,
@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 // entitlement grants (useful until Razorpay is live, and for comps).
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireHire(req);
   if (error) return error;
   const db = adminDb();
   const [pricing, companiesSnap, jobsSnap, paymentsSnap] = await Promise.all([
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
 /** PUT — save pricing (global fields + per-company overrides). */
 export async function PUT(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireHire(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as Partial<HirePricing>;
 
@@ -83,7 +83,7 @@ export async function PUT(req: NextRequest) {
 
 /** POST { jobId, grant } — manual entitlement: 'job' | 'tier1' | 'tier2' | 'revoke'. */
 export async function POST(req: NextRequest) {
-  const { error } = await requireOperator(req);
+  const { error } = await requireHire(req);
   if (error) return error;
   const body = (await req.json().catch(() => ({}))) as { jobId?: string; grant?: string };
   if (!body.jobId || !body.grant || !['job', 'tier1', 'tier2', 'revoke'].includes(body.grant))

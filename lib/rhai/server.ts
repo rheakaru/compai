@@ -61,6 +61,20 @@ export async function requireFinance(req: NextRequest) {
 }
 
 /**
+ * Hire-product scope — the operator, or the hire role (Disha, intern@). Gates
+ * the Rhai Interviews product admin: pricing, company signups, jobs, payments,
+ * and manual entitlement grants. No pipeline, money, or hiring config.
+ */
+export async function requireHire(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return { error: new Response('unauthorized', { status: 401 }) };
+  if (!user.operator && !user.hire) {
+    return { error: new Response('forbidden', { status: 403 }) };
+  }
+  return { user };
+}
+
+/**
  * Session-logistics scope — the operator, or the EA (`ea` custom claim,
  * divya@). EAs see the Sessions tab only: confirmed sessions, venue/timings,
  * car bookings, travel status, checklists. No pipeline, money, or hiring.

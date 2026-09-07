@@ -110,6 +110,10 @@ const FINANCE_TABS: Tab[] = ['accounting'];
 // Tabs the EA role (Divya) can see: session logistics only.
 const EA_TABS: Tab[] = ['sessions'];
 
+// Tabs the hire role (Disha, intern@) can see: the Rhai Interviews product
+// admin only — pricing, company signups, jobs, payments, entitlement grants.
+const HIRE_TABS: Tab[] = ['hire'];
+
 const TOUR_SEEN_KEY = 'rhai.tour.seen';
 const LAST_SEEN_KEY = (section: string) => `rhai.lastSeen.${section}`;
 
@@ -128,13 +132,16 @@ export function RhaiWorkspace() {
   // Role-scoped tab set. Finance users (accounts team) see the accounts
   // surface only; server routes enforce the same boundary, this just keeps
   // the UI honest. Until the role loads, show the finance-safe subset.
-  const [role, setRole] = useState<{ operator: boolean; finance: boolean; ea: boolean } | null>(null);
+  const [role, setRole] = useState<{ operator: boolean; finance: boolean; ea: boolean; hire: boolean } | null>(
+    null
+  );
   useEffect(() => {
     if (!user) return;
     void (async () => {
       try {
         const res = await authedFetch('/api/rhai/me');
-        if (res.ok) setRole((await res.json()) as { operator: boolean; finance: boolean; ea: boolean });
+        if (res.ok)
+          setRole((await res.json()) as { operator: boolean; finance: boolean; ea: boolean; hire: boolean });
       } catch {
         /* default stays */
       }
@@ -142,15 +149,19 @@ export function RhaiWorkspace() {
   }, [user, authedFetch]);
   const financeOnly = role !== null && !role.operator && role.finance;
   const eaOnly = role !== null && !role.operator && !role.finance && role.ea;
+  const hireOnly = role !== null && !role.operator && !role.finance && !role.ea && role.hire;
   const visibleTabs = financeOnly
     ? TABS.filter(t => FINANCE_TABS.includes(t.id))
     : eaOnly
       ? TABS.filter(t => EA_TABS.includes(t.id))
-      : TABS;
+      : hireOnly
+        ? TABS.filter(t => HIRE_TABS.includes(t.id))
+        : TABS;
   useEffect(() => {
     if (financeOnly && !FINANCE_TABS.includes(tab)) setTab('accounting');
     if (eaOnly && !EA_TABS.includes(tab)) setTab('sessions');
-  }, [financeOnly, eaOnly, tab]);
+    if (hireOnly && !HIRE_TABS.includes(tab)) setTab('hire');
+  }, [financeOnly, eaOnly, hireOnly, tab]);
 
   // Accepts old (pre-consolidation) tab ids and routes them to the new home.
   const openTab = useCallback((id: string) => {

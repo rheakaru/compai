@@ -36,6 +36,22 @@ export function isFinanceEmail(email: string | null | undefined): boolean {
   return [...FINANCE_EMAILS, ...extra].includes(e);
 }
 
+// Accounts that get the hire role (the Rhai Interviews product admin only —
+// pricing, company signups, jobs, payments, entitlement grants) by email.
+// Disha (intern@) promotes the interviewing product and onboards its clients.
+// Extendable via HIRE_EMAILS (comma-separated).
+const HIRE_EMAILS = ['intern@heyrhai.com'];
+
+export function isHireEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  const extra = (process.env.HIRE_EMAILS ?? '')
+    .split(',')
+    .map(x => x.trim().toLowerCase())
+    .filter(Boolean);
+  return [...HIRE_EMAILS, ...extra].includes(e);
+}
+
 export function isAllowedOperatorEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const e = email.trim().toLowerCase();
@@ -50,7 +66,7 @@ export function isAllowedOperatorEmail(email: string | null | undefined): boolea
 /** Zero out privileged roles when the email's domain isn't allowed to log in. */
 function gateByDomain(u: AuthedUser): AuthedUser {
   if (isAllowedOperatorEmail(u.email)) return u;
-  return { ...u, operator: false, finance: false, ea: false };
+  return { ...u, operator: false, finance: false, ea: false, hire: false };
 }
 
 export interface AuthedUser {
@@ -61,6 +77,8 @@ export interface AuthedUser {
   finance: boolean;
   /** EA role (Divya): session logistics only — venue, timings, cars, travel. */
   ea: boolean;
+  /** Hire role (Disha): the Rhai Interviews product admin only. */
+  hire: boolean;
 }
 
 export async function verifyIdToken(token: string): Promise<AuthedUser> {
@@ -70,7 +88,8 @@ export async function verifyIdToken(token: string): Promise<AuthedUser> {
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
     finance: decoded.finance === true || isFinanceEmail(typeof decoded.email === 'string' ? decoded.email : null),
-    ea: decoded.ea === true
+    ea: decoded.ea === true,
+    hire: decoded.hire === true || isHireEmail(typeof decoded.email === 'string' ? decoded.email : null)
   });
 }
 
@@ -93,7 +112,8 @@ export async function verifySessionCookie(cookie: string): Promise<AuthedUser> {
     email: typeof decoded.email === 'string' ? decoded.email : null,
     operator: decoded.operator === true,
     finance: decoded.finance === true || isFinanceEmail(typeof decoded.email === 'string' ? decoded.email : null),
-    ea: decoded.ea === true
+    ea: decoded.ea === true,
+    hire: decoded.hire === true || isHireEmail(typeof decoded.email === 'string' ? decoded.email : null)
   });
 }
 

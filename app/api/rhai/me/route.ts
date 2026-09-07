@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     email: user.email,
     operator: user.operator,
     finance: user.finance,
-    ea: user.ea
+    ea: user.ea,
+    hire: user.hire
   });
 }
