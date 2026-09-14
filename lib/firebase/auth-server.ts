@@ -22,6 +22,21 @@ export const SESSION_COOKIE = '__rhai_session';
 const ALLOWED_DOMAIN = '@heyrhai.com';
 const BUILTIN_EXCEPTIONS = ['rhea@rosebazaar.in'];
 
+// Explicitly revoked accounts — blocked even though their domain would
+// otherwise let them in. Disha's internship has ended; intern@ is off until/
+// unless it resumes. Extendable via BLOCKED_EMAILS (comma-separated).
+const BUILTIN_BLOCKED = ['intern@heyrhai.com'];
+
+export function isBlockedEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  const extra = (process.env.BLOCKED_EMAILS ?? '')
+    .split(',')
+    .map(x => x.trim().toLowerCase())
+    .filter(Boolean);
+  return [...BUILTIN_BLOCKED, ...extra].includes(e);
+}
+
 // Accounts that get the finance role (accounting module only) by email — no
 // custom claim needed. Extendable via FINANCE_EMAILS (comma-separated).
 const FINANCE_EMAILS = ['finance@heyrhai.com', 'account@heyrhai.com'];
@@ -38,9 +53,9 @@ export function isFinanceEmail(email: string | null | undefined): boolean {
 
 // Accounts that get the hire role (the Rhai Interviews product admin only —
 // pricing, company signups, jobs, payments, entitlement grants) by email.
-// Disha (intern@) promotes the interviewing product and onboards its clients.
-// Extendable via HIRE_EMAILS (comma-separated).
-const HIRE_EMAILS = ['intern@heyrhai.com'];
+// Extendable via HIRE_EMAILS (comma-separated). (intern@ held this while Disha
+// ran the interviewing product; removed now that the internship has ended.)
+const HIRE_EMAILS: string[] = [];
 
 export function isHireEmail(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -55,6 +70,7 @@ export function isHireEmail(email: string | null | undefined): boolean {
 export function isAllowedOperatorEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const e = email.trim().toLowerCase();
+  if (isBlockedEmail(e)) return false; // revoked accounts never pass the gate
   if (e.endsWith(ALLOWED_DOMAIN)) return true;
   const extra = (process.env.OPERATOR_EMAIL_EXCEPTIONS ?? '')
     .split(',')

@@ -83,10 +83,12 @@ export function RhaiAccounting() {
       {section === 'travel' && <TravelSection />}
       {section === 'invoice' && (
         <div className="space-y-8">
-          <InvoicesPanel />
-          <div className="border-t border-ink-200 pt-6">
+          <div>
             <p className="text-sm font-semibold text-ink-900">Generate a GST tax invoice</p>
             <InvoiceGenerator blocked={gaps.length > 0} />
+          </div>
+          <div className="border-t border-ink-200 pt-6">
+            <InvoicesPanel />
           </div>
         </div>
       )}
