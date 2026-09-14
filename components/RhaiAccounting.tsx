@@ -18,13 +18,14 @@ import { formatMoney } from '@/lib/rhai/invoices';
 // Company (one-time statutory setup).
 // ---------------------------------------------------------------------------
 
-type Section = 'compliance' | 'costs' | 'travel' | 'invoice' | 'company' | 'documents';
+type Section = 'compliance' | 'costs' | 'travel' | 'invoice' | 'letterhead' | 'company' | 'documents';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'compliance', label: 'Compliance' },
   { id: 'costs', label: 'Costs' },
   { id: 'travel', label: 'Travel' },
   { id: 'invoice', label: 'Invoices' },
+  { id: 'letterhead', label: 'Letterhead' },
   { id: 'documents', label: 'Documents' },
   { id: 'company', label: 'Company' }
 ];
@@ -89,6 +90,7 @@ export function RhaiAccounting() {
           </div>
         </div>
       )}
+      {section === 'letterhead' && <LetterheadSection />}
       {section === 'documents' && <CompanyDocumentsSection />}
       {section === 'company' && <CompanySection onSaved={loadGaps} />}
     </div>
@@ -847,6 +849,87 @@ interface CompanyDoc {
   note: string;
   createdAt: number;
   url: string;
+}
+
+function LetterheadSection() {
+  const { getToken } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  const apply = async (file: File) => {
+    setBusy(true);
+    setError(null);
+    setDone(null);
+    try {
+      const token = await getToken();
+      const form = new FormData();
+      form.append('file', file);
+      // Direct fetch (not useAuthedFetch): let the browser set the multipart
+      // content-type + boundary; only the auth header is ours.
+      const res = await fetch('/api/rhai/letterhead', {
+        method: 'POST',
+        headers: token ? { authorization: `Bearer ${token}` } : undefined,
+        body: form
+      });
+      if (!res.ok) {
+        setError((await res.text()) || 'Could not process that document.');
+        return;
+      }
+      const blob = await res.blob();
+      const outName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'document';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${outName}-letterhead.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      setDone(`${outName}-letterhead.pdf`);
+    } catch {
+      setError('Upload failed. Try again.');
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div>
+      <p className="text-sm text-ink-600">
+        Drop in a Word document and get it back as a PDF on the RHAI Consulting Group letterhead — the same header the
+        invoices carry (legal name, registered office, CIN/GSTIN, contact). Use it for letters, confirmations, policies,
+        or anything a client needs on company paper.
+      </p>
+
+      <div className="mt-4 rounded-xl border border-ink-200 bg-white p-5">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-cream hover:bg-ink-800">
+          {busy ? 'Applying letterhead…' : 'Choose a Word document (.docx)'}
+          <input
+            type="file"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            className="hidden"
+            disabled={busy}
+            onChange={e => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void apply(f);
+            }}
+          />
+        </label>
+        <p className="mt-3 text-xs text-ink-500">
+          Keeps headings, bold/italic and lists. Tables are flattened to text and images are dropped — it&apos;s a
+          letterhead stamper, not a full Word converter. Only <span className="font-medium">.docx</span> (not the older
+          .doc, or Google Docs — export as .docx first).
+        </p>
+        {done && (
+          <p className="mt-3 text-xs text-emerald-600">
+            Done — <span className="font-medium">{done}</span> downloaded. If it didn&apos;t open, check your browser&apos;s downloads.
+          </p>
+        )}
+        {error && <p className="mt-3 text-xs text-rose-500">{error}</p>}
+      </div>
+    </div>
+  );
 }
 
 function CompanyDocumentsSection() {
