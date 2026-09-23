@@ -22,6 +22,7 @@ const NAV = [
   { href: '/workshops', label: 'Workshops' },
   { href: '/writing', label: 'Writing' },
   { href: '/hang-w-ai', label: 'Hang w AI' },
+  { href: '/about', label: 'About' },
   { href: '/careers', label: 'Careers' },
   { href: '/#contact', label: 'Contact' }
 ];
@@ -116,6 +117,7 @@ export function SiteFooter() {
             <Link href="/workshops" className="text-ink-500 hover:text-ink-900">Workshops</Link>
             <Link href="/workshops/modules" className="text-ink-500 hover:text-ink-900">Module library</Link>
             <Link href="/writing" className="text-ink-500 hover:text-ink-900">Writing</Link>
+            <Link href="/about" className="text-ink-500 hover:text-ink-900">About</Link>
             <Link href="/careers" className="text-ink-500 hover:text-ink-900">Careers</Link>
             <Link href="/hang-w-ai" className="text-ink-500 hover:text-ink-900">Hang w AI</Link>
             <Link href="/hire" className="text-ink-500 hover:text-ink-900">Rhai Interviews</Link>

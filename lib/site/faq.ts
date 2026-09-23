@@ -19,7 +19,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: 'How much does an AI workshop cost?',
-    a: 'An intro session is ₹1,00,000 for three hours — a general, hands-on introduction to building with AI for your team. A company session is ₹3,00,000 for a full day (six hours), customised to your business after a discovery call, and your team leaves with a working prototype for a real problem. Payment is same-day, with no retainers.'
+    a: 'An intro session is ₹1,00,000 for three hours — a general, hands-on introduction to building with AI for your team. A company session is ₹3,00,000 for a full day (six hours), customised to your business after a discovery call, and there is a ₹5,00,000 tier that adds a demo intelligence dashboard built for your company before the day. Work is project-based with no retainers: a 30% advance invoice is shared before the session, and the balance is due within seven days.'
   },
   {
     q: 'What is an intelligence dashboard, and how is it different from BI?',
