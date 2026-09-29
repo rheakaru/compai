@@ -19,6 +19,7 @@ const MAX_BYTES = 25 * 1024 * 1024;
 const DOC_KINDS = [
   'GST certificate',
   'Certificate of incorporation',
+  'Shops & Establishment registration',
   'PAN card',
   'TAN',
   'MSME / Udyam',
