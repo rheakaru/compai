@@ -8,6 +8,7 @@
 // small-caps eyebrows · warm terracotta accent) so heyrhai.com and the
 // signed-in app feel like one thing.
 
+import type { InstagramPost } from '@/lib/site/instagram';
 import { INSTAGRAM_URL, InstagramGlyph, PERSONAL_SITE, SiteFooter, SiteHeader } from './SiteChrome';
 import { VoiceWall } from './VoiceWall';
 import { FAQS } from '@/lib/site/faq';
@@ -15,7 +16,7 @@ import { MODULE_COUNT, TIERS } from '@/lib/site/workshops';
 
 const MARKETING_TOOL = 'https://compai-marketing.web.app';
 
-export function RhaiHome() {
+export function RhaiHome({ instagram = [] }: { instagram?: InstagramPost[] }) {
   return (
     <main className="min-h-screen bg-cream text-ink-900">
       <SiteHeader />
@@ -208,6 +209,44 @@ export function RhaiHome() {
 
       {/* Voice testimonials — renders only if Rhea has approved any. */}
       <VoiceWall />
+
+      {/* Instagram — the latest from @heyrhai. Renders only once connected. */}
+      {instagram.length > 0 && (
+        <section id="instagram" className="border-b border-ink-200/60">
+          <div className="mx-auto max-w-5xl px-6 py-20">
+            <p className="eyebrow">Instagram · @heyrhai</p>
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+              <h2 className="font-display text-3xl tracking-tight text-ink-900 sm:text-4xl">
+                Short answers, <span className="text-ink-400">as they come up.</span>
+              </h2>
+              <a href="/instagram" className="text-sm text-accent underline-offset-4 hover:underline">
+                See all posts →
+              </a>
+            </div>
+            <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {instagram.map(p => {
+                const title = p.caption.trim().split('\n')[0];
+                return (
+                  <a key={p.id} href={p.permalink} target="_blank" rel="noreferrer" className="group block">
+                    <div className="aspect-square overflow-hidden rounded-xl border border-ink-200 bg-cream-100">
+                      {p.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.imageUrl}
+                          alt={title || 'Instagram post from @heyrhai'}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        />
+                      )}
+                    </div>
+                    {title && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink-700">{title}</p>}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* The free tool — the giveaway + soft lead capture. */}
       <section id="tool" className="border-b border-ink-200/60 bg-cream-100">

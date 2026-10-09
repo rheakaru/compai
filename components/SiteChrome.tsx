@@ -119,6 +119,7 @@ export function SiteFooter() {
             <Link href="/writing" className="text-ink-500 hover:text-ink-900">Writing</Link>
             <Link href="/about" className="text-ink-500 hover:text-ink-900">About</Link>
             <Link href="/answers" className="text-ink-500 hover:text-ink-900">Answers</Link>
+            <Link href="/instagram" className="text-ink-500 hover:text-ink-900">Instagram posts</Link>
             <Link href="/careers" className="text-ink-500 hover:text-ink-900">Careers</Link>
             <Link href="/hang-w-ai" className="text-ink-500 hover:text-ink-900">Hang w AI</Link>
             <Link href="/hire" className="text-ink-500 hover:text-ink-900">Rhai Interviews</Link>

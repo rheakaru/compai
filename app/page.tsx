@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { TIERS } from '@/lib/site/workshops';
 import { RhaiHome } from '@/components/RhaiHome';
 import { FAQS } from '@/lib/site/faq';
+import { getInstagramPosts } from '@/lib/site/instagram';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,8 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' }
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const instagram = await getInstagramPosts(6);
   // Organization + service + FAQ structured data. `sameAs` is how search and
   // answer engines tie heyrhai.com to the Instagram account and Rhea's other
   // profiles into one entity.
@@ -113,7 +115,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationLd, websiteLd, faqLd]) }}
       />
-      <RhaiHome />
+      <RhaiHome instagram={instagram} />
     </>
   );
 }
