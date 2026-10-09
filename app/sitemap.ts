@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages: MetadataRoute.Sitemap = [
     { url: SITE, lastModified: now, changeFrequency: 'weekly', priority: 1 },
     { url: `${SITE}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE}/about/rhea-karuturi`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE}/answers`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE}/instagram`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${SITE}/writing`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },

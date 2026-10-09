@@ -8,18 +8,21 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PublicTestimonial } from '@/lib/rhai/testimonials';
 
-export function VoiceWall() {
-  const [items, setItems] = useState<PublicTestimonial[] | null>(null);
+export function VoiceWall({ initial }: { initial?: PublicTestimonial[] }) {
+  // `initial` comes from the server render, so the transcripts are in the page
+  // HTML for crawlers and AI agents; the fetch below is only a fallback.
+  const [items, setItems] = useState<PublicTestimonial[] | null>(initial ?? null);
   const [playing, setPlaying] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    if (initial) return;
     fetch('/api/testimonial')
       .then(r => (r.ok ? r.json() : { testimonials: [] }))
       .then((d: { testimonials: PublicTestimonial[] }) => setItems(d.testimonials))
       .catch(() => setItems([]));
-  }, []);
+  }, [initial]);
 
   const toggle = (t: PublicTestimonial) => {
     const el = audioRef.current;
@@ -77,7 +80,7 @@ export function VoiceWall() {
           What people say after a session.
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-700">
-          Real voices from the room — tap to listen.
+          Real voices from the room — tap to listen, or read what they said.
         </p>
 
         {/* Not `hidden`: a display:none media element is not reliably playable
@@ -121,7 +124,7 @@ export function VoiceWall() {
                   </p>
                 )}
                 {t.transcript && (
-                  <p className="mt-3 text-[13px] italic leading-relaxed text-ink-600">&ldquo;{t.transcript}&rdquo;</p>
+                  <blockquote className="mt-3 text-[13px] italic leading-relaxed text-ink-600">&ldquo;{t.transcript}&rdquo;</blockquote>
                 )}
               </div>
             );

@@ -5,7 +5,7 @@ export const metadata = {
   description: 'How Rhai collects, uses, and protects your information.'
 };
 
-const CONTACT_EMAIL = 'rhea@rosebazaar.in';
+const CONTACT_EMAIL = 'rhea@heyrhai.com';
 const UPDATED = '9 July 2026';
 
 export default function PrivacyPage() {

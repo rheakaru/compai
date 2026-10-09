@@ -4,7 +4,7 @@
 // runs in Bangalore and Hyderabad. Sits at heyrhai.com/hang-w-ai. Uses the
 // same design system as RhaiHome so the two pages feel like one site.
 
-const CONTACT_EMAIL = 'rhea@rosebazaar.in';
+const CONTACT_EMAIL = 'rhea@heyrhai.com';
 const INTROS_WHATSAPP = 'https://chat.whatsapp.com/BSZLG7tXuZm85IaaaVj7fN';
 const PERSONAL_SITE = 'https://rheakaru.github.io';
 

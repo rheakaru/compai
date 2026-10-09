@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'crypto';
 import { adminDb, mediaBucket } from '@/lib/firebase/admin';
 import { transcribeAudio } from '@/lib/media/scribe';
-import { COL_TESTIMONIALS, type PublicTestimonial, type Testimonial } from '@/lib/rhai/testimonials';
+import { COL_TESTIMONIALS, type Testimonial } from '@/lib/rhai/testimonials';
+import { listPublicTestimonials } from '@/lib/rhai/testimonials-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,37 +16,8 @@ const MAX_BYTES = 20 * 1024 * 1024; // ~ several minutes of compressed audio
 // stores the audio, and files it UNPUBLISHED — nothing appears on the site
 // until Rhea toggles it on from the dashboard, so there's no public-junk risk.
 
-/** Cache-busted stream URL — see the note in the mapper below. */
-function audioUrlFor(t: Testimonial & { id: string }): string {
-  const base = t.audioUrl || `/api/testimonial/${t.id}/audio`;
-  if (!t.storagePath) return base;
-  // Short stable digest of the object path; no crypto needed, this is a cache
-  // key rather than a secret.
-  let h = 0;
-  for (let i = 0; i < t.storagePath.length; i++) h = (Math.imul(31, h) + t.storagePath.charCodeAt(i)) | 0;
-  return `${base}${base.includes('?') ? '&' : '?'}v=${(h >>> 0).toString(36)}`;
-}
-
 export async function GET() {
-  const snap = await adminDb()
-    .collection(COL_TESTIMONIALS)
-    .where('displayed', '==', true)
-    .get();
-  const testimonials: PublicTestimonial[] = snap.docs
-    .map(d => ({ id: d.id, ...(d.data() as Omit<Testimonial, 'id'>) }))
-    .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt)
-    .map(t => ({
-      id: t.id,
-      name: t.name,
-      ...(t.role ? { role: t.role } : {}),
-      // The audio route is cached immutable for a year on a stable URL, so a
-      // re-encoded file would otherwise keep serving the old bytes from the
-      // CDN. Version the URL by the storage path: it changes whenever the
-      // object does, and stays put when it doesn't.
-      audioUrl: audioUrlFor(t),
-      transcript: t.transcript
-    }));
-  return Response.json({ testimonials });
+  return Response.json({ testimonials: await listPublicTestimonials() });
 }
 
 export async function POST(req: NextRequest) {

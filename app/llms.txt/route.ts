@@ -32,6 +32,7 @@ ${FINE_PRINT.map(f => `- **${f.label}.** ${f.body}`).join('\n')}
 ## Key pages
 
 - [About Rhai](${SITE}/about): what Rhai is, the founder, what makes it different, who it's for, notable clients, and the key facts.
+- [Rhea Karuturi](${SITE}/about/rhea-karuturi): the founder of Rhai — what she does now, who she has worked with, and her background (previously CTO and co-founder of Hoovu Fresh).
 - [Workshops, formats and pricing](${SITE}/workshops): the three formats, what a session involves, and the commercial terms.
 - [The module library](${SITE}/workshops/modules): all ${MODULE_COUNT} modules every session is built from.
 - [Hang w AI](${SITE}/hang-w-ai): the free weekly in-person community in Bangalore and Hyderabad (~350 members) — our top of funnel and trust engine.

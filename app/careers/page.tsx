@@ -67,8 +67,8 @@ export default function CareersPage() {
 
           <p className="mt-10 text-sm leading-relaxed text-ink-600">
             Nothing here that fits? We read everything sent to{' '}
-            <a href="mailto:rhea@rosebazaar.in" className="text-accent hover:underline">
-              rhea@rosebazaar.in
+            <a href="mailto:rhea@heyrhai.com" className="text-accent hover:underline">
+              rhea@heyrhai.com
             </a>{' '}
             — tell us what you&apos;d want to work on. It also helps to come to a{' '}
             <Link href="/hang-w-ai" className="text-accent hover:underline">

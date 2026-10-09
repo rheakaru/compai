@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const { user, error } = await requireUser(req);
   if (error) return error;
   if (!razorpayConfigured())
-    return new Response('Payments are not configured yet — contact rhea@rosebazaar.in to activate.', { status: 503 });
+    return new Response('Payments are not configured yet — contact rhea@heyrhai.com to activate.', { status: 503 });
 
   const body = (await req.json().catch(() => ({}))) as { kind?: PayKind; jobId?: string };
   if (!body.jobId || !body.kind || !['job', 'tier1', 'tier2'].includes(body.kind))

@@ -9,6 +9,7 @@
 // signed-in app feel like one thing.
 
 import type { InstagramPost } from '@/lib/site/instagram';
+import type { PublicTestimonial } from '@/lib/rhai/testimonials';
 import { INSTAGRAM_URL, InstagramGlyph, PERSONAL_SITE, SiteFooter, SiteHeader } from './SiteChrome';
 import { VoiceWall } from './VoiceWall';
 import { FAQS } from '@/lib/site/faq';
@@ -16,7 +17,13 @@ import { MODULE_COUNT, TIERS } from '@/lib/site/workshops';
 
 const MARKETING_TOOL = 'https://compai-marketing.web.app';
 
-export function RhaiHome({ instagram = [] }: { instagram?: InstagramPost[] }) {
+export function RhaiHome({
+  instagram = [],
+  testimonials
+}: {
+  instagram?: InstagramPost[];
+  testimonials?: PublicTestimonial[];
+}) {
   return (
     <main className="min-h-screen bg-cream text-ink-900">
       <SiteHeader />
@@ -208,7 +215,7 @@ export function RhaiHome({ instagram = [] }: { instagram?: InstagramPost[] }) {
       </section>
 
       {/* Voice testimonials — renders only if Rhea has approved any. */}
-      <VoiceWall />
+      <VoiceWall initial={testimonials} />
 
       {/* Instagram — the latest from @heyrhai. Renders only once connected. */}
       {instagram.length > 0 && (

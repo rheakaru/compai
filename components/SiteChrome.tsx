@@ -15,7 +15,7 @@ export const INSTAGRAM_URL = 'https://www.instagram.com/heyrhai/';
 export const PERSONAL_SITE = 'https://rheakaru.github.io';
 export const SUBSTACK_URL = 'https://rheakaruturi.substack.com';
 export const WHATSAPP_GROUP = 'https://chat.whatsapp.com/BSZLG7tXuZm85IaaaVj7fN';
-export const CONTACT_EMAIL = 'rhea@rosebazaar.in';
+export const CONTACT_EMAIL = 'rhea@heyrhai.com';
 
 const NAV = [
   { href: '/#work', label: 'Work' },
@@ -107,7 +107,11 @@ export function SiteFooter() {
               <span className="font-display text-[17px] font-medium tracking-tight">Rhai</span>
             </p>
             <p className="mt-2 max-w-xs text-[11px] leading-relaxed text-ink-500">
-              An AI practice by Rhea Karuturi. Workshops and intelligence dashboards for Indian companies —
+              An AI practice by{' '}
+              <Link href="/about/rhea-karuturi" className="underline decoration-ink-200 underline-offset-2 hover:text-ink-900">
+                Rhea Karuturi
+              </Link>
+              . Workshops and intelligence dashboards for Indian companies —
               Bangalore and San Francisco.
             </p>
           </div>

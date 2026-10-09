@@ -3,6 +3,7 @@ import { TIERS } from '@/lib/site/workshops';
 import { RhaiHome } from '@/components/RhaiHome';
 import { FAQS } from '@/lib/site/faq';
 import { getInstagramPosts } from '@/lib/site/instagram';
+import { listPublicTestimonials } from '@/lib/rhai/testimonials-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const instagram = await getInstagramPosts(6);
+  const [instagram, testimonials] = await Promise.all([
+    getInstagramPosts(6),
+    listPublicTestimonials().catch(() => [])
+  ]);
   // Organization + service + FAQ structured data. `sameAs` is how search and
   // answer engines tie heyrhai.com to the Instagram account and Rhea's other
   // profiles into one entity.
@@ -29,7 +33,15 @@ export default async function HomePage() {
     url: SITE,
     description:
       'AI consulting practice in Bangalore. Hands-on AI workshops and custom intelligence dashboards for Indian companies.',
-    email: 'rhea@rosebazaar.in',
+    email: 'rhea@heyrhai.com',
+    // What people said after a session — the same transcripts shown on the page.
+    review: testimonials
+      .filter(t => t.transcript)
+      .map(t => ({
+        '@type': 'Review',
+        author: { '@type': 'Person', name: t.name, ...(t.role ? { description: t.role } : {}) },
+        reviewBody: t.transcript
+      })),
     areaServed: [
       { '@type': 'Country', name: 'India' },
       { '@type': 'City', name: 'Bengaluru' },
@@ -45,7 +57,8 @@ export default async function HomePage() {
       '@type': 'Person',
       name: 'Rhea Karuturi',
       jobTitle: 'Founder',
-      url: 'https://rheakaru.github.io',
+      '@id': `${SITE}/about/rhea-karuturi#person`,
+      url: `${SITE}/about/rhea-karuturi`,
       alumniOf: { '@type': 'CollegeOrUniversity', name: 'Stanford University' },
       sameAs: ['https://www.instagram.com/heyrhai/', 'https://rheakaruturi.substack.com']
     },
@@ -115,7 +128,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationLd, websiteLd, faqLd]) }}
       />
-      <RhaiHome instagram={instagram} />
+      <RhaiHome instagram={instagram} testimonials={testimonials} />
     </>
   );
 }

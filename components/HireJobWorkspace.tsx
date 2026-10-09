@@ -128,7 +128,7 @@ function Header({
         body: JSON.stringify({ kind, jobId: job.id, ...result })
       });
       if (!verify.ok) {
-        setNotice('Payment verification failed — contact rhea@rosebazaar.in with your payment id.');
+        setNotice('Payment verification failed — contact rhea@heyrhai.com with your payment id.');
         return;
       }
       if (kind === 'job') onChange({ ...job, paidJob: true, paidVia: 'razorpay' });

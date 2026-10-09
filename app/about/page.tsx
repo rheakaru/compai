@@ -59,7 +59,8 @@ export default function AboutPage() {
           name: 'Rhea Karuturi',
           jobTitle: 'Founder',
           alumniOf: { '@type': 'CollegeOrUniversity', name: 'Stanford University' },
-          url: 'https://rheakaru.github.io',
+          '@id': `${SITE}/about/rhea-karuturi#person`,
+          url: `${SITE}/about/rhea-karuturi`,
           sameAs: ['https://www.instagram.com/heyrhai/', 'https://rheakaruturi.substack.com']
         },
         sameAs: [
@@ -174,6 +175,11 @@ export default function AboutPage() {
                 {p.name} <span className="text-ink-400">· {p.role}</span>
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-ink-700">{p.bio}</p>
+              <p className="mt-2 text-sm">
+                <Link href="/about/rhea-karuturi" className="text-accent underline-offset-4 hover:underline">
+                  More about Rhea →
+                </Link>
+              </p>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
                 {p.links.map(l => (
                   <a
