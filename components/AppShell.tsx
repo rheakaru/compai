@@ -55,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === '/' ||
     pathname === '/hang-w-ai' ||
     pathname.startsWith('/about') ||
+    pathname.startsWith('/answers') ||
     pathname.startsWith('/workshops') ||
     pathname.startsWith('/careers') ||
     pathname.startsWith('/writing') ||

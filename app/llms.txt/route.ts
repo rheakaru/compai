@@ -1,4 +1,5 @@
 import { TIERS, FINE_PRINT, MODULE_COUNT } from '@/lib/site/workshops';
+import { ANSWER_TOPICS } from '@/lib/site/answers';
 import { allPosts } from '@/lib/writing/posts';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,12 @@ ${FINE_PRINT.map(f => `- **${f.label}.** ${f.body}`).join('\n')}
 - [Hang w AI](${SITE}/hang-w-ai): the free weekly in-person community in Bangalore and Hyderabad (~350 members) — our top of funnel and trust engine.
 - [Writing](${SITE}/writing): case studies and build logs.
 - [Careers](${SITE}/careers): open roles.
+
+## Answers
+
+Direct answers to common questions, grouped by topic.
+
+${ANSWER_TOPICS.map(t => `- [${t.title}](${SITE}/answers/${t.slug}): ${t.answers.map(a => a.q).join(' ')}`).join('\n')}
 
 ## Case studies
 

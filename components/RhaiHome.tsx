@@ -487,6 +487,12 @@ export function RhaiHome() {
               </div>
             ))}
           </dl>
+          <p className="mt-10 text-sm text-ink-600">
+            More on workshops in Bangalore and San Francisco, teaching teams, marketing, real estate and AI security:{' '}
+            <a href="/answers" className="text-accent underline-offset-4 hover:underline">
+              all answers →
+            </a>
+          </p>
         </div>
       </section>
 

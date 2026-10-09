@@ -235,6 +235,14 @@ export default function AboutPage() {
             </div>
           ))}
         </div>
+        <p className="mt-8 text-sm text-ink-600">
+          More questions — on workshops in Bangalore and San Francisco, teaching teams, marketing, real estate and AI
+          security — are answered on the{' '}
+          <Link href="/answers" className="text-accent underline-offset-4 hover:underline">
+            answers pages
+          </Link>
+          .
+        </p>
       </Section>
 
       {/* CTA */}

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { OPEN_ROLES } from '@/lib/careers/roles';
 import { allPosts } from '@/lib/writing/posts';
+import { ANSWER_TOPICS } from '@/lib/site/answers';
 
 const SITE = 'https://heyrhai.com';
 
@@ -12,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages: MetadataRoute.Sitemap = [
     { url: SITE, lastModified: now, changeFrequency: 'weekly', priority: 1 },
     { url: `${SITE}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE}/answers`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE}/writing`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: `${SITE}/workshops`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE}/workshops/modules`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
@@ -38,5 +40,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8
   }));
 
-  return [...staticPages, ...writing, ...careers];
+  const answers: MetadataRoute.Sitemap = ANSWER_TOPICS.map(t => ({
+    url: `${SITE}/answers/${t.slug}`,
+    lastModified: now,
+    changeFrequency: 'monthly',
+    priority: 0.8
+  }));
+
+  return [...staticPages, ...answers, ...writing, ...careers];
 }
