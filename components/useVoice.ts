@@ -189,7 +189,13 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
         form.append('sessionKind', c.kind);
         form.append('sessionId', c.sessionId);
       }
-      const res = await fetch('/api/transcribe', { method: 'POST', body: form });
+      let res = await fetch('/api/transcribe', { method: 'POST', body: form });
+      // A room full of people recording at once can trip the provider's
+      // concurrency limit (429/5xx). One retry after a short pause covers it.
+      if (!res.ok && (res.status === 429 || res.status >= 500)) {
+        await new Promise(r => setTimeout(r, 1500));
+        res = await fetch('/api/transcribe', { method: 'POST', body: form });
+      }
       if (!res.ok) {
         setError('Transcription is unavailable right now — please type instead.');
         return;

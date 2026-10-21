@@ -124,6 +124,15 @@ env:
   #     approved — do NOT declare it with an empty value; App Hosting rejects
   #     empty-valued env vars and the rollout silently fails.)
 
+  # Chief of Staff builder (heyrhai.com/chief-of-staff). The display number of
+  # the Rhai WhatsApp line, digits with country code (e.g. '919876543210') —
+  # it powers the "Open WhatsApp" wa.me buttons on the page. Add it as a real
+  # variable once known (do NOT declare it empty; App Hosting rejects that):
+  #   NEXT_PUBLIC_WHATSAPP_NUMBER  availability: [BUILD, RUNTIME]
+  # Google OAuth for participants reuses GOOGLE_OAUTH_CLIENT_ID/SECRET above.
+  # Register https://heyrhai.com/api/cos/google/callback as a redirect URI and
+  # enable the Gmail API + gmail.readonly scope on the consent screen.
+
   # Rhai MCP server (/api/mcp/<token>) — claude.ai custom connector into the
   # dashboard. The token IS the credential (capability URL); mint with
   # `openssl rand -hex 32`, then:

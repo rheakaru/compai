@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
+import { findAgentByPhone } from '@/lib/cos/store';
+import { buildCosReply } from '@/lib/cos/agent';
 import {
   buildWhatsappReply,
   downloadWhatsAppMedia,
@@ -72,12 +74,21 @@ async function handleMessage(m: InboundMessage, name?: string): Promise<void> {
   const groupId = String(m.group_id ?? '').trim();
   const isGroup = !!groupId;
 
-  // Default-closed on both channels: an unknown group is ignored exactly like
-  // an unknown sender, so being added to a random group does nothing.
-  if (isGroup ? !isAllowedGroup(groupId) : !from || !isAllowedSender(from)) return;
   if (!from) return;
   const msgId = String(m.id ?? '');
   if (!msgId) return;
+
+  // Chief of Staff participants (heyrhai.com/chief-of-staff): a 1:1 message
+  // from a number that registered an agent goes to THEIR agent, not Rhai.
+  // Rhea's own number stays on the Rhai path below.
+  if (!isGroup && !isAllowedSender(from)) {
+    await handleChiefOfStaffMessage(m, from, msgId);
+    return;
+  }
+
+  // Default-closed on both channels: an unknown group is ignored exactly like
+  // an unknown sender, so being added to a random group does nothing.
+  if (isGroup ? !isAllowedGroup(groupId) : !isAllowedSender(from)) return;
 
   // Idempotency — Meta may redeliver. First writer wins; the rest no-op.
   try {
@@ -150,6 +161,66 @@ async function handleMessage(m: InboundMessage, name?: string): Promise<void> {
 
   const reply = await buildWhatsappReply({ from, name, text });
   await sendWhatsAppText(from, reply);
+}
+
+/**
+ * Route a non-Rhea sender to the Chief of Staff they built. Unknown numbers
+ * get ONE pointer to the setup page (so a participant whose number didn't
+ * match learns why) and are otherwise ignored, keeping the default-closed
+ * posture for strangers.
+ */
+async function handleChiefOfStaffMessage(m: InboundMessage, from: string, msgId: string): Promise<void> {
+  const db = adminDb();
+  try {
+    await db.collection('rhaiWhatsappProcessed').doc(msgId).create({ at: Date.now(), cos: true });
+  } catch {
+    return; // redelivery
+  }
+  const agent = await findAgentByPhone(from);
+  if (!agent) {
+    const pinged = db.collection('cosUnknownPinged').doc(from);
+    if ((await pinged.get()).exists) return;
+    await pinged.set({ at: Date.now() });
+    await sendWhatsAppText(
+      from,
+      "Hi — this number runs Rhai. To set up your own chief of staff here, build one at heyrhai.com/chief-of-staff and add this WhatsApp number on the first step."
+    );
+    return;
+  }
+
+  let text = '';
+  if (m.type === 'text') {
+    text = String(m.text?.body ?? '').trim();
+  } else if (m.type === 'audio' || m.type === 'voice') {
+    const t = await transcribeWhatsAppAudio(String(m.audio?.id ?? m.voice?.id ?? ''));
+    if (!t) {
+      await sendWhatsAppText(from, "I couldn't catch that voice note — mind typing it or resending?");
+      return;
+    }
+    text = t;
+  } else {
+    await sendWhatsAppText(from, 'Text and voice notes work best with me — send me one of those.');
+    return;
+  }
+  if (!text) return;
+
+  if (!agent.agentMd.trim()) {
+    await sendWhatsAppText(
+      from,
+      `Hi ${agent.profile.name.split(' ')[0] || 'there'} — I'm not set up yet. Finish the design step at heyrhai.com/chief-of-staff and then message me again.`
+    );
+    return;
+  }
+  const reply = await buildCosReply({ agent, text, channel: 'whatsapp' });
+  await sendWhatsAppText(from, toWhatsAppMarkup(reply));
+}
+
+/** Markdown-ish model output -> WhatsApp markup (**bold** -> *bold*, no # headings). */
+function toWhatsAppMarkup(t: string): string {
+  return t
+    .replace(/\*\*(.+?)\*\*/g, '*$1*')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-•]\s+/gm, '• ');
 }
 
 // ---- minimal shapes of the Meta webhook payload we read ----

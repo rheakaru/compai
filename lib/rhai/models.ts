@@ -18,7 +18,12 @@ export const RHAI_MODELS = {
   /** Drafting emails, proposals, invoice lines from templates. */
   draft: 'claude-haiku-4-5-20251001',
   /** Compressing a context-library doc into its always-loaded digest card. */
-  digest: 'claude-haiku-4-5-20251001'
+  digest: 'claude-haiku-4-5-20251001',
+  /** The public Chief of Staff agents (heyrhai.com/chief-of-staff) — chat on
+   * WhatsApp + the web console. Opus at low effort: good judgement, fast. */
+  cosChat: 'claude-opus-5-5',
+  /** The guided intake interview that fills a Chief of Staff spec. */
+  cosIntake: 'claude-sonnet-5-5'
 } as const;
 
 export type RhaiTask = keyof typeof RHAI_MODELS;

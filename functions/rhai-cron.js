@@ -64,3 +64,17 @@ exports.rhaiBriefings = onSchedule(
   },
   () => hitCron('/api/rhai/cron/briefings', CRON_SECRET.value())
 );
+
+// Every 5 min — Chief of Staff reminders (heyrhai.com/chief-of-staff) that
+// participants set with their own agent, delivered over WhatsApp.
+exports.cosReminders = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'Asia/Kolkata',
+    region: 'asia-south1',
+    secrets: [CRON_SECRET],
+    timeoutSeconds: 300,
+    memory: '256MiB'
+  },
+  () => hitCron('/api/rhai/cron/cos-reminders', CRON_SECRET.value())
+);
