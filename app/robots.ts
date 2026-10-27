@@ -20,7 +20,8 @@ const PRIVATE = [
   '/apply/',
   '/game',
   '/party',
-  '/join'
+  '/join',
+  '/p/' // unlisted, email-gated shared docs
 ];
 
 export default function robots(): MetadataRoute.Robots {
