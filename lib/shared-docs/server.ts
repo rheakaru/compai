@@ -11,6 +11,7 @@ import { adminDb } from '@/lib/firebase/admin';
 export const VIEWER_COOKIE = 'rd_viewer';
 export const COL_VIEWERS = 'sharedDocViewers';
 export const COL_VIEWS = 'sharedDocViews';
+export const COL_GATE_VISITS = 'sharedDocGateVisits';
 
 export interface Viewer {
   email: string;

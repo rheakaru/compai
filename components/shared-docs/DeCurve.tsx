@@ -42,6 +42,7 @@ export const DECURVE_CSS = `
 .dc .table-scroll { overflow-x: auto; }
 .dc .roles { display: flex; flex-direction: column; gap: 1.2rem; }
 .dc .role p { font-size: 0.975rem; line-height: 1.55; color: var(--muted); margin: 0; }
+.dc .links { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; font-family: var(--mono); font-size: 0.8125rem; margin-top: 1.2rem; }
 .dc .contact { display: flex; flex-direction: column; gap: 0.6rem; }
 .dc .addr { font-family: var(--mono); font-size: 0.9375rem; word-break: break-all; }
 .dc .note { font-family: var(--mono); font-size: 0.75rem; line-height: 1.6; color: var(--muted); }
@@ -414,6 +415,42 @@ export function DeCurveDoc() {
             </p>
           </div>
         </div>
+      </section>
+
+      <section data-track="About me">
+        <h2>About me</h2>
+        <p>
+          I&apos;m Rhea Karuturi. Most of my working life has been spent on the problem this document is about: getting
+          something perishable from where it grows to where it sells before it stops being worth anything.
+        </p>
+        <p>
+          In 2018 I worked in Karuturi Global&apos;s floriculture and agriculture operations across India, Ethiopia and
+          Kenya. In 2019 I co-founded Hoovu Fresh, a B2B puja-flower supply chain across nine Indian cities, and have run
+          it as CTO since: venture-backed, profitable, Techstars 2020. Puja flowers used to last two to three days. We led
+          the post-harvest process work that took them to fifteen, which is what made packaged flowers possible and
+          created the category on quick commerce. Zepto, Blinkit, BigBasket, Amazon, Reliance and Zomato Hyperpure carry
+          them. I also built the data side: farmer-direct procurement, partner payment reconciliation, pricing from
+          historical market data, and the AI layer the company now runs on.
+        </p>
+        <p>
+          That shelf-life work took years of trial and measurement for a single product. DeCurve is the attempt to make
+          that knowledge general and predictable, rather than rediscovered crop by crop.
+        </p>
+        <p>
+          In July 2026 I started <a href="https://heyrhai.com" target="_blank" rel="noreferrer">Rhai</a>, which
+          deploys AI inside established companies on their own data. In its first three months Rhai built production
+          systems for twelve companies with more than $10M in annual revenue, three of them publicly listed, across
+          dairy, animal health, aerospace, real estate and manufacturing.
+        </p>
+        <p>
+          I studied Science, Technology and Society at Stanford, where I was a section leader for CS106A. I have spoken
+          at TEDx and closed a deal on Shark Tank India.
+        </p>
+        <p className="links">
+          <a href="https://www.linkedin.com/in/rhea-karuturi" target="_blank" rel="noreferrer">LinkedIn</a>
+          <a href="https://rheakaru.github.io" target="_blank" rel="noreferrer">rheakaru.github.io</a>
+          <a href="https://heyrhai.com/about/rhea-karuturi" target="_blank" rel="noreferrer">Rhai</a>
+        </p>
       </section>
 
       <hr className="rule" />

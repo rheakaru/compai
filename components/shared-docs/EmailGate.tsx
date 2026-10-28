@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 // The email gate in front of a shared doc: one field, no password. On submit
@@ -11,6 +11,17 @@ export function EmailGate({ slug, title, description, author }: { slug: string; 
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Count the visit to the gate itself, so people who leave without entering
+  // an email still show up (anonymously) in the operator view.
+  useEffect(() => {
+    void fetch(`/api/shared/${slug}/visit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ referrer: document.referrer }),
+      keepalive: true
+    }).catch(() => undefined);
+  }, [slug]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

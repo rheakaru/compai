@@ -21,12 +21,21 @@ interface View {
   referrer: string;
   country: string;
 }
+interface GateVisit {
+  at: number;
+  referrer: string;
+  userAgent: string;
+  country: string;
+}
 interface Doc {
   slug: string;
   title: string;
   description: string;
   views: View[];
+  gateVisits: GateVisit[];
 }
+
+const source = (r: string) => (r ? r.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '') : 'direct link');
 
 const when = (t: number) =>
   new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }).format(t);
@@ -96,6 +105,8 @@ export function SharedDocsAdmin() {
           time: vs.reduce((n, v) => n + v.activeSeconds, 0)
         }));
         const finished = readers.filter(r => r.depth >= 90).length;
+        const sources = new Map<string, number>();
+        for (const g of doc.gateVisits) sources.set(source(g.referrer), (sources.get(source(g.referrer)) ?? 0) + 1);
         return (
           <section key={doc.slug} className="mt-8 rounded-xl border border-ink-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 p-5">
@@ -120,12 +131,23 @@ export function SharedDocsAdmin() {
                 </a>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4 border-b border-ink-200 p-5 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 border-b border-ink-200 p-5 sm:grid-cols-5">
+              <Stat n={doc.gateVisits.length} label="Landed on the gate" />
               <Stat n={doc.views.length} label="Opens" />
               <Stat n={readers.length} label="Readers" />
               <Stat n={finished} label="Read to the end" />
               <Stat n={readers.length ? `${Math.round(readers.reduce((a, r) => a + r.depth, 0) / readers.length)}%` : '—'} label="Avg. furthest point" />
             </div>
+            {doc.gateVisits.length > 0 && (
+              <p className="border-b border-ink-200 px-5 py-3 text-xs text-ink-500">
+                Gate visits by source:{' '}
+                {[...sources.entries()]
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([k, n]) => `${k} ${n}`)
+                  .join(' · ')}
+                . Gate visits are anonymous and only counted from when this was added; link previews aren&apos;t counted.
+              </p>
+            )}
             {readers.length === 0 ? (
               <p className="p-5 text-sm text-ink-400">No one has opened it yet.</p>
             ) : (
