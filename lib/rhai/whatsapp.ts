@@ -972,7 +972,17 @@ export async function buildWhatsappReply(params: {
                 'Line item: first line a short bold title ("AI Workshop and Build Session"), then 1–3 sentences of concrete detail on following lines'
             },
             clientGstin: { type: 'string', description: 'Client GSTIN if she gives it' },
-            clientAddress: { type: 'string', description: 'Client billing address if she gives it' }
+            clientAddress: { type: 'string', description: 'Client billing address if she gives it' },
+            totalValue: {
+              type: 'number',
+              description:
+                'Part payments only: the FULL engagement value in rupees before GST (e.g. 300000) when this invoice bills just an advance or the balance. amount is then only the part billed now.'
+            },
+            stage: {
+              type: 'string',
+              enum: ['advance', 'balance'],
+              description: 'Part payments only: whether this invoice is the advance or the balance'
+            }
           },
           required: ['client', 'amount', 'description']
         }
@@ -984,6 +994,8 @@ export async function buildWhatsappReply(params: {
           description?: string;
           clientGstin?: string;
           clientAddress?: string;
+          totalValue?: number;
+          stage?: 'advance' | 'balance';
         };
         if (!i.client?.trim() || !i.amount || !i.description?.trim()) {
           return 'tool error: client, amount and description are required';
@@ -994,7 +1006,10 @@ export async function buildWhatsappReply(params: {
             client: i.client.trim(),
             clientGstin: i.clientGstin,
             clientAddress: i.clientAddress,
-            lineItems: [{ description: i.description.trim(), amount: i.amount }]
+            lineItems: [{ description: i.description.trim(), amount: i.amount }],
+            ...(i.totalValue && i.totalValue > i.amount
+              ? { engagement: { totalValue: i.totalValue, stage: i.stage ?? 'advance' } }
+              : {})
           });
           await sendWhatsAppDocument(
             params.from,

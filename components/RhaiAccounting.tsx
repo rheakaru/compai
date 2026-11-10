@@ -9,7 +9,7 @@ import {
   type ComplianceCategory,
   type ComplianceItem
 } from '@/lib/rhai/compliance';
-import { formatMoney } from '@/lib/rhai/invoices';
+import { formatMoney, type RhaiInvoice } from '@/lib/rhai/invoices';
 
 // ---------------------------------------------------------------------------
 // Accounting tab — RHAI CONSULTING GROUP PRIVATE LIMITED.
@@ -571,8 +571,13 @@ function InvoiceGenerator({ blocked }: { blocked: boolean }) {
     clientGstin: '',
     clientAddress: '',
     description: '',
-    amount: ''
+    amount: '',
+    partPayment: false,
+    totalValue: '',
+    stage: 'advance' as 'advance' | 'balance',
+    previouslyInvoiced: ''
   });
+  const [scheduleMsg, setScheduleMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ invoiceNumber: string; url: string; warnings: string[] } | null>(null);
@@ -613,8 +618,50 @@ function InvoiceGenerator({ blocked }: { blocked: boolean }) {
     setLookupBusy(false);
   }
 
+  // Balance invoice: look up what's already been invoiced to this client on
+  // this engagement value, and prefill the remaining amount.
+  async function prefillBalance(totalValue: number) {
+    if (!(totalValue > 0) || !form.client.trim()) return;
+    try {
+      const res = await authedFetch('/api/rhai/invoices');
+      const d = (await res.json()) as { invoices: RhaiInvoice[] };
+      const key = form.client.trim().toLowerCase();
+      const prior = d.invoices.filter(
+        i => i.status !== 'cancelled' && i.client.trim().toLowerCase() === key && i.engagement?.totalValue === totalValue
+      );
+      const billed = prior.reduce((sum, i) => sum + (i.gst?.taxable ?? 0), 0);
+      setForm(f => ({ ...f, previouslyInvoiced: String(billed), amount: String(Math.max(0, totalValue - billed)) }));
+      setScheduleMsg(
+        prior.length
+          ? `Found ${prior.map(i => i.invoiceNumber).join(', ')} — ₹${billed.toLocaleString('en-IN')} already invoiced.`
+          : 'No earlier invoice to this client on this engagement value — enter what was already invoiced.'
+      );
+    } catch {
+      /* leave fields as typed */
+    }
+  }
+
+  function setStage(stage: 'advance' | 'balance') {
+    const total = Number(form.totalValue);
+    setScheduleMsg(null);
+    if (stage === 'advance') {
+      setForm(f => ({ ...f, stage, previouslyInvoiced: '', amount: total > 0 ? String(Math.round(total / 2)) : f.amount }));
+    } else {
+      setForm(f => ({ ...f, stage }));
+      void prefillBalance(total);
+    }
+  }
+
   async function generate() {
     if (!form.client.trim() || !Number(form.amount) || !form.description.trim()) return;
+    const engagement =
+      form.partPayment && Number(form.totalValue) > 0
+        ? {
+            totalValue: Number(form.totalValue),
+            stage: form.stage,
+            ...(form.previouslyInvoiced.trim() !== '' ? { previouslyInvoiced: Number(form.previouslyInvoiced) } : {})
+          }
+        : undefined;
     setBusy(true);
     setError(null);
     setResult(null);
@@ -625,7 +672,8 @@ function InvoiceGenerator({ blocked }: { blocked: boolean }) {
           client: form.client,
           ...(form.clientGstin.trim() ? { clientGstin: form.clientGstin.trim() } : {}),
           ...(form.clientAddress.trim() ? { clientAddress: form.clientAddress.trim() } : {}),
-          lineItems: [{ description: form.description, amount: Number(form.amount) }]
+          lineItems: [{ description: form.description, amount: Number(form.amount) }],
+          ...(engagement ? { engagement } : {})
         })
       });
       const body = (await res.json()) as { error?: string; invoiceNumber?: string; url?: string; warnings?: string[] };
@@ -658,8 +706,57 @@ function InvoiceGenerator({ blocked }: { blocked: boolean }) {
       </div>
       {lookupMsg && <p className="text-[11px] text-ink-500">{lookupMsg}</p>}
       <input className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm" placeholder="Client legal name (auto-filled from GSTIN, or type it)" value={form.client} onChange={e => setForm(f => ({ ...f, client: e.target.value }))} />
+      <label className="flex items-center gap-2 text-sm text-ink-700">
+        <input type="checkbox" checked={form.partPayment} onChange={e => { setScheduleMsg(null); setForm(f => ({ ...f, partPayment: e.target.checked })); }} />
+        Part payment — invoice an advance now and the balance later
+      </label>
+      {form.partPayment && (
+        <div className="space-y-2 rounded-md border border-ink-200 bg-ink-50/50 p-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="block text-xs text-ink-500">
+              Total engagement value ₹ (before GST)
+              <input
+                className="mt-0.5 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
+                inputMode="numeric"
+                placeholder="300000"
+                value={form.totalValue}
+                onChange={e => setForm(f => ({ ...f, totalValue: e.target.value }))}
+                onBlur={() => { if (form.stage === 'advance' && !form.amount && Number(form.totalValue) > 0) setForm(f => ({ ...f, amount: String(Math.round(Number(f.totalValue) / 2)) })); }}
+              />
+            </label>
+            <div className="text-xs text-ink-500">
+              This invoice is the
+              <div className="mt-0.5 flex gap-1">
+                {(['advance', 'balance'] as const).map(st => (
+                  <button key={st} type="button" onClick={() => setStage(st)} className={`flex-1 rounded-md border px-2 py-1.5 text-sm ${form.stage === st ? 'border-ink-900 bg-ink-900 text-cream' : 'border-ink-200 bg-white text-ink-700'}`}>
+                    {st === 'advance' ? 'Advance' : 'Balance'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {form.stage === 'balance' && (
+            <label className="block text-xs text-ink-500">
+              Already invoiced on this engagement ₹ (before GST)
+              <input className="mt-0.5 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900" inputMode="numeric" value={form.previouslyInvoiced} onChange={e => setForm(f => ({ ...f, previouslyInvoiced: e.target.value }))} />
+            </label>
+          )}
+          {scheduleMsg && <p className="text-[11px] text-ink-500">{scheduleMsg}</p>}
+          {Number(form.totalValue) > 0 && Number(form.amount) > 0 && (
+            <p className="text-[11px] text-ink-600">
+              Invoicing ₹{Number(form.amount).toLocaleString('en-IN')} now
+              ({Math.round((Number(form.amount) / Number(form.totalValue)) * 100)}% of ₹{Number(form.totalValue).toLocaleString('en-IN')}) ·
+              ₹{Math.max(0, Number(form.totalValue) - Number(form.previouslyInvoiced || 0) - Number(form.amount)).toLocaleString('en-IN')} left to invoice.
+              The PDF shows this schedule under the totals.
+            </p>
+          )}
+        </div>
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
-        <input className="rounded-md border border-ink-200 px-2 py-1.5 text-sm" placeholder="Taxable amount ₹ (before GST)" inputMode="numeric" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+        <label className="block text-xs text-ink-500">
+          {form.partPayment ? 'Amount invoicing now ₹ (before GST)' : 'Taxable amount ₹ (before GST)'}
+          <input className="mt-0.5 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900" inputMode="numeric" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+        </label>
       </div>
       <textarea className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm" rows={3} placeholder={'Line item — first line bold title, rest description.\ne.g. AI Workshop and Build Session\nOne-day workshop with the leadership team…'} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
       <textarea className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm" rows={2} placeholder="Client billing address (optional but recommended)" value={form.clientAddress} onChange={e => setForm(f => ({ ...f, clientAddress: e.target.value }))} />
@@ -723,7 +820,7 @@ function CompanySection({ onSaved }: { onSaved: () => void }) {
           pan: d.settings.pan ?? '',
           email: d.settings.email ?? '',
           registeredAddress: d.settings.registeredAddress ?? '',
-          invoicePrefix: d.settings.invoicePrefix ?? 'RCG',
+          invoicePrefix: d.settings.invoicePrefix ?? 'RH',
           sacCode: d.settings.sacCode ?? '998313',
           gstRatePct: d.settings.gstRatePct ?? 18,
           incorporationDate: d.settings.incorporationDate ?? '',

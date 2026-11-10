@@ -11,8 +11,11 @@ import { COL_INVOICES, syncLeadFromInvoice } from './invoice-server';
 import {
   addDaysISO,
   computeGst,
+  INVOICE_STAGE_LABEL,
   todayISO,
   type GstBreakup,
+  type InvoiceEngagement,
+  type InvoiceStage,
   type InvoiceLineItem,
   type RhaiInvoice
 } from './invoices';
@@ -34,6 +37,13 @@ export interface GenerateInvoiceInput {
   sac?: string;
   gstRatePct?: number;
   notes?: string;
+  /**
+   * Part-payment invoicing: the full engagement value and which chunk this
+   * invoice is. lineItems carry only the amount billed NOW. For a balance
+   * invoice, previouslyInvoiced defaults to what earlier invoices to the same
+   * client on the same engagement value already billed.
+   */
+  engagement?: { totalValue: number; stage: InvoiceStage; previouslyInvoiced?: number };
 }
 
 export interface GenerateInvoiceResult {
@@ -46,7 +56,9 @@ export interface GenerateInvoiceResult {
   warnings: string[];
 }
 
-const INR = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+// pdfkit's built-in Helvetica has no ₹ glyph (U+20B9) — it renders as a
+// stray "1". "Rs." is the standard fallback on Indian tax invoices.
+const INR = (n: number) => `Rs. ${Math.round(n).toLocaleString('en-IN')}`;
 
 function invoiceFilename(client: string, iso: string): string {
   const c = client.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
@@ -69,6 +81,7 @@ interface BuildPdfParams {
   lineItems: InvoiceLineItem[];
   sac: string;
   gst: GstBreakup;
+  engagement?: InvoiceEngagement;
 }
 
 export function buildInvoicePdf(p: BuildPdfParams): Promise<Buffer> {
@@ -167,18 +180,39 @@ export function buildInvoicePdf(p: BuildPdfParams): Promise<Buffer> {
     } else {
       taxRows.push([`IGST @ ${p.gst.ratePct}%`, INR(p.gst.igst)]);
     }
-    taxRows.push(['Total Due', INR(p.gst.total)]);
+    taxRows.push(['Total Due (incl. GST)', INR(p.gst.total)]);
 
     y += 8;
     for (const [label, value] of taxRows) {
-      const isTotal = label === 'Total Due';
+      const isTotal = label.startsWith('Total Due');
       doc
         .font(isTotal ? 'Helvetica-Bold' : 'Helvetica')
         .fontSize(isTotal ? 11 : 9.5)
         .fillColor(ink);
-      doc.text(label, 72 + cols.desc - 60, y, { width: cols.sac + 60, align: 'right' });
+      doc.text(label, 72 + cols.desc - 140, y, { width: cols.sac + 140, align: 'right' });
       doc.text(value, 72 + cols.desc + cols.sac, y, { width: cols.amt - 6, align: 'right' });
       y += isTotal ? 20 : 15;
+    }
+
+    // Payment schedule — part-payment invoices only.
+    if (p.engagement) {
+      const e = p.engagement;
+      const billedNow = p.gst.taxable;
+      const remaining = Math.max(0, e.totalValue - e.previouslyInvoiced - billedNow);
+      const pct = e.totalValue > 0 ? Math.round((billedNow / e.totalValue) * 100) : 0;
+      y += 10;
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(grey).text('PAYMENT SCHEDULE (EXCL. GST)', 72, y);
+      y += 14;
+      const rows: Array<[string, string, boolean]> = [['Total engagement value', INR(e.totalValue), false]];
+      if (e.previouslyInvoiced > 0) rows.push(['Previously invoiced', INR(e.previouslyInvoiced), false]);
+      rows.push([`This invoice — ${INVOICE_STAGE_LABEL[e.stage]} (${pct}%)`, INR(billedNow), true]);
+      rows.push([remaining > 0 ? 'Balance to be invoiced' : 'Balance remaining', INR(remaining), false]);
+      for (const [label, value, bold] of rows) {
+        doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9).fillColor(ink);
+        doc.text(label, 72, y, { width: 260 });
+        doc.text(value, 72 + 260, y, { width: 110, align: 'right' });
+        y += 14;
+      }
     }
 
     // Payment terms + bank
@@ -245,8 +279,9 @@ export async function generateAndStoreInvoice(
   const ratePct = input.gstRatePct ?? company.gstRatePct ?? 18;
   const taxable = lineItems.reduce((s, li) => s + li.amount, 0);
   const gst = computeGst(taxable, ratePct, input.clientGstin, company.stateCode ?? '29');
+  const engagement = await resolveEngagement(input.engagement, client, taxable);
 
-  const invoiceNumber = await nextInvoiceNumber(new Date(`${issueDate}T12:00:00`));
+  const invoiceNumber = await nextInvoiceNumber();
   const filename = invoiceFilename(client, issueDate);
   const pdf = await buildInvoicePdf({
     company,
@@ -257,7 +292,8 @@ export async function generateAndStoreInvoice(
     clientGstin: input.clientGstin?.trim() || undefined,
     lineItems,
     sac,
-    gst
+    gst,
+    engagement
   });
 
   const storagePath = `invoiceDocuments/${issueDate.slice(0, 4)}/${filename}`;
@@ -287,6 +323,7 @@ export async function generateAndStoreInvoice(
     ...(input.clientGstin?.trim() ? { clientGstin: input.clientGstin.trim() } : {}),
     ...(input.clientAddress?.trim() ? { clientAddress: input.clientAddress.trim() } : {}),
     sac,
+    ...(engagement ? { engagement } : {}),
     fileName: filename,
     storagePath,
     mime: 'application/pdf',
@@ -297,4 +334,42 @@ export async function generateAndStoreInvoice(
   await syncLeadFromInvoice(input.leadId, 'draft');
 
   return { invoiceId: ref.id, invoiceNumber, filename, storagePath, url, gst, warnings };
+}
+
+/**
+ * Validate a part-payment request. For a balance/milestone invoice with no
+ * explicit previouslyInvoiced, sum the taxable value of earlier non-cancelled
+ * invoices to the same client on the same engagement value.
+ */
+async function resolveEngagement(
+  raw: GenerateInvoiceInput['engagement'],
+  client: string,
+  billedNow: number
+): Promise<InvoiceEngagement | undefined> {
+  if (!raw || !(Number(raw.totalValue) > 0)) return undefined;
+  const totalValue = Math.round(Number(raw.totalValue));
+  const stage: InvoiceStage = raw.stage in INVOICE_STAGE_LABEL ? raw.stage : 'advance';
+
+  let previouslyInvoiced = Number(raw.previouslyInvoiced);
+  if (!Number.isFinite(previouslyInvoiced) || previouslyInvoiced < 0) {
+    previouslyInvoiced = 0;
+    if (stage !== 'advance') {
+      const snap = await adminDb()
+        .collection(COL_INVOICES)
+        .where('engagement.totalValue', '==', totalValue)
+        .get();
+      const key = client.trim().toLowerCase();
+      for (const d of snap.docs) {
+        const inv = d.data() as RhaiInvoice;
+        if (inv.status === 'cancelled' || inv.client.trim().toLowerCase() !== key) continue;
+        previouslyInvoiced += inv.gst?.taxable ?? 0;
+      }
+    }
+  }
+  if (previouslyInvoiced + billedNow > totalValue) {
+    throw new Error(
+      `This invoice (${INR(billedNow)}) plus what's already been invoiced (${INR(previouslyInvoiced)}) is more than the total engagement value (${INR(totalValue)}).`
+    );
+  }
+  return { totalValue, stage, previouslyInvoiced };
 }

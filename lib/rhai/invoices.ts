@@ -59,6 +59,25 @@ export function computeGst(
   };
 }
 
+// Part-payment invoicing. A ₹3L engagement is usually billed as an advance
+// now and the balance on delivery: each invoice carries the full engagement
+// value so the PDF can show what's billed now and what's left.
+export type InvoiceStage = 'advance' | 'balance' | 'milestone';
+
+export const INVOICE_STAGE_LABEL: Record<InvoiceStage, string> = {
+  advance: 'Advance payment',
+  balance: 'Balance payment',
+  milestone: 'Milestone payment'
+};
+
+export interface InvoiceEngagement {
+  /** Full engagement value, before GST. */
+  totalValue: number;
+  stage: InvoiceStage;
+  /** Taxable value already invoiced on this engagement before this invoice. */
+  previouslyInvoiced: number;
+}
+
 export interface RhaiInvoice {
   id: string;
   source: InvoiceSource;
@@ -79,6 +98,7 @@ export interface RhaiInvoice {
   clientGstin?: string;
   clientAddress?: string;
   sac?: string;
+  engagement?: InvoiceEngagement;
   // uploaded-source original file, streamed back via the operator-gated file
   // route; platform-generated invoices reuse these for their PDF.
   fileName?: string;

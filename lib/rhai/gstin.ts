@@ -57,7 +57,9 @@ export async function lookupGstin(raw: string): Promise<GstinDetails> {
 
   const key = process.env.GST_API_KEY;
   if (!key) {
-    base.note = 'State derived from the GSTIN. Add GST_API_KEY to auto-fill the legal name and address.';
+    base.note =
+      `GSTIN is valid${base.state ? ` (${base.state}${stateCode === '29' ? ' — CGST + SGST' : ' — IGST will apply'})` : ''}. ` +
+      'Type the legal name and billing address yourself: auto-fill needs a GST lookup provider key (GST_API_KEY), which is not set up yet.';
     return base;
   }
 

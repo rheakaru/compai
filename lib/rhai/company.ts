@@ -30,7 +30,7 @@ export interface CompanySettings {
   /** GST state code, first two digits of the GSTIN. Karnataka = '29'. */
   stateCode?: string;
   bank?: CompanyBank;
-  /** Invoice-number series prefix, e.g. RCG → RCG/25-26/007. */
+  /** Invoice-number series prefix, e.g. RH → RH0005. */
   invoicePrefix?: string;
   /** Next sequence number in the series (per-FY reset is manual). */
   nextInvoiceNo?: number;
@@ -46,7 +46,7 @@ export const COMPANY_DEFAULTS: CompanySettings = {
   legalName: 'RHAI CONSULTING GROUP PRIVATE LIMITED',
   email: 'rhea@rosebazaar.in',
   stateCode: '29',
-  invoicePrefix: 'RCG',
+  invoicePrefix: 'RH',
   nextInvoiceNo: 1,
   sacCode: '998313',
   gstRatePct: 18,
@@ -82,18 +82,30 @@ export function fyLabel(d = new Date()): string {
 
 /**
  * Claim the next invoice number in the series, atomically.
- * Format: {prefix}/{fy}/{NNN} — e.g. RCG/25-26/007.
+ * Format: {prefix}{NNNN}, e.g. RH0005, continuing the series the company
+ * invoices were already issued under (RH0001…). The counter never goes
+ * below max(existing number in the series) + 1, so invoices uploaded from
+ * outside the dashboard keep the sequence honest.
  */
-export async function nextInvoiceNumber(now = new Date()): Promise<string> {
-  const ref = adminDb().doc(COMPANY_SETTINGS_DOC);
-  const n = await adminDb().runTransaction(async tx => {
+export async function nextInvoiceNumber(): Promise<string> {
+  const db = adminDb();
+  const ref = db.doc(COMPANY_SETTINGS_DOC);
+  return db.runTransaction(async tx => {
     const snap = await tx.get(ref);
-    const cur = ((snap.data() as Partial<CompanySettings> | undefined)?.nextInvoiceNo ??
-      COMPANY_DEFAULTS.nextInvoiceNo) as number;
-    tx.set(ref, { nextInvoiceNo: cur + 1, updatedAt: Date.now() }, { merge: true });
-    return cur;
+    const stored = (snap.data() as Partial<CompanySettings> | undefined) ?? {};
+    const prefix = (stored.invoicePrefix || COMPANY_DEFAULTS.invoicePrefix || 'RH').trim();
+    const counter = stored.nextInvoiceNo ?? COMPANY_DEFAULTS.nextInvoiceNo ?? 1;
+
+    const esc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`^${esc}0*(\\d+)$`, 'i');
+    const all = await tx.get(db.collection('rhaiInvoices').select('invoiceNumber'));
+    let maxExisting = 0;
+    for (const d of all.docs) {
+      const m = re.exec(String(d.get('invoiceNumber') ?? '').trim());
+      if (m) maxExisting = Math.max(maxExisting, Number(m[1]));
+    }
+    const n = Math.max(counter, maxExisting + 1);
+    tx.set(ref, { nextInvoiceNo: n + 1, updatedAt: Date.now() }, { merge: true });
+    return `${prefix}${String(n).padStart(4, '0')}`;
   });
-  const prefix =
-    (await loadCompanySettings()).invoicePrefix ?? COMPANY_DEFAULTS.invoicePrefix ?? 'RCG';
-  return `${prefix}/${fyLabel(now)}/${String(n).padStart(3, '0')}`;
 }
