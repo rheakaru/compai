@@ -17,8 +17,18 @@
 //    session every event, which is what made the transcript feel jumbled.
 //    This backend never captures audioUrl (no server upload).
 //
+// While recording (server backend) we also expose:
+//   - analyser: a Web Audio AnalyserNode on the mic stream, so the UI can draw
+//     a live waveform and the speaker can SEE the mic picking them up;
+//   - interim: a live, rough transcript from the browser's own recogniser,
+//     shown as a preview while they talk. Only on desktop Chrome/Edge, where
+//     running it alongside MediaRecorder is reliable — on phones the two can
+//     fight over the mic, so there we show the waveform only. The accurate
+//     transcript (Scribe) still lands when they stop;
+//   - transcribing: true between stop and the final text arriving.
+//
 // UI contract: { listening, supported, toggle, error, lastAudioUrl,
-// clearAudio }. Server backend sets lastAudioUrl after each successful
+// clearAudio, analyser, interim, transcribing, startedAt }. Server backend sets lastAudioUrl after each successful
 // recording; the composer attaches it to the outgoing message, then calls
 // clearAudio() so the next message doesn't accidentally inherit the same
 // clip.
@@ -54,6 +64,13 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
   const [error, setError] = useState<string | null>(null);
   const [lastAudioUrl, setLastAudioUrl] = useState<string | null>(null);
   const [lastAudioBlob, setLastAudioBlob] = useState<Blob | null>(null);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [interim, setInterim] = useState('');
+  const [transcribing, setTranscribing] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const previewRef = useRef<SpeechRecognitionLike | null>(null);
+  const previewOnRef = useRef(false);
   const backendRef = useRef<Backend>('none');
   const onTextRef = useRef(onText);
   onTextRef.current = onText;
@@ -123,15 +140,26 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
         // entire session's results on every event and appended them to the
         // draft, which is why users saw duplicated / jumbled text.
         let finalDelta = '';
+        let pending = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const r = e.results[i];
           if (r.isFinal) finalDelta += (r[0]?.transcript ?? '') + ' ';
+          else pending += r[0]?.transcript ?? '';
         }
         finalDelta = finalDelta.trim();
         if (finalDelta) onTextRef.current(finalDelta);
+        setInterim(pending.trim());
       };
-      rec.onend = () => setListening(false);
-      rec.onerror = () => setListening(false);
+      rec.onend = () => {
+        setListening(false);
+        setInterim('');
+        setStartedAt(null);
+      };
+      rec.onerror = () => {
+        setListening(false);
+        setInterim('');
+        setStartedAt(null);
+      };
       recRef.current = rec;
       backendRef.current = 'browser';
       setSupported(true);
@@ -149,7 +177,62 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
         // already stopped
       }
       stopStream(streamRef.current);
+      stopPreview();
+      void audioCtxRef.current?.close().catch(() => undefined);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Live preview recogniser (desktop Chrome/Edge only — see header).
+  const startPreview = useCallback(() => {
+    if (!canLivePreview()) return;
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Ctor) return;
+    let finalText = '';
+    const rec = new Ctor();
+    rec.lang = 'en-IN';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = e => {
+      let pending = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += (r[0]?.transcript ?? '') + ' ';
+        else pending += r[0]?.transcript ?? '';
+      }
+      setInterim((finalText + pending).trim());
+    };
+    // Chrome ends recognition after a pause; keep it going while recording.
+    rec.onend = () => {
+      if (!previewOnRef.current) return;
+      try {
+        rec.start();
+      } catch {
+        // gave up — the waveform still shows we are recording
+      }
+    };
+    rec.onerror = () => undefined;
+    previewRef.current = rec;
+    previewOnRef.current = true;
+    try {
+      rec.start();
+    } catch {
+      previewOnRef.current = false;
+    }
+  }, []);
+
+  const stopPreview = useCallback(() => {
+    previewOnRef.current = false;
+    try {
+      previewRef.current?.stop();
+    } catch {
+      // already stopped
+    }
+    previewRef.current = null;
   }, []);
 
   const stopServer = useCallback(async () => {
@@ -166,19 +249,28 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
       }
     });
     stopStream(streamRef.current);
+    stopPreview();
     streamRef.current = null;
     mediaRecRef.current = null;
     setListening(false);
+    setStartedAt(null);
+    setAnalyser(null);
+    void audioCtxRef.current?.close().catch(() => undefined);
+    audioCtxRef.current = null;
 
     const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
     chunksRef.current = [];
-    if (blob.size === 0) return;
+    if (blob.size === 0) {
+      setInterim('');
+      return;
+    }
     // Keep the real recorded audio locally so a consumer can upload/play it
     // even if the transcription backend doesn't hand back a server URL.
     setLastAudioBlob(blob);
     setLastAudioUrl(URL.createObjectURL(blob));
 
     uploadingRef.current = true;
+    setTranscribing(true);
     try {
       const form = new FormData();
       form.append('audio', blob, `speech.webm`);
@@ -203,15 +295,30 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
       const j = (await res.json()) as { text?: string; audioUrl?: string };
       const text = (j.text ?? '').trim();
       if (text) onTextRef.current(text);
+      else setError("Didn't catch anything — check the mic and try again, or type.");
     } catch {
       setError('Transcription failed — please type instead.');
     } finally {
       uploadingRef.current = false;
+      setTranscribing(false);
+      setInterim('');
     }
-  }, []);
+  }, [stopPreview]);
 
   const startServer = useCallback(async () => {
     setError(null);
+    // Create the AudioContext synchronously inside the tap — iOS Safari only
+    // lets it run if it is born in a user gesture (before any await).
+    let ctx: AudioContext | null = null;
+    try {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AC) {
+        ctx = new AC();
+        void ctx.resume().catch(() => undefined);
+      }
+    } catch {
+      ctx = null;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -230,11 +337,29 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
       };
       mr.start();
       setListening(true);
+      setStartedAt(Date.now());
+      setInterim('');
+      // Level meter for the waveform. Failure here never blocks recording.
+      try {
+        if (ctx) {
+          const src = ctx.createMediaStreamSource(stream);
+          const an = ctx.createAnalyser();
+          an.fftSize = 1024;
+          an.smoothingTimeConstant = 0.6;
+          src.connect(an);
+          audioCtxRef.current = ctx;
+          setAnalyser(an);
+        }
+      } catch {
+        // no waveform — recording still works
+      }
+      startPreview();
     } catch {
+      void ctx?.close().catch(() => undefined);
       setError('Microphone permission was denied.');
       setListening(false);
     }
-  }, []);
+  }, [startPreview]);
 
   const toggle = useCallback(() => {
     const backend = backendRef.current;
@@ -253,10 +378,13 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
     if (listening) {
       rec.stop();
       setListening(false);
+      setStartedAt(null);
+      setInterim('');
     } else {
       try {
         rec.start();
         setListening(true);
+        setStartedAt(Date.now());
       } catch {
         // start() throws if already running
       }
@@ -268,7 +396,29 @@ export function useVoice(onText: (text: string) => void, ctx?: VoiceContext) {
     setLastAudioBlob(null);
   }, []);
 
-  return { listening, supported, toggle, error, lastAudioUrl, lastAudioBlob, clearAudio };
+  return {
+    listening,
+    supported,
+    toggle,
+    error,
+    lastAudioUrl,
+    lastAudioBlob,
+    clearAudio,
+    analyser,
+    interim,
+    transcribing,
+    startedAt
+  };
+}
+
+/** Desktop Chrome / Edge: browser recogniser runs reliably next to MediaRecorder. */
+function canLivePreview(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+  if (mobile) return false;
+  const chromium = /Chrome\/|Edg\//.test(ua) && !/OPR\/|Brave/.test(ua);
+  return chromium;
 }
 
 function pickMime(): string | undefined {

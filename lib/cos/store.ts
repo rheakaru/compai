@@ -1,6 +1,7 @@
 import 'server-only';
 import { adminDb } from '@/lib/firebase/admin';
 import { newAgent, toPhoneDigits, type CosAgent } from './types';
+import { compileAgentMd } from './prompt';
 
 // Firestore access for the Chief of Staff builder. Collections:
 //   cosAgents/{uid}        the person's agent (everything the browser may see)
@@ -16,6 +17,8 @@ export const COL_SECRETS = 'cosSecrets';
 export const COL_BY_PHONE = 'cosByPhone';
 export const COL_SESSIONS = 'cosSessions';
 export const COL_REMINDERS = 'cosReminders';
+/** Subcollection under cosAgents/{uid}: full extracted text of uploaded documents. */
+export const SUB_DOCS = 'docs';
 
 export async function getAgent(uid: string): Promise<CosAgent | null> {
   const snap = await adminDb().collection(COL_AGENTS).doc(uid).get();
@@ -50,6 +53,18 @@ export async function saveAgent(uid: string, patch: Partial<CosAgent>): Promise<
   await ref.set(next, { merge: true });
   const after = await getAgent(uid);
   return after!;
+}
+
+/**
+ * Save a server-side change (facts, company, docs, corrections) and keep the
+ * compiled agent.md in step, unless the person has taken over the text.
+ */
+export async function saveAndRecompile(uid: string, patch: Partial<CosAgent>): Promise<CosAgent> {
+  const current = await getAgent(uid);
+  if (!current) throw new Error('no agent');
+  const merged = { ...current, ...patch } as CosAgent;
+  const extra = merged.agentMdEdited ? {} : { agentMd: compileAgentMd(merged) };
+  return saveAgent(uid, { ...patch, ...extra });
 }
 
 /** Resolve a WhatsApp sender ("919886750009") to an agent, if anyone registered that number. */
@@ -90,6 +105,7 @@ export async function clearGoogle(uid: string): Promise<void> {
 function normalize(uid: string, d: Record<string, unknown>): CosAgent {
   const base = newAgent(uid, String(d.email ?? ''));
   const profile = { ...base.profile, ...((d.profile as object) ?? {}) };
+  if (!Array.isArray(profile.facts)) profile.facts = [];
   const specIn = (d.spec as Record<string, unknown>) ?? {};
   const spec = {
     ...base.spec,
@@ -104,6 +120,10 @@ function normalize(uid: string, d: Record<string, unknown>): CosAgent {
     spec,
     interview: Array.isArray(d.interview) ? (d.interview as CosAgent['interview']) : [],
     memory: Array.isArray(d.memory) ? (d.memory as string[]) : [],
+    company: { ...base.company, ...((d.company as object) ?? {}) },
+    docs: Array.isArray(d.docs) ? (d.docs as CosAgent['docs']) : [],
+    corrections: Array.isArray(d.corrections) ? (d.corrections as CosAgent['corrections']) : [],
+    usage: { ...base.usage, ...((d.usage as object) ?? {}) },
     google: d.google ? (d.google as CosAgent['google']) : undefined
   } as CosAgent;
 }

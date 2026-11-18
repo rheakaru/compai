@@ -82,6 +82,15 @@ export interface CosSpec {
   rules: string;
 }
 
+/** A fact a web search turned up about the person — they confirm or reject it. */
+export interface CosFact {
+  id: string;
+  text: string;
+  /** Where it came from (a URL or site name). */
+  source: string;
+  status: 'pending' | 'yes' | 'no';
+}
+
 export interface CosProfile {
   name: string;
   /** WhatsApp number as typed. */
@@ -90,6 +99,38 @@ export interface CosProfile {
   phoneDigits: string;
   bio: string;
   links: string[];
+  /** Web-search findings; only status 'yes' reaches the agent. */
+  facts: CosFact[];
+}
+
+export interface CosCompany {
+  name: string;
+  website: string;
+  /** What the person wrote (or said) about the company. */
+  about: string;
+  /** Brief compiled from reading the website — editable. */
+  siteBrief: string;
+  siteReadAt?: number;
+}
+
+/** Metadata for an uploaded document. The extracted text lives in cosAgents/{uid}/docs/{id}. */
+export interface CosDoc {
+  id: string;
+  name: string;
+  scope: 'personal' | 'company';
+  /** Two-or-three-sentence summary the agent always sees. */
+  summary: string;
+  chars: number;
+  size: number;
+  at: number;
+}
+
+/** One change the agent made to its own brief after feedback in chat. */
+export interface CosCorrection {
+  at: number;
+  field: string;
+  summary: string;
+  channel: 'whatsapp' | 'web';
 }
 
 export interface CosMessage {
@@ -119,6 +160,11 @@ export interface CosAgent {
   agentMdEdited: boolean;
   /** Short facts the agent chose to remember from conversations. */
   memory: string[];
+  company: CosCompany;
+  docs: CosDoc[];
+  corrections: CosCorrection[];
+  /** Usage counters for the paid web calls (search, site read). */
+  usage: { research: number; siteRead: number };
   status: 'draft' | 'live';
   google?: CosGoogleConnection;
   step: number;
@@ -138,20 +184,26 @@ export const EMPTY_SPEC: CosSpec = {
   rules: ''
 };
 
-export const EMPTY_PROFILE: CosProfile = { name: '', phone: '', phoneDigits: '', bio: '', links: [] };
+export const EMPTY_PROFILE: CosProfile = { name: '', phone: '', phoneDigits: '', bio: '', links: [], facts: [] };
+
+export const EMPTY_COMPANY: CosCompany = { name: '', website: '', about: '', siteBrief: '' };
 
 export function newAgent(uid: string, email: string, name = ''): CosAgent {
   const now = Date.now();
   return {
     uid,
     email,
-    profile: { ...EMPTY_PROFILE, name },
+    profile: { ...EMPTY_PROFILE, name, facts: [] },
     spec: { ...EMPTY_SPEC, toolFlags: { ...EMPTY_SPEC.toolFlags } },
     interview: [],
     interviewDone: false,
     agentMd: '',
     agentMdEdited: false,
     memory: [],
+    company: { ...EMPTY_COMPANY },
+    docs: [],
+    corrections: [],
+    usage: { research: 0, siteRead: 0 },
     status: 'draft',
     step: 0,
     createdAt: now,

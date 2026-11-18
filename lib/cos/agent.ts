@@ -4,9 +4,10 @@ import { adminDb } from '@/lib/firebase/admin';
 import { anthropic } from '@/lib/rhai/server';
 import { modelFor } from '@/lib/rhai/models';
 import { buildCosSystemPrompt } from './prompt';
-import { COL_AGENTS, COL_REMINDERS, COL_SESSIONS, getAgent } from './store';
+import { COL_AGENTS, COL_REMINDERS, COL_SESSIONS, getAgent, saveAndRecompile } from './store';
+import { readDocument, searchDocuments } from './docs';
 import { insertEvent, listEvents, readMail, searchMail } from './google';
-import type { CosAgent } from './types';
+import type { CosAgent, CosSpec } from './types';
 
 // The Chief of Staff brain. One function, two channels (WhatsApp + the web
 // console on the setup page), one shared memory per person. Tools are gated
@@ -66,8 +67,11 @@ export async function buildCosReply(params: {
   agent: CosAgent;
   text: string;
   channel: 'whatsapp' | 'web';
+  /** Filled with a line per change the agent made to its own brief. */
+  changes?: string[];
 }): Promise<string> {
   const { agent, text, channel } = params;
+  const changes = params.changes ?? [];
   const db = adminDb();
   const sessRef = db.collection(COL_SESSIONS).doc(agent.uid);
   const snap = await sessRef.get();
@@ -85,7 +89,7 @@ export async function buildCosReply(params: {
     .slice(-MAX_TURNS_KEPT)
     .map(m => ({ role: m.role === 'agent' ? ('assistant' as const) : ('user' as const), content: m.text }));
 
-  const tools = buildTools(agent);
+  const tools = buildTools(agent, channel, changes);
   const executors = new Map(tools.map(t => [t.schema.name, t.execute] as const));
   const system = buildCosSystemPrompt(agent, { channel, nowIst: nowIst() });
   const messages: Anthropic.Messages.MessageParam[] = [...prior, { role: 'user', content: text }];
@@ -155,7 +159,18 @@ interface ToolDef {
   execute: (input: unknown) => Promise<string>;
 }
 
-function buildTools(agent: CosAgent): ToolDef[] {
+const BRIEF_FIELDS: Record<string, { key: keyof CosSpec; label: string }> = {
+  name: { key: 'agentName', label: 'Name' },
+  role: { key: 'role', label: 'Role' },
+  objective: { key: 'objective', label: 'Objective' },
+  knows: { key: 'knows', label: 'What you know about them' },
+  cadence: { key: 'cadence', label: 'When you reach out' },
+  tools: { key: 'tools', label: 'Notes on tools' },
+  voice: { key: 'voice', label: 'How you speak' },
+  rules: { key: 'rules', label: 'Rules' }
+};
+
+function buildTools(agent: CosAgent, channel: 'whatsapp' | 'web', changes: string[]): ToolDef[] {
   const f = agent.spec.toolFlags;
   const uid = agent.uid;
   const hasCal = !!agent.google && (agent.google.scopes ?? []).some(s => s.includes('calendar'));
@@ -179,8 +194,75 @@ function buildTools(agent: CosAgent): ToolDef[] {
         await adminDb().collection(COL_AGENTS).doc(uid).set({ memory, updatedAt: Date.now() }, { merge: true });
         return `Remembered: ${fact}`;
       }
+    },
+    {
+      schema: {
+        name: 'update_brief',
+        description:
+          'Change your own operating document after the principal corrects how you work (tone, length, timing, priorities, a rule, a wrong fact, your name). Send the FULL new text for that section — everything that is still true plus the change — not just the delta.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            section: { type: 'string', enum: Object.keys(BRIEF_FIELDS) },
+            newText: {
+              type: 'string',
+              description: 'The complete replacement text for that section, second person ("You…"). For section "name", ONLY the name itself, e.g. "Ada".'
+            },
+            summary: { type: 'string', description: 'One short line describing the change, shown to them.' }
+          },
+          required: ['section', 'newText', 'summary']
+        }
+      },
+      execute: async input => {
+        const i = input as { section?: string; newText?: string; summary?: string };
+        const field = BRIEF_FIELDS[String(i.section ?? '')];
+        let newText = String(i.newText ?? '').trim();
+        if (field?.key === 'agentName') {
+          // Just the name — models sometimes write "You are Ada, the …".
+          newText = newText.replace(/^(you are|you're|i am|i'm|call (yourself|me))\s+/i, '').split(/[,.;:—–\n]/)[0].replace(/["'“”]/g, '').trim().slice(0, 40);
+        } else {
+          newText = newText.slice(0, 3000);
+        }
+        const summary = String(i.summary ?? '').trim().slice(0, 200) || 'Updated';
+        if (!field || !newText) return 'tool error: need a valid section and newText';
+        const spec = { ...agent.spec, [field.key]: newText } as CosSpec;
+        const corrections = [...agent.corrections, { at: Date.now(), field: field.label, summary, channel }].slice(-50);
+        const patch: Partial<CosAgent> = { spec, corrections };
+        // If they hand-edited agent.md, the spec no longer drives it — append
+        // the correction to their text so it still takes effect.
+        if (agent.agentMdEdited) {
+          const header = '## Corrections from conversation';
+          const base = agent.agentMd.includes(header) ? agent.agentMd : `${agent.agentMd.trim()}\n\n${header}`;
+          patch.agentMd = `${base}\n- ${field.label}: ${summary}. ${newText.slice(0, 600)}`;
+        }
+        const saved = await saveAndRecompile(uid, patch);
+        Object.assign(agent, { spec: saved.spec, corrections: saved.corrections, agentMd: saved.agentMd });
+        changes.push(`${field.label}: ${summary}`);
+        return `Updated "${field.label}". It applies from your next message on.`;
+      }
     }
   ];
+
+  if (agent.docs.length) {
+    tools.push(
+      {
+        schema: {
+          name: 'search_documents',
+          description: 'Search the documents the principal uploaded (their JD, company decks, notes) and return the most relevant passages.',
+          input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+        },
+        execute: async input => searchDocuments(uid, String((input as { query?: string }).query ?? '').slice(0, 200))
+      },
+      {
+        schema: {
+          name: 'read_document',
+          description: 'Read one uploaded document in full, by the id listed in your operating document.',
+          input_schema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }
+        },
+        execute: async input => readDocument(uid, String((input as { id?: string }).id ?? '').slice(0, 40))
+      }
+    );
+  }
 
   if (f.reminders) {
     tools.push({

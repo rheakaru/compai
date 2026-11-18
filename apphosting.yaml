@@ -3,7 +3,10 @@
 
 runConfig:
   minInstances: 0
-  maxInstances: 4
+  # Raised from 4 for the ~200-person chief-of-staff workshop (each
+  # instance takes 80 concurrent requests; interview + chat calls hold a
+  # request open for 5–30s while the model answers).
+  maxInstances: 10
   concurrency: 80
   cpu: 1
   memoryMiB: 1024

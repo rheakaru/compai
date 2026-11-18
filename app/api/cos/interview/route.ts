@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       interview,
       spec,
       interviewDone: turn.done || agent.interviewDone,
-      ...(agent.agentMdEdited ? {} : { agentMd: compileAgentMd({ profile: agent.profile, spec, memory: agent.memory }) })
+      ...(agent.agentMdEdited ? {} : { agentMd: compileAgentMd({ ...agent, spec }) })
     };
     await saveAgent(user.uid, patch);
     return Response.json({ reply: turn.reply, spec, done: patch.interviewDone });

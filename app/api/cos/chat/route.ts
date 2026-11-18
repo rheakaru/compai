@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   if (!text) return new Response('expected text', { status: 400 });
   const agent = await getAgent(user.uid);
   if (!agent) return new Response('no agent yet', { status: 404 });
-  const reply = await buildCosReply({ agent, text, channel: 'web' });
-  return Response.json({ reply });
+  const changes: string[] = [];
+  const reply = await buildCosReply({ agent, text, channel: 'web', changes });
+  return Response.json({ reply, changes, ...(changes.length ? { agent: await getAgent(user.uid) } : {}) });
 }

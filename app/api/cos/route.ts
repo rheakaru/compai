@@ -4,7 +4,7 @@ import { getOrCreateAgent, saveAgent } from '@/lib/cos/store';
 import { compileAgentMd } from '@/lib/cos/prompt';
 import { recentTurns } from '@/lib/cos/agent';
 import { googleConfigured } from '@/lib/cos/google';
-import type { CosAgent, CosProfile, CosSpec } from '@/lib/cos/types';
+import type { CosAgent, CosCompany, CosFact, CosProfile, CosSpec } from '@/lib/cos/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,6 +35,7 @@ export async function PATCH(req: NextRequest) {
 
   const patch: Partial<CosAgent> = {};
   if (body.profile) patch.profile = cleanProfile({ ...current.profile, ...body.profile });
+  if (body.company) patch.company = cleanCompany({ ...current.company, ...body.company });
   if (body.spec) patch.spec = cleanSpec({ ...current.spec, ...body.spec, toolFlags: { ...current.spec.toolFlags, ...(body.spec.toolFlags ?? {}) } });
   if (typeof body.step === 'number') patch.step = Math.max(0, Math.min(6, Math.round(body.step)));
   if (typeof body.agentMdEdited === 'boolean') patch.agentMdEdited = body.agentMdEdited;
@@ -45,11 +46,7 @@ export async function PATCH(req: NextRequest) {
   // Keep the compiled document current unless they own the text now.
   const edited = patch.agentMdEdited ?? current.agentMdEdited;
   if (!edited) {
-    patch.agentMd = compileAgentMd({
-      profile: patch.profile ?? current.profile,
-      spec: patch.spec ?? current.spec,
-      memory: current.memory
-    });
+    patch.agentMd = compileAgentMd({ ...current, ...patch });
   }
 
   const saved = await saveAgent(user.uid, patch);
@@ -66,7 +63,27 @@ function cleanProfile(p: CosProfile): CosProfile {
       .map(l => String(l).trim())
       .filter(Boolean)
       .slice(0, 8)
-      .map(l => l.slice(0, 200))
+      .map(l => l.slice(0, 200)),
+    facts: (Array.isArray(p.facts) ? p.facts : []).slice(0, 30).map(cleanFact)
+  };
+}
+
+function cleanFact(f: CosFact): CosFact {
+  return {
+    id: String(f.id ?? '').slice(0, 40),
+    text: String(f.text ?? '').slice(0, 400),
+    source: String(f.source ?? '').slice(0, 300),
+    status: f.status === 'yes' || f.status === 'no' ? f.status : 'pending'
+  };
+}
+
+function cleanCompany(c: CosCompany): CosCompany {
+  return {
+    name: String(c.name ?? '').trim().slice(0, 120),
+    website: String(c.website ?? '').trim().slice(0, 300),
+    about: String(c.about ?? '').slice(0, 6000),
+    siteBrief: String(c.siteBrief ?? '').slice(0, 6000),
+    ...(Number(c.siteReadAt) ? { siteReadAt: Number(c.siteReadAt) } : {})
   };
 }
 
