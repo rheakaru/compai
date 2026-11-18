@@ -10,7 +10,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ name
   const { name } = await params;
   if (!(name in WORKSHOP_FILES)) return new Response('not found', { status: 404 });
   const viewer = await viewerFromRequest(req);
-  if (!viewer) return Response.redirect(new URL('/chief-of-staff-workshop', req.url), 303);
+  // Relative Location: behind App Hosting req.url is the internal 0.0.0.0:8080 origin.
+  if (!viewer) return new Response(null, { status: 303, headers: { location: '/chief-of-staff-workshop' } });
   await recordDownload(viewer.email, name);
   return new Response(WORKSHOP_FILES[name as WorkshopFileName], {
     headers: {
