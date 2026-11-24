@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@types/pdfkit": "^0.17.6",
+    "@types/qrcode": "^1.5.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^11.0.2",
@@ -27,6 +28,7 @@
     "next": "15.5.18",
     "pdf-parse": "^1.1.4",
     "pdfkit": "^0.19.1",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^2.5.5",

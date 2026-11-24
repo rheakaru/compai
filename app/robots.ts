@@ -21,7 +21,9 @@ const PRIVATE = [
   '/game',
   '/party',
   '/join',
-  '/p/' // unlisted, email-gated shared docs
+  '/p/', // unlisted, email-gated shared docs
+  '/rooms',
+  '/r/' // transcript rooms
 ];
 
 export default function robots(): MetadataRoute.Robots {

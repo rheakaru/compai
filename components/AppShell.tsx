@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { href: '/admin/content-calendar', label: 'Content', match: p => p.startsWith('/admin/content-calendar'), tour: 'nav-content' },
   { href: '/admin/resources', label: 'Resources', match: p => p.startsWith('/admin/resources'), tour: 'nav-resources' },
   { href: '/admin/presentations', label: 'Decks', match: p => p.startsWith('/admin/presentations'), tour: 'nav-decks' },
+  { href: '/rooms', label: 'Rooms', match: p => p.startsWith('/rooms') },
   { href: '/admin/shared-docs', label: 'Shared', match: p => p.startsWith('/admin/shared-docs') },
   { href: '/admin/funnel', label: 'Funnel', match: p => p.startsWith('/admin/funnel') }
 ];
@@ -70,7 +71,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/testimonial') ||
     pathname.startsWith('/orient') ||
     pathname.startsWith('/party') ||
-    pathname.startsWith('/join')
+    pathname.startsWith('/join') ||
+    pathname.startsWith('/r/')
   ) {
     return <div className="min-h-screen">{children}</div>;
   }
