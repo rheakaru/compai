@@ -17,6 +17,12 @@ export interface Testimonial {
   displayed: boolean; // shown on heyrhai.com
   order: number; // display order among shown (lower first)
   createdAt: number;
+  /** Optional contact, asked for when the note unlocks something. */
+  email?: string;
+  /** Where it was left from, e.g. 'cos-workshop'. */
+  source?: string;
+  /** Junk check result; `by: 'fail-open'` means it could not be checked. */
+  check?: { genuine: boolean; by: string; transcribed: boolean };
 }
 
 /** Public shape sent to the homepage — no internal flags. */

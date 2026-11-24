@@ -1,13 +1,13 @@
 'use client';
 
-// /chief-of-staff-workshop — the self-serve path. Email in (no account), then
+// /chief-of-staff-workshop — the self-serve path. Unlocked by a voice
+// testimonial (WorkshopUnlock), then
 // a numbered walk-through: download the setup guide → make a Claude project →
 // add the guide → start the setup chat → export → hand it to Claude Code.
 // The "screens" are drawn in CSS, not screenshots, so they stay legible on a
 // phone and don't go stale pixel-for-pixel; each is captioned as approximate.
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 const SETUP = 'CHIEF_OF_STAFF_SETUP.md';
 const MIGRATION = 'CLAUDE_CODE_MIGRATION.md';
@@ -16,74 +16,9 @@ const EXPORT_PHRASE = 'Export my chief of staff';
 const CODE_PHRASE = 'Read CLAUDE_CODE_MIGRATION.md and start the migration.';
 
 // ---------------------------------------------------------------------------
-// Gate
-// ---------------------------------------------------------------------------
-export function WorkshopGate() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const res = await fetch('/api/cos-workshop/signup', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email })
-    }).catch(() => null);
-    if (res?.ok) {
-      router.refresh();
-      return;
-    }
-    setError((await res?.text().catch(() => '')) || 'Something went wrong. Try again.');
-    setBusy(false);
-  };
-
-  return (
-    <main className="mx-auto max-w-xl px-4 py-12 sm:py-20">
-      <form onSubmit={submit} className="rounded-lg border border-ink-200 bg-white p-6 sm:p-8">
-        <p className="eyebrow">Rhai workshop</p>
-        <h1 className="mt-2 font-display text-3xl tracking-tight text-ink-900">Build your own chief of staff.</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
-          Two guides and a step-by-step walk-through. You&apos;ll set up an AI chief of staff inside Claude in about an
-          hour, then (when you&apos;re ready) move it to Claude Code so it can live on WhatsApp.
-        </p>
-        <label htmlFor="ws-email" className="mt-6 block font-mono text-xs text-ink-500">
-          Your email
-        </label>
-        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-          <input
-            id="ws-email"
-            type="email"
-            required
-            autoComplete="email"
-            inputMode="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@company.com"
-            className="min-w-0 flex-1 rounded-md border border-ink-200 bg-white px-3 py-3 text-[15px] text-ink-900 outline-none focus:border-accent"
-          />
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-md bg-accent px-5 py-3 text-sm font-medium text-white hover:bg-accent-600 disabled:opacity-60"
-          >
-            {busy ? 'Opening…' : 'Get the guides →'}
-          </button>
-        </div>
-        {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
-        <p className="mt-4 text-xs text-ink-400">No password or account. Just so we know who came.</p>
-      </form>
-    </main>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Guide
 // ---------------------------------------------------------------------------
-export function WorkshopGuide({ email }: { email: string }) {
+export function WorkshopGuide({ name }: { name: string }) {
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:pt-14">
       <p className="eyebrow">Rhai workshop · Chief of Staff</p>
@@ -198,7 +133,7 @@ export function WorkshopGuide({ email }: { email: string }) {
       </Step>
 
       <p className="mt-12 text-center text-xs text-ink-400">
-        Signed in as {email}. Screens are drawn to show roughly where things are; Claude&apos;s own layout may look a
+        Unlocked by {name}&apos;s voice note. Thank you! Screens are drawn to show roughly where things are; Claude&apos;s own layout may look a
         little different.
       </p>
     </main>

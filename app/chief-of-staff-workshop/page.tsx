@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { viewerFromRequest } from '@/lib/shared-docs/server';
-import { WorkshopGate, WorkshopGuide } from '@/components/cos-workshop/WorkshopGuide';
+import { passFromCookies } from '@/lib/cos-workshop/server';
+import { WorkshopGuide } from '@/components/cos-workshop/WorkshopGuide';
+import { WorkshopUnlock } from '@/components/cos-workshop/WorkshopUnlock';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,9 @@ export const metadata = {
   robots: { index: false, follow: false }
 };
 
+// Locked behind a voice testimonial: leave a real one (checked for junk) and
+// the guide opens. See app/api/testimonial/route.ts.
 export default async function ChiefOfStaffWorkshopPage() {
-  const viewer = await viewerFromRequest({ cookies: await cookies() }).catch(() => null);
-  return viewer ? <WorkshopGuide email={viewer.email} /> : <WorkshopGate />;
+  const pass = await passFromCookies(await cookies()).catch(() => null);
+  return pass ? <WorkshopGuide name={pass.name} /> : <WorkshopUnlock />;
 }

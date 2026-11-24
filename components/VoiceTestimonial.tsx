@@ -23,13 +23,16 @@ function pickMime(): string | undefined {
 }
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-export function VoiceTestimonial() {
+/** `unlock`: the embedded version on /chief-of-staff-workshop: asks for an
+ *  email, and a genuine note unlocks the guide (onUnlocked fires). */
+export function VoiceTestimonial({ unlock = false, onUnlocked }: { unlock?: boolean; onUnlocked?: () => void } = {}) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [seconds, setSeconds] = useState(0);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
+  const [email, setEmail] = useState('');
   const [err, setErr] = useState<string | null>(null);
 
   const mrRef = useRef<MediaRecorder | null>(null);
@@ -93,6 +96,7 @@ export function VoiceTestimonial() {
 
   const send = async () => {
     if (!blob || name.trim().length < 2) { setErr('Please add your name so I know who to thank.'); return; }
+    if (unlock && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) { setErr('Please add your email.'); return; }
     setErr(null);
     setPhase('sending');
     try {
@@ -101,9 +105,14 @@ export function VoiceTestimonial() {
       fd.append('name', name.trim());
       if (role.trim()) fd.append('role', role.trim());
       fd.append('durationSec', String(seconds));
+      if (unlock) {
+        fd.append('email', email.trim());
+        fd.append('source', 'cos-workshop');
+      }
       const res = await fetch('/api/testimonial', { method: 'POST', body: fd });
       if (!res.ok) { setErr(await res.text()); setPhase('recorded'); return; }
       setPhase('done');
+      onUnlocked?.();
     } catch {
       setErr('Something went wrong sending it — please try again.');
       setPhase('recorded');
@@ -111,9 +120,9 @@ export function VoiceTestimonial() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream px-5 py-10 text-ink-900">
-      <div className="w-full max-w-lg">
-        <div className="mb-6 flex items-center justify-center gap-2">
+    <div className={unlock ? 'text-ink-900' : 'flex min-h-screen items-center justify-center bg-cream px-5 py-10 text-ink-900'}>
+      <div className={unlock ? 'w-full' : 'w-full max-w-lg'}>
+        <div className={unlock ? 'hidden' : 'mb-6 flex items-center justify-center gap-2'}>
           <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
           <span className="font-display text-lg font-medium tracking-tight">Rhai</span>
         </div>
@@ -122,18 +131,21 @@ export function VoiceTestimonial() {
           <Card center>
             <p className="text-4xl">🎙️</p>
             <p className="mt-3 font-display text-2xl text-ink-900">Thank you, {name.split(' ')[0]}!</p>
+            {unlock && <p className="mx-auto mt-2 max-w-sm text-sm font-medium text-accent">Unlocked. Opening your guide…</p>}
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-600">
               Rhea got your voice note. She might feature it on heyrhai.com — with your name on it. It meant a lot that you trusted us to learn with you.
             </p>
           </Card>
         ) : (
           <Card>
-            <p className="eyebrow text-center">Rhai · a quick favour</p>
+            <p className="eyebrow text-center">{unlock ? 'Unlock the guide' : 'Rhai · a quick favour'}</p>
             <h1 className="mt-2 text-center font-display text-[26px] leading-tight tracking-tight text-ink-900 sm:text-3xl">
-              How was your Rhai session?
+              {unlock ? 'How was the workshop?' : 'How was your Rhai session?'}
             </h1>
             <p className="mx-auto mt-3 max-w-sm text-center text-sm leading-relaxed text-ink-600">
-              Tell me in your own voice — what you built, what clicked, or who you&apos;d send. Thirty seconds is plenty. No script.
+              {unlock
+                ? 'Leave a short voice note about the session (what you built, what clicked, what could be better) and the Chief of Staff guide opens. Thirty seconds is plenty.'
+                : <>Tell me in your own voice — what you built, what clicked, or who you&apos;d send. Thirty seconds is plenty. No script.</>}
             </p>
 
             <div className="mt-7">
@@ -189,14 +201,25 @@ export function VoiceTestimonial() {
                       placeholder="What you do (optional) — e.g. founder, Hoovu Fresh"
                       className="w-full rounded-md border border-ink-200 px-3 py-2.5 text-sm focus:border-ink-400 focus:outline-none"
                     />
+                    {unlock && (
+                      <input
+                        type="email"
+                        autoComplete="email"
+                        inputMode="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="Your email *"
+                        className="w-full rounded-md border border-ink-200 px-3 py-2.5 text-sm focus:border-ink-400 focus:outline-none"
+                      />
+                    )}
                   </div>
                   <button
                     type="button"
                     onClick={send}
-                    disabled={phase === 'sending' || name.trim().length < 2}
+                    disabled={phase === 'sending' || name.trim().length < 2 || (unlock && !email.includes('@'))}
                     className="w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-white hover:bg-accent-600 disabled:opacity-50"
                   >
-                    {phase === 'sending' ? 'Sending…' : 'Send it to Rhea →'}
+                    {phase === 'sending' ? (unlock ? 'Listening to it…' : 'Sending…') : unlock ? 'Send and unlock →' : 'Send it to Rhea →'}
                   </button>
                 </div>
               )}
