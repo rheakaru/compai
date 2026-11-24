@@ -23,7 +23,8 @@ const PRIVATE = [
   '/join',
   '/p/', // unlisted, email-gated shared docs
   '/rooms',
-  '/r/' // transcript rooms
+  '/r/', // transcript rooms
+  '/kmc-workshop' // public link for the KMC workshop, not for search
 ];
 
 export default function robots(): MetadataRoute.Robots {

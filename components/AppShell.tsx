@@ -38,7 +38,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (pathname.startsWith('/interview') ||
     pathname.startsWith('/talk') ||
     pathname.startsWith('/privacy') ||
-    pathname.startsWith('/chief-of-staff')) {
+    pathname.startsWith('/chief-of-staff') ||
+    pathname.startsWith('/kmc-workshop')) {
     return (
       <div className="min-h-screen">
         <header className="border-b border-ink-200/70 bg-cream/85">
