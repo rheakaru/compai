@@ -1,23 +1,25 @@
 'use client';
 
 // /kmc-workshop — the public walk-through for KMC Constructions' heads of
-// department. Download the interview → open Claude → attach it → say the
-// phrase → answer → refine the live preview → email Rhea three files.
+// department. Pick a version of the interview (updated = fix the page Rhea
+// drafted from the morning; original = design from scratch) → open Claude →
+// attach it → say the phrase → answer → refine the preview → send the files.
 // Same shape and drawn-in-CSS "screens" as components/cos-workshop/WorkshopGuide.
 
 import { useState } from 'react';
 
-// Must match KMC_FILE_NAME in lib/kmc-workshop/files.ts (not imported, so the
-// 43KB document stays out of the client bundle).
-const KMC_FILE_NAME = 'KMC_Rhai_Dashboard_Interview.md';
-const DOWNLOAD_HREF = '/api/kmc-workshop/file';
+// Must match the keys of KMC_FILES in lib/kmc-workshop/files.ts (not imported,
+// so the ~90KB of documents stay out of the client bundle).
+const UPDATED_FILE = 'KMC_Rhai_Dashboard_Interview_Updated.md';
+const ORIGINAL_FILE = 'KMC_Rhai_Dashboard_Interview.md';
+const DRAFT_SITE = 'kmc-construction-e6445.web.app/for-you';
 const START_PHRASE = 'Start my dashboard interview';
 const PROJECT_NAME = 'My KMC Dashboard';
 const EMAIL = 'rhea@heyrhai.com';
 const OUTPUTS = [
-  { name: 'KMC_Needfinding_<Department>_<YourName>.md', what: 'your answers about how your work runs today' },
-  { name: 'KMC_PageSpec_<Department>_<YourName>.md', what: 'the build instructions for your page' },
-  { name: 'KMC_Preview_<Department>_<YourName>.html', what: 'the preview you approved (opens in any browser)' }
+  { name: 'KMC_PageSpec_….md', what: 'the build instructions for your page' },
+  { name: 'KMC_Needfinding_….md', what: 'your answers about how your work runs today' },
+  { name: 'KMC_Preview_….html', what: 'the preview you approved (opens in any browser)' }
 ];
 
 export function KmcGuide() {
@@ -30,25 +32,38 @@ export function KmcGuide() {
         wish you had. You shape it until it feels right, and send the result to Rhea so she can build it for real.
       </p>
 
-      <div className="mt-6 rounded-lg border border-accent/40 bg-white p-4">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-400">The interview</p>
-        <p className="mt-1 break-all font-mono text-[13px] text-ink-900">{KMC_FILE_NAME}</p>
-        <p className="mt-1.5 text-[13px] leading-snug text-ink-600">
-          The only file you need. You give it to Claude, and Claude runs the whole interview from it.
-        </p>
-        <DownloadButton className="mt-3" />
+      <p className="mt-6 text-[13px] font-medium text-ink-800">Pick one version of the interview:</p>
+      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        <FileCard
+          name={UPDATED_FILE}
+          label="Updated · recommended"
+          blurb="Built on this morning's feedback. Starts from the page Rhea already drafted for you, and you fix it together. About 30–45 minutes."
+          primary
+        />
+        <FileCard
+          name={ORIGINAL_FILE}
+          label="Original"
+          blurb="Designs your page from a blank start, without this morning's notes. About 40–60 minutes."
+        />
       </div>
 
       <div className="mt-5 rounded-md border border-ink-100 bg-cream-50 p-4 text-[13px] leading-relaxed text-ink-600">
-        <span className="font-medium text-ink-800">Before you start:</span> it takes about <b>40–60 minutes</b>. You can
+        <span className="font-medium text-ink-800">Before you start:</span> you need only one of the two files. You can
         stop any time and pick it up later in the same chat. A laptop is best, because you&apos;ll see a live preview of
         your page.
       </div>
 
       <Step n={1} title="Download the interview">
         <p>
-          Tap <b>Download</b> above. The file lands in your Downloads folder. No need to open it; it&apos;s written for
-          Claude, not for you.
+          Tap one of the <b>Download</b> buttons above. The file lands in your Downloads folder. No need to open it;
+          it&apos;s written for Claude, not for you.
+        </p>
+        <p className="text-ink-500">
+          Using the <b>updated</b> version? Open your drafted page first: go to{' '}
+          <a href={`https://${DRAFT_SITE}`} target="_blank" rel="noreferrer" className="break-all text-accent underline underline-offset-2">
+            {DRAFT_SITE}
+          </a>{' '}
+          and click your role. It&apos;s a little wrong on purpose, because the point is for you to correct it.
         </p>
       </Step>
 
@@ -73,7 +88,7 @@ export function KmcGuide() {
 
       <Step n={4} title="Attach the file and say the magic words">
         <p>
-          In the chat box, click <b>+</b> (or the paperclip), attach <b>{KMC_FILE_NAME}</b>, and type:
+          In the chat box, click <b>+</b> (or the paperclip), attach the file you downloaded, and type:
         </p>
         <Phrase text={START_PHRASE} />
         <ScreenChat />
@@ -103,7 +118,7 @@ export function KmcGuide() {
         <ScreenPreview />
       </Step>
 
-      <Step n={7} title="Email Rhea your three files">
+      <Step n={7} title="Send Rhea your three files">
         <p>Claude finishes by giving you three files. Download all three:</p>
         <ul className="space-y-2">
           {OUTPUTS.map(o => (
@@ -113,7 +128,14 @@ export function KmcGuide() {
             </li>
           ))}
         </ul>
-        <p>Then email all three to Rhea, ideally the same day:</p>
+        <p>
+          <b>Updated version:</b> upload the <b>PageSpec</b> and <b>Needfinding</b> files on your drafted page, in the
+          &ldquo;Upload your interview file&rdquo; box. Your page rebuilds in a few seconds. Then email all three to Rhea
+          as a backup.
+        </p>
+        <p>
+          <b>Original version:</b> email all three to Rhea, ideally the same day.
+        </p>
         <EmailBox />
       </Step>
 
@@ -127,15 +149,22 @@ export function KmcGuide() {
 // ---------------------------------------------------------------------------
 // Pieces
 // ---------------------------------------------------------------------------
-function DownloadButton({ className = '' }: { className?: string }) {
+function FileCard({ name, label, blurb, primary }: { name: string; label: string; blurb: string; primary?: boolean }) {
   return (
-    <a
-      href={DOWNLOAD_HREF}
-      download={KMC_FILE_NAME}
-      className={`inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-[13px] font-medium text-white hover:bg-accent-600 ${className}`}
-    >
-      ↓ Download the interview
-    </a>
+    <div className={`flex flex-col rounded-lg border bg-white p-4 ${primary ? 'border-accent/40' : 'border-ink-200'}`}>
+      <p className={`font-mono text-[11px] uppercase tracking-wider ${primary ? 'text-accent' : 'text-ink-400'}`}>{label}</p>
+      <p className="mt-1 break-all font-mono text-[13px] text-ink-900">{name}</p>
+      <p className="mt-1.5 flex-1 text-[13px] leading-snug text-ink-600">{blurb}</p>
+      <a
+        href={`/api/kmc-workshop/file/${name}`}
+        download={name}
+        className={`mt-3 inline-flex w-fit items-center gap-1.5 rounded-md px-3.5 py-2 text-[13px] font-medium ${
+          primary ? 'bg-accent text-white hover:bg-accent-600' : 'border border-ink-200 bg-white text-ink-800 hover:border-ink-400'
+        }`}
+      >
+        ↓ Download {primary ? 'updated' : 'original'}
+      </a>
+    </div>
   );
 }
 
@@ -283,7 +312,7 @@ function ScreenChat() {
     <Screen caption="Attach the file, send the phrase, and the interview begins">
       <div className="space-y-2">
         <div className="ml-auto w-fit max-w-[85%] space-y-1 rounded-lg bg-[#efe9dc] px-2.5 py-1.5 text-ink-900">
-          <div className="w-fit break-all rounded border border-ink-300 bg-white px-1.5 py-0.5 font-mono text-[10px]">📄 {KMC_FILE_NAME}</div>
+          <div className="w-fit break-all rounded border border-ink-300 bg-white px-1.5 py-0.5 font-mono text-[10px]">📄 {UPDATED_FILE}</div>
           <div>{START_PHRASE}</div>
         </div>
         <div className="max-w-[90%] space-y-1 text-ink-700">
