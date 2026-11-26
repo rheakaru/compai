@@ -25,6 +25,8 @@ export interface WritingPost {
 // Curated ordering — the builds most relevant to what Rhai sells go first.
 // Anything not listed sorts after these, alphabetically.
 const FEATURED_ORDER = [
+  'ignite-ai-chief-of-staff',
+  'kmc-constructions',
   'hester-biosciences',
   'dodla-dairy',
   'hoovu-dashboard',
